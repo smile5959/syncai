@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose ps *)",
+      "Bash(docker compose exec *)",
+      "Bash(docker compose restart *)",
+      "Bash(python server.py)",
+      "Bash(PYTHONUTF8=1 python server.py)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(python -c ' *)",
+      "Bash(fly deploy *)"
+    ]
+  }
+}

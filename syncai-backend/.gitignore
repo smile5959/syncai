@@ -1,0 +1,25 @@
+# 환경변수 / 시크릿
+.env
+.env.*
+gcp-service-account.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+pytest-cache-files-*/
+venv/
+
+# 테스트 DB
+test.db
+test.db-journal
+
+# MCP 서버 빌드 산출물
+static/
+mcp-server/dist/
+mcp-server/build/
+mcp-server/Output/
+mcp-server/venv/
+mcp-server/cloudflared.exe
+mcp-server/token_registry.json

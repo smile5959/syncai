@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 개발 환경
+.env
+.env.*
+!.env.example
+
+# MCP 서버 빌드 산출물 (42MB — Docker 이미지 제외)
+static/
+mcp-server/dist/
+mcp-server/build/
+mcp-server/__pycache__/
+mcp-server/venv/
+mcp-server/Output/
+
+# 기타
+.git/
+*.md

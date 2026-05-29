@@ -1,0 +1,578 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
+import { useAuthStore } from "@/store/auth";
+import { useTheme } from "@/components/providers/theme-provider";
+import { InvitationBell } from "@/components/team/invitation-bell";
+import { users as usersApi, teams as teamsApi } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import type { Team } from "@/types";
+
+// ─── 상수 ──────────────────────────────────────────────
+
+const COLOR_PALETTE = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
+  "#f97316", "#f59e0b", "#10b981", "#14b8a6",
+  "#3b82f6", "#06b6d4", "#84cc16", "#64748b",
+];
+
+const EMOJI_LIST = [
+  "⚡","🚀","🔥","💡","🎯","🛠️","💎","🌟",
+  "🦁","🐯","🦊","🐺","🦋","🐉","🦅","🐬",
+  "🍀","🌈","⛰️","🌊","🌙","☀️","❄️","🍕",
+  "🎸","🎮","🏆","🎲","🎨","📸","🎬","🎤",
+  "💻","📱","🖥️","⌨️","🖱️","🔧","⚙️","🔬",
+  "📦","📋","🗂️","📊","📈","💬","📡","🔐",
+];
+
+// ─── 유틸 ──────────────────────────────────────────────
+
+function hashColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length];
+}
+
+function getTeamColor(team: Team): string {
+  return team.color ?? hashColor(team.id);
+}
+
+function getInitials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
+
+// ─── 서브 컴포넌트: 팀 생성/수정 모달 ─────────────────
+
+interface TeamFormModalProps {
+  title: string;
+  initialName?: string;
+  initialColor?: string | null;
+  initialIcon?: string | null;
+  submitting: boolean;
+  onSubmit: (name: string, color: string | null, icon: string | null) => void;
+  onClose: () => void;
+}
+
+function TeamFormModal({ title, initialName = "", initialColor, initialIcon, submitting, onSubmit, onClose }: TeamFormModalProps) {
+  const [name, setName] = useState(initialName);
+  const [color, setColor] = useState<string | null>(initialColor ?? null);
+  const [icon, setIcon] = useState<string | null>(initialIcon ?? null);
+  const [showEmoji, setShowEmoji] = useState(false);
+
+  const previewColor = color ?? (name ? hashColor(name + "preview") : COLOR_PALETTE[0]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-7 w-full max-w-sm shadow-[var(--shadow-lg)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-[16px] font-semibold text-[var(--text-primary)] mb-5">{title}</h3>
+
+        {/* 미리보기 */}
+        <div className="flex justify-center mb-6">
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg select-none"
+            style={{ background: previewColor, boxShadow: `0 6px 24px ${previewColor}55` }}
+          >
+            {icon ?? <span className="text-[22px] font-bold tracking-tight">{getInitials(name || "?")}</span>}
+          </div>
+        </div>
+
+        {/* 팀 이름 */}
+        <Input
+          label="팀 이름"
+          placeholder="예: 프론트엔드팀, 백엔드팀..."
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !showEmoji && onSubmit(name, color, icon)}
+          autoFocus
+        />
+
+        {/* 컬러 팔레트 */}
+        <div className="mt-4">
+          <p className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">색상</p>
+          <div className="flex flex-wrap gap-2">
+            {COLOR_PALETTE.map((c) => (
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                className="w-7 h-7 rounded-lg transition-all duration-150 shrink-0"
+                style={{
+                  background: c,
+                  outline: color === c ? `3px solid ${c}` : "3px solid transparent",
+                  outlineOffset: 2,
+                  transform: color === c ? "scale(1.15)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 이모지 선택 */}
+        <div className="mt-4">
+          <p className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">아이콘</p>
+          <button
+            onClick={() => setShowEmoji((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] hover:border-[var(--accent-dim)] transition-colors text-[13px] text-[var(--text-secondary)]"
+          >
+            <span className="text-lg">{icon ?? "➕"}</span>
+            <span>{icon ? "이모지 변경" : "이모지 선택"}</span>
+            {icon && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIcon(null); }}
+                className="ml-1 text-[var(--text-muted)] hover:text-red-400 text-xs"
+              >✕</button>
+            )}
+          </button>
+
+          {showEmoji && (
+            <div className="mt-2 p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-base)]">
+              <div className="grid grid-cols-8 gap-1">
+                {EMOJI_LIST.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => { setIcon(e); setShowEmoji(false); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--bg-hover)] text-lg transition-colors"
+                    style={{ background: icon === e ? "var(--accent-bg)" : undefined }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2.5 mt-5">
+          <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
+          <Button
+            variant="primary"
+            className="flex-1"
+            onClick={() => onSubmit(name, color, icon)}
+            loading={submitting}
+            disabled={!name.trim()}
+          >
+            {title.includes("수정") ? "저장" : "만들기"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 메인 컴포넌트 ─────────────────────────────────────
+
+export function IconNav() {
+  const router = useRouter();
+  const { team: currentTeam, setTeam } = useAuthStore();
+  const me = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const { theme, toggle } = useTheme();
+
+  const setUser = useAuthStore((s) => s.setUser);
+  const [teams, setTeams] = useState<Team[]>([]);
+
+  // 모달 상태
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [updating, setUpdating] = useState(false);
+
+  // 호버 메뉴
+  const [menuTeamId, setMenuTeamId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [hoveredTeamId, setHoveredTeamId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 유저 정보 복구 (새로고침 시 store 초기화 대비 — 쿠키 자동 전송)
+    if (!me) {
+      usersApi.me().then((r) => setUser(r.data)).catch(console.error);
+    }
+
+    usersApi.myTeams().then((r) => {
+      const myTeams = r.data.teams ?? [];
+      setTeams(myTeams);
+      if (myTeams.length === 0) return;
+      const savedId = typeof window !== "undefined" ? localStorage.getItem("team_id") : null;
+      const active = myTeams.find((t) => t.id === savedId) ?? myTeams[0];
+      if (!currentTeam || !myTeams.find((t) => t.id === currentTeam.id)) {
+        setTeam(active);
+      }
+    }).catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 메뉴 외부 클릭 닫기
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuTeamId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function openMenu(e: React.MouseEvent, teamId: string) {
+    e.stopPropagation();
+    if (menuTeamId === teamId) {
+      setMenuTeamId(null);
+      setMenuPos(null);
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuPos({ top: rect.top, left: rect.right + 8 });
+    setMenuTeamId(teamId);
+  }
+
+  function closeMenu() {
+    setMenuTeamId(null);
+    setMenuPos(null);
+  }
+
+  function handleSelectTeam(team: Team) {
+    closeMenu();
+    setTeam(team);
+    router.push("/rooms");
+  }
+
+  async function handleCreate(name: string, color: string | null, icon: string | null) {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      const res = await teamsApi.create(name.trim());
+      // color/icon은 create 후 patch로 저장 (create API가 color/icon 지원하므로 직접 전달)
+      const newTeam = res.data;
+      // API가 color/icon을 지원하지 않는 경우 patch fallback
+      let finalTeam = newTeam;
+      if (color || icon) {
+        try {
+          const upd = await teamsApi.update(newTeam.id, { color, icon });
+          finalTeam = upd.data;
+        } catch {}
+      }
+      setTeams((prev) => [...prev, finalTeam]);
+      setTeam(finalTeam);
+      setShowCreate(false);
+      router.push("/rooms");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleUpdate(name: string, color: string | null, icon: string | null) {
+    if (!editingTeam || !name.trim()) return;
+    setUpdating(true);
+    try {
+      const res = await teamsApi.update(editingTeam.id, { name: name.trim(), color, icon });
+      const updated = res.data;
+      setTeams((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+      if (currentTeam?.id === updated.id) setTeam(updated);
+      setEditingTeam(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleDelete(team: Team) {
+    setMenuTeamId(null);
+    if (!confirm(`"${team.name}" 팀을 삭제할까요? 모든 채팅방과 데이터가 삭제됩니다.`)) return;
+    try {
+      await teamsApi.delete(team.id);
+      const updated = teams.filter((t) => t.id !== team.id);
+      setTeams(updated);
+      if (currentTeam?.id === team.id) {
+        if (updated.length > 0) {
+          setTeam(updated[0]);
+          router.push("/rooms");
+        } else {
+          router.push("/onboarding");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleLeave(team: Team) {
+    setMenuTeamId(null);
+    if (!me) return;
+    if (!confirm(`"${team.name}" 팀에서 나갈까요?`)) return;
+    try {
+      await teamsApi.removeMember(team.id, me.id);
+      const updated = teams.filter((t) => t.id !== team.id);
+      setTeams(updated);
+      if (currentTeam?.id === team.id) {
+        if (updated.length > 0) {
+          setTeam(updated[0]);
+          router.push("/rooms");
+        } else {
+          router.push("/onboarding");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleLogout() {
+    // /api/auth/logout: Next.js 프록시 라우트.
+    // fly.io 쿠키(백엔드) + vercel 쿠키(미들웨어가 심은 것) 동시 삭제.
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // 쿠키 만료 등으로 이미 로그아웃된 상태여도 진행
+    }
+    logout(); // Zustand 상태 + localStorage 초기화
+    router.push("/login");
+  }
+
+  return (
+    <>
+      <nav
+        className="flex flex-col items-center justify-between border-r border-[var(--border)]"
+        style={{ width: 68, background: "var(--bg-soft)", flexShrink: 0, paddingBottom: 20 }}
+      >
+        {/* 로고 */}
+        <div className="flex flex-col items-center w-full flex-1 min-h-0">
+          <div style={{
+            height: 56,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: "100%",
+            borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
+          }}>
+            <Link
+              href="/rooms"
+              className="flex items-center justify-center w-9 h-9 rounded-xl text-white"
+              style={{
+                background: "var(--gradient-accent)",
+                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+              }}
+            >
+              <Zap size={18} fill="white" />
+            </Link>
+          </div>
+
+          {/* 팀 아이콘 목록 */}
+          <div
+            className="flex flex-col items-center gap-2.5 w-full px-2.5 overflow-y-auto"
+            style={{ flex: 1, minHeight: 0, paddingTop: 10, paddingBottom: 6 }}
+          >
+            {teams.map((team) => {
+              const isActive = currentTeam?.id === team.id;
+              const teamColor = getTeamColor(team);
+              const isHovered = hoveredTeamId === team.id;
+
+              return (
+                <div
+                  key={team.id}
+                  className="relative shrink-0"
+                  onMouseEnter={() => setHoveredTeamId(team.id)}
+                  onMouseLeave={() => setHoveredTeamId(null)}
+                >
+                  <button
+                    onClick={() => handleSelectTeam(team)}
+                    onContextMenu={(e) => { e.preventDefault(); openMenu(e, team.id); }}
+                    title={team.name}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150"
+                    style={{
+                      background: teamColor,
+                      color: "white",
+                      opacity: isActive ? 1 : 0.5,
+                      outline: isActive ? `2px solid ${teamColor}` : "2px solid transparent",
+                      outlineOffset: 2,
+                      boxShadow: isActive ? `0 4px 12px ${teamColor}66` : undefined,
+                    }}
+                  >
+                    {team.icon
+                      ? <span style={{ fontSize: 17, lineHeight: 1 }}>{team.icon}</span>
+                      : <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "-0.5px" }}>{getInitials(team.name)}</span>
+                    }
+                  </button>
+
+                  {/* 호버 시 메뉴 버튼 — overflow 밖으로 노출 */}
+                  {isHovered && (
+                    <button
+                      onClick={(e) => openMenu(e, team.id)}
+                      style={{
+                        position: "absolute", top: -4, right: -4,
+                        width: 16, height: 16, borderRadius: "50%",
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", zIndex: 10,
+                      }}
+                    >
+                      <MoreHorizontal size={9} color="var(--text-muted)" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* 팀 추가 버튼 */}
+            <button
+              onClick={() => setShowCreate(true)}
+              title="새 팀 만들기"
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 shrink-0 hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              style={{
+                color: "var(--text-muted)",
+                border: "2px dashed var(--border)",
+                background: "transparent",
+              }}
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* 하단: 유틸 아이콘 */}
+        <div className="flex flex-col items-center gap-1 px-2 w-full">
+          <InvitationBell onAccepted={(teamId) => {
+            usersApi.myTeams().then((r) => {
+              const myTeams = r.data.teams ?? [];
+              setTeams(myTeams);
+              const accepted = myTeams.find((t) => t.id === teamId);
+              if (accepted) {
+                setTeam(accepted);
+                router.push("/rooms");
+              }
+            }).catch(console.error);
+          }} />
+
+          <button
+            onClick={toggle}
+            title={theme === "dark" ? "라이트 모드" : "다크 모드"}
+            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)]"
+          >
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+
+          <div className="w-6 h-px my-1" style={{ background: "var(--border)" }} />
+
+          <Link href="/settings" title="설정"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)] transition-all duration-150">
+            <Settings size={18} />
+          </Link>
+
+          <Link href="/help" title="도움말"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)] transition-all duration-150">
+            <HelpCircle size={18} />
+          </Link>
+
+          <button onClick={handleLogout} title="로그아웃"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--red)] hover:bg-red-500/10 transition-all duration-150">
+            <LogOut size={18} />
+          </button>
+        </div>
+      </nav>
+
+      {/* 팀 컨텍스트 메뉴 — fixed 포지셔닝으로 overflow 클리핑 우회 */}
+      {menuTeamId && menuPos && (() => {
+        const team = teams.find((t) => t.id === menuTeamId);
+        if (!team) return null;
+        const isOwner = me?.id === team.owner_id;
+        return (
+          <>
+            <div className="fixed inset-0 z-20" onClick={closeMenu} />
+            <div
+              ref={menuRef}
+              style={{
+                position: "fixed",
+                top: menuPos.top,
+                left: menuPos.left,
+                zIndex: 30,
+                width: 160,
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                boxShadow: "var(--shadow-lg)",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{team.name}</p>
+                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{isOwner ? "owner" : "member"}</p>
+              </div>
+
+              {isOwner && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); closeMenu(); setEditingTeam(team); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", fontSize: 13, color: "var(--text-primary)", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <Pencil size={13} color="var(--text-muted)" />
+                    팀 설정 수정
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); closeMenu(); handleDelete(team); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", fontSize: 13, color: "#f87171", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <Trash2 size={13} color="#f87171" />
+                    팀 삭제
+                  </button>
+                </>
+              )}
+
+              {!isOwner && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); closeMenu(); handleLeave(team); }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", fontSize: 13, color: "#f87171", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                >
+                  <LeaveIcon size={13} color="#f87171" />
+                  팀 나가기
+                </button>
+              )}
+            </div>
+          </>
+        );
+      })()}
+
+      {/* 팀 생성 모달 */}
+      {showCreate && (
+        <TeamFormModal
+          title="새 팀 만들기"
+          submitting={creating}
+          onSubmit={handleCreate}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* 팀 수정 모달 */}
+      {editingTeam && (
+        <TeamFormModal
+          title="팀 설정 수정"
+          initialName={editingTeam.name}
+          initialColor={editingTeam.color}
+          initialIcon={editingTeam.icon}
+          submitting={updating}
+          onSubmit={handleUpdate}
+          onClose={() => setEditingTeam(null)}
+        />
+      )}
+    </>
+  );
+}

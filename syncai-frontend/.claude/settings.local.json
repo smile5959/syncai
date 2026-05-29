@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(vercel *)",
+      "Bash(fly secrets *)",
+      "Bash(fly logs *)",
+      "Bash(Select-String -Pattern \"404|500|Room not found|403 Forbidden|invalid UUID|error|Error\")",
+      "Bash(Select-Object -First 50)",
+      "Bash(Remove-Item *)",
+      "Bash(del *)",
+      "Bash(curl -s -X POST https://syncai-backend.fly.dev/v1/mcp-configs -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjOWI0NDdiYi05ZDIyLTRlMWEtODdiMC05ZWI2ZjBjZjkwMzAiLCJleHAiOjE3NzgyMjg4MzAsInR5cGUiOiJhY2Nlc3MifQ.veZgC6-zbdcNZtJa9bumSLiCNn_uxqC3Ttolk7F86kM' -H 'Content-Type: application/json' -d '{\"name\":\"syncai-mcp-local\",\"mcp_token\":\"ed36b47547ed09112c8dc5ca15b4db86\",\"base_dir\":\"C:/khh/syncAI/syncai-backend\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(fly deploy *)",
+      "Bash(curl -s -X POST \"https://syncai-backend.fly.dev/v1/mcp-configs/auto-register\" -H \"Content-Type: application/json\" -d '{\"mcp_token\":\"test\"}')",
+      "PowerShell(fly logs *)",
+      "Bash(curl *)"
+    ]
+  }
+}

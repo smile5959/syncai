@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SyncAI MCP Server — WinSW 서비스 설정
+  =======================================
+  이 파일은 Inno Setup 인스톨러가 설치 경로에 복사하고,
+  설치 후 자동으로 "syncai-mcp.exe install" 및 "syncai-mcp.exe start" 를 실행합니다.
+
+  WinSW 최신 버전: https://github.com/winsw/winsw/releases
+    → WinSW-x64.exe 를 다운로드 후 installer/syncai-mcp.exe 로 저장
+    → Inno Setup이 설치 경로에 복사
+
+  수동 서비스 관리:
+    서비스 등록:  syncai-mcp.exe install
+    서비스 시작:  syncai-mcp.exe start
+    서비스 중지:  syncai-mcp.exe stop
+    서비스 삭제:  syncai-mcp.exe uninstall
+    상태 확인:   services.msc 또는 sc query SyncAIMCPServer
+-->
+<service>
+
+  <!-- ── 서비스 식별 ─────────────────────────────────────────────── -->
+  <id>SyncAIMCPServer</id>
+  <name>SyncAI MCP Server</name>
+  <description>SyncAI Worker — AI가 이 PC의 파일에 접근할 수 있도록 MCP 서버를 실행합니다.</description>
+
+  <!-- ── 실행 파일 ─────────────────────────────────────────────────
+       %BASE% = 이 XML 파일이 있는 디렉토리 (= 설치 경로)
+       server.exe는 설치 경로/server/ 하위에 위치.
+  ──────────────────────────────────────────────────────────────── -->
+  <executable>%BASE%\server\server.exe</executable>
+  <arguments></arguments>
+
+  <!-- 작업 디렉토리: server.exe가 있는 폴더 (.env, token_registry.json 탐색 기준) -->
+  <workingdirectory>%BASE%\server</workingdirectory>
+
+  <!-- ── 시작 방식 ─────────────────────────────────────────────────
+       Automatic: 부팅 시 자동 시작
+       Delayed: Windows 완전 부팅 후 시작 (네트워크 준비 대기에 유리)
+  ──────────────────────────────────────────────────────────────── -->
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <!-- ── 크래시 자동 재시작 ─────────────────────────────────────── -->
+  <onfailure action="restart" delay="5 sec"/>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- ── 로그 설정 ─────────────────────────────────────────────────
+       rotate: 로그 파일 자동 순환
+       sizeThreshold: 10MB 초과 시 순환
+       keepFiles: 최근 5개 파일 유지
+  ──────────────────────────────────────────────────────────────── -->
+  <log mode="rotate">
+    <logpath>%BASE%\logs</logpath>
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+
+  <!-- ── 환경변수 ─────────────────────────────────────────────────
+       서비스 프로세스에 전달되는 환경변수.
+       실제 값은 설치 경로의 .env 파일에서 읽어옴 (python-dotenv).
+       여기서는 PYTHONUNBUFFERED만 설정 (로그 버퍼링 방지).
+  ──────────────────────────────────────────────────────────────── -->
+  <env name="PYTHONUNBUFFERED" value="1"/>
+
+  <!-- ── 서비스 계정 ─────────────────────────────────────────────
+       LocalSystem: 가장 광범위한 권한 (파일 접근에 문제없음)
+       보안 강화 시 LocalService 또는 전용 계정 사용 고려.
+  ──────────────────────────────────────────────────────────────── -->
+  <serviceaccount>
+    <username>LocalSystem</username>
+  </serviceaccount>
+
+  <!-- ── 의존 서비스 ─────────────────────────────────────────────
+       네트워크 인터페이스가 준비된 후 시작
+  ──────────────────────────────────────────────────────────────── -->
+  <depend>Tcpip</depend>
+  <depend>Dnscache</depend>
+
+  <!-- ── 종료 대기 ────────────────────────────────────────────────
+       서비스 중지 시 서버가 graceful shutdown할 시간 (ms)
+  ──────────────────────────────────────────────────────────────── -->
+  <stopTimeout>15000</stopTimeout>
+
+</service>

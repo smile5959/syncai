@@ -1,0 +1,365 @@
+"use client";
+
+import { useState } from "react";
+import { cn, formatTime, getInitials } from "@/lib/utils";
+import type { Message, AiPlanPayload, AiTask } from "@/types";
+import { messages as messagesApi, mcpConfigs } from "@/lib/api";
+import { Bot, Zap, Check, X, Loader2, ShieldCheck } from "lucide-react";
+
+interface MessageItemProps {
+  message: Message;
+  showAvatar?: boolean;
+  isMe?: boolean;
+  roomId?: string;
+  tasks?: AiTask[];
+}
+
+const AVATAR_GRADIENTS = [
+  "from-indigo-500 to-violet-500",
+  "from-violet-500 to-purple-500",
+  "from-pink-500 to-rose-500",
+  "from-cyan-500 to-blue-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-blue-500 to-indigo-500",
+  "from-fuchsia-500 to-pink-500",
+];
+
+function getAvatarGradient(seed: string) {
+  const hash = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+
+function Avatar({ name, userId }: { name: string; userId: string }) {
+  const gradient = getAvatarGradient(userId || name);
+  return (
+    <div
+      className={cn(
+        "rounded-full flex items-center justify-center shrink-0",
+        "bg-gradient-to-br shadow-sm",
+        gradient
+      )}
+      style={{ width: 36, height: 36 }}
+    >
+      <span className="text-[12px] font-bold text-white tracking-wide">
+        {getInitials(name)}
+      </span>
+    </div>
+  );
+}
+
+// ── AI Plan 메시지 (동의 요청 카드) ──────────────────────────────────────────
+
+function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: string; tasks?: AiTask[] }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "confirmed" | "cancelled">("idle");
+  const [autoApproved, setAutoApproved] = useState(false);
+
+  let plan: AiPlanPayload | null = null;
+  try {
+    plan = JSON.parse(message.content) as AiPlanPayload;
+  } catch {
+    return null;
+  }
+
+  // task 상태로 버튼/결과 표시 결정
+  const taskStatus = tasks?.find((t) => t.id === plan?.task_id)?.status;
+
+  // 버튼: awaiting_confirm 확인됐을 때만, 또는 task 목록 없이 로컬 idle 상태
+  const showButtons =
+    status !== "idle"  // 이미 로컬에서 클릭한 경우
+      ? false
+      : taskStatus === "awaiting_confirm" || taskStatus == null;
+
+  // 성공 표시: 로컬 confirmed 또는 running/completed
+  const showSuccess =
+    status === "confirmed" ||
+    taskStatus === "running" ||
+    taskStatus === "completed";
+
+  const handleConfirm = async (confirmed: boolean) => {
+    if (status !== "idle" || !plan) return;
+    setStatus("loading");
+    try {
+      await messagesApi.confirmAi(roomId, plan.task_id, confirmed);
+      setStatus(confirmed ? "confirmed" : "cancelled");
+    } catch {
+      setStatus("idle");
+    }
+  };
+
+  const isDone = !showButtons;
+
+  return (
+    <div
+      className="group hover:bg-[var(--bg-surface)] transition-colors"
+      style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "6px 20px 6px 28px", borderRadius: 16 }}
+    >
+      <div
+        className="bg-gradient-to-br from-[var(--accent)] to-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_14px_var(--accent-glow)]"
+        style={{ width: 36, height: 36, borderRadius: "50%" }}
+      >
+        <Bot size={15} className="text-white" />
+      </div>
+
+      <div className="flex-1 min-w-0" style={{ paddingTop: 2 }}>
+        <div className="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
+          <span
+            className="font-semibold bg-gradient-to-r from-[var(--accent)] to-violet-400 bg-clip-text text-transparent"
+            style={{ fontSize: 13 }}
+          >
+            SyncAI
+          </span>
+          <span className="text-[var(--text-muted)]" style={{ fontSize: 11 }}>
+            {formatTime(message.created_at)}
+          </span>
+        </div>
+
+        <div
+          className="border border-[var(--ai-border)] bg-[var(--ai-bubble)]"
+          style={{ borderRadius: 12, padding: "12px 16px", maxWidth: 420 }}
+        >
+          {plan.mcp_name && (
+            <div
+              className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
+              style={{ borderRadius: 6, padding: "3px 8px", marginBottom: 8, fontSize: 11, fontWeight: 600 }}
+            >
+              <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
+              {plan.mcp_name}의 PC 접근 필요
+            </div>
+          )}
+
+          <p
+            className="text-[var(--text-primary)] leading-relaxed"
+            style={{ fontSize: 13.5, marginBottom: isDone ? 0 : 12 }}
+          >
+            {plan.confirmation_message}
+          </p>
+
+          {showSuccess && (
+            <p className="text-emerald-400" style={{ fontSize: 12, fontWeight: 500 }}>
+              ✓ 작업을 시작했어요
+            </p>
+          )}
+          {status === "cancelled" && (
+            <p className="text-[var(--text-muted)]" style={{ fontSize: 12 }}>
+              취소했습니다
+            </p>
+          )}
+
+          {showButtons && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => handleConfirm(true)}
+                  disabled={status === "loading"}
+                  className="flex items-center gap-1.5 bg-[var(--accent)] text-white font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13 }}
+                >
+                  {status === "loading" ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Check size={13} />
+                  )}
+                  진행할게요
+                </button>
+                <button
+                  onClick={() => handleConfirm(false)}
+                  disabled={status === "loading"}
+                  className="flex items-center gap-1.5 text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors disabled:opacity-50"
+                  style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, background: "transparent" }}
+                >
+                  <X size={13} />
+                  취소
+                </button>
+              </div>
+              {plan.mcp_config_id && !autoApproved && (
+                <button
+                  onClick={async () => {
+                    if (!plan.mcp_config_id) return;
+                    await mcpConfigs.toggleAutoApprove(plan.mcp_config_id);
+                    setAutoApproved(true);
+                    handleConfirm(true);
+                  }}
+                  className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                  style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 0" }}
+                >
+                  <ShieldCheck size={12} />
+                  이 PC는 항상 허용
+                </button>
+              )}
+              {autoApproved && (
+                <p style={{ fontSize: 12, color: "var(--accent)" }}>✓ 이제 이 PC는 자동으로 허용됩니다</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function MessageItem({ message, showAvatar = true, isMe = false, roomId = "", tasks }: MessageItemProps) {
+  const isAi = message.type === "ai_res";
+  const isPlan = message.type === "ai_plan";
+  const isCmd = message.type === "ai_cmd" || message.content.startsWith("/ai ");
+  const userName = message.user?.name ?? "사용자";
+  const userId = message.user_id ?? message.user?.name ?? "u";
+
+  // ai_plan → 동의 요청 카드
+  if (isPlan) {
+    return <AiPlanCard message={message} roomId={roomId} tasks={tasks} />;
+  }
+
+  // /ai 커맨드 메시지 — 내가 보낸 것: 오른쪽, 타인이 보낸 것: 왼쪽
+  if (isCmd) {
+    if (isMe) {
+      return (
+        <div
+          className="group"
+          style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", padding: "4px 20px 4px 60px" }}
+        >
+          <div
+            className="bg-[var(--accent)] text-white inline-flex items-center"
+            style={{ gap: 10, borderRadius: "18px 18px 4px 18px", padding: "9px 14px", maxWidth: "70%" }}
+          >
+            <div
+              className="bg-white/20 flex items-center justify-center shrink-0"
+              style={{ width: 20, height: 20, borderRadius: 6 }}
+            >
+              <Zap size={10} className="text-white" fill="white" />
+            </div>
+            <span className="leading-relaxed whitespace-pre-wrap break-words" style={{ fontSize: 13.5 }}>
+              {message.content.replace(/^\/ai\s*/, "")}
+            </span>
+          </div>
+          <span className="text-[var(--text-muted)]" style={{ fontSize: 11, marginTop: 4 }}>
+            {formatTime(message.created_at)}
+          </span>
+        </div>
+      );    }
+    // 타인의 /ai 커맨드 → 왼쪽
+    return (
+      <div
+        className="group hover:bg-[var(--bg-surface)] transition-colors"
+        style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "6px 20px 6px 28px", borderRadius: 16 }}
+      >
+        {showAvatar ? (
+          <Avatar name={userName} userId={userId} />
+        ) : (
+          <div style={{ width: 36, flexShrink: 0 }} />
+        )}
+        <div className="flex-1 min-w-0" style={{ paddingTop: 2 }}>
+          {showAvatar && (
+            <div className="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
+              <span className="font-semibold text-[var(--text-primary)]" style={{ fontSize: 13 }}>{userName}</span>
+              <span className="text-[var(--text-muted)]" style={{ fontSize: 11 }}>{formatTime(message.created_at)}</span>
+            </div>
+          )}
+          <div
+            className="inline-flex items-center bg-[var(--ai-bubble)] border border-[var(--ai-border)]"
+            style={{ gap: 10, borderRadius: 12, paddingLeft: 14, paddingRight: 14, paddingTop: 8, paddingBottom: 8 }}
+          >
+            <div
+              className="bg-[var(--accent)] flex items-center justify-center shrink-0"
+              style={{ width: 20, height: 20, borderRadius: 6 }}
+            >
+              <Zap size={10} className="text-white" fill="white" />
+            </div>
+            <span className="text-[var(--text-primary)] leading-relaxed" style={{ fontSize: 13.5 }}>
+              {message.content.replace(/^\/ai\s*/, "")}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // AI 응답 메시지 (항상 왼쪽)
+  if (isAi) {
+    return (
+      <div
+        className="group hover:bg-[var(--bg-surface)] transition-colors"
+        style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "6px 20px 6px 28px", borderRadius: 16 }}
+      >
+        <div
+          className="bg-gradient-to-br from-[var(--accent)] to-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_14px_var(--accent-glow)]"
+          style={{ width: 36, height: 36, borderRadius: "50%" }}
+        >
+          <Bot size={15} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0" style={{ paddingTop: 2 }}>
+          <div className="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
+            <span
+              className="font-semibold bg-gradient-to-r from-[var(--accent)] to-violet-400 bg-clip-text text-transparent"
+              style={{ fontSize: 13 }}
+            >
+              SyncAI
+            </span>
+            <span className="text-[var(--text-muted)]" style={{ fontSize: 11 }}>{formatTime(message.created_at)}</span>
+          </div>
+          <div className="border-l-2 border-[var(--ai-border)]" style={{ paddingLeft: 14 }}>
+            <p className="text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap" style={{ fontSize: 13.5 }}>
+              {message.content}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 내 메시지 (오른쪽)
+  if (isMe) {
+    return (
+      <div
+        className="group"
+        style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", padding: "4px 20px 4px 60px" }}
+      >
+        <div
+          className="bg-[var(--accent)] text-white"
+          style={{ borderRadius: "18px 18px 4px 18px", padding: "9px 14px", maxWidth: "70%" }}
+        >
+          <p className="leading-relaxed whitespace-pre-wrap break-words" style={{ fontSize: 13.5 }}>
+            {message.content}
+          </p>
+        </div>
+        <span className="text-[var(--text-muted)]" style={{ fontSize: 11, marginTop: 4 }}>
+          {formatTime(message.created_at)}
+        </span>
+      </div>
+    );
+  }
+
+  // 상대방 메시지 (왼쪽)
+  return (
+    <div
+      className="group"
+      style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "4px 60px 4px 20px" }}
+    >
+      {showAvatar ? (
+        <Avatar name={userName} userId={userId} />
+      ) : (
+        <div style={{ width: 36, flexShrink: 0 }} />
+      )}
+      <div style={{ paddingTop: 2, maxWidth: "70%" }}>
+        {showAvatar && (
+          <span className="font-semibold text-[var(--text-primary)]" style={{ fontSize: 12, marginBottom: 4, display: "block" }}>
+            {userName}
+          </span>
+        )}
+        <div
+          className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)]"
+          style={{ borderRadius: "18px 18px 18px 4px", padding: "9px 14px", display: "inline-block" }}
+        >
+          <p className="text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap break-words" style={{ fontSize: 13.5 }}>
+            {message.content}
+          </p>
+        </div>
+        <span className="text-[var(--text-muted)]" style={{ fontSize: 11, marginTop: 4, display: "block" }}>
+          {formatTime(message.created_at)}
+        </span>
+      </div>
+    </div>
+  );
+}
