@@ -77,11 +77,10 @@ function ProfileTab({ me }: { me: { name?: string; email?: string } | null }) {
 
       {/* 정보 테이블 */}
       <div
-        className="rounded-2xl overflow-hidden divide-y"
+        className="rounded-2xl overflow-hidden"
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--border)",
-          divideColor: "var(--border)",
         }}
       >
         {[
