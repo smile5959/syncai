@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   User as UserIcon,
@@ -19,7 +19,7 @@ import { useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
 import { users as usersApi } from "@/lib/api";
 
-// ─── 섹션 래퍼 ──────────────────────────────────────────
+// ---
 
 function Section({
   icon,
@@ -57,7 +57,7 @@ function Section({
   );
 }
 
-// ─── 필드 행 ────────────────────────────────────────────
+// ---
 
 function FieldRow({
   label,
@@ -90,7 +90,7 @@ function FieldRow({
   );
 }
 
-// ─── 테마 옵션 ──────────────────────────────────────────
+// ---
 
 const THEME_OPTIONS = [
   { value: "light", label: "라이트", icon: <Sun size={16} /> },
@@ -98,7 +98,7 @@ const THEME_OPTIONS = [
   { value: "system", label: "시스템", icon: <Monitor size={16} /> },
 ] as const;
 
-// ─── 메인 ───────────────────────────────────────────────
+// ---
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -144,7 +144,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* ── 프로필 ─────────────────────────────────── */}
+          {/* -- 프로필 ----------------------------------- */}
           <Section icon={<UserIcon size={16} />} title="프로필">
             {/* 아바타 */}
             <div className="flex items-center gap-4 mb-5">
@@ -183,7 +183,7 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          {/* ── 테마 ───────────────────────────────────── */}
+          {/* -- 테마 ------------------------------------- */}
           <Section icon={<Palette size={16} />} title="테마">
             <p className="text-[13px] mb-4" style={{ color: "var(--text-muted)" }}>
               앱의 색상 모드를 선택하세요
@@ -225,7 +225,7 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          {/* ── 계정 ───────────────────────────────────── */}
+          {/* -- 계정 ------------------------------------- */}
           <Section icon={<Shield size={16} />} title="계정">
             <div
               className="rounded-xl border overflow-hidden mb-4"

@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// ─── FAQ 데이터 ─────────────────────────────────────────
+// ---
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -43,7 +43,7 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
-// ─── 기능 카드 데이터 ────────────────────────────────────
+// ---
 
 const FEATURES = [
   {
@@ -68,7 +68,7 @@ const FEATURES = [
   },
 ];
 
-// ─── FAQ 아이템 ─────────────────────────────────────────
+// ---
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -103,7 +103,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-// ─── 메인 ───────────────────────────────────────────────
+// ---
 
 export default function HelpPage() {
   return (
