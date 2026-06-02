@@ -341,6 +341,3 @@ function DiffViewer({ diff }: { diff: string }) {
     </div>
   );
 }
-
-  );
-}
