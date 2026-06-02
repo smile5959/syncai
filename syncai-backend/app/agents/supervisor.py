@@ -226,4 +226,20 @@ def _describe_tool(name: str, args: dict) -> str:
         return f"파일 읽는 중: {args.get('path', '')}"
     elif name in ("write_file", "create_file"):
         return f"파일 수정 중: {args.get('path', '')}"
-    
+    elif name == "list_directory":
+        return f"디렉토리 조회 중: {args.get('path', '.')}"
+    elif name == "delete_file":
+        return f"파일 삭제 중: {args.get('path', '')}"
+    elif name == "create_directory":
+        return f"폴더 생성 중: {args.get('path', '')}"
+    elif name == "move_file":
+        return f"이동 중: {args.get('src', '')} -> {args.get('dest', '')}"
+    elif name == "copy_file":
+        return f"복사 중: {args.get('src', '')} -> {args.get('dest', '')}"
+    elif name == "delete_directory":
+        return f"폴더 삭제 중: {args.get('path', '')}"
+    elif name == "search_files":
+        return f"파일 검색 중: {args.get('pattern', '') or args.get('keyword', '')}"
+    elif name == "get_file_info":
+        return f"파일 정보 조회 중: {args.get('path', '')}"
+    return f"툴 실행 중: {name}"

@@ -46,18 +46,34 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
   function getCommand(task: AiTask): string {
     const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
     const c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
-    return c.length > 55 ? c.slice(0, 55) + "…" : c;
+    // 어미 정리: "해줘/해주세요/부탁해/해봐/해줄래" → "하기"
+    const cleaned = c
+      .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "하기")
+      .replace(/해\s*$/, "하기")
+      .trim();
+    return cleaned.length > 40 ? cleaned.slice(0, 40) + "…" : cleaned;
   }
 
-  function getErrorText(task: AiTask): string {
+  function getErrorSummary(task: AiTask): string {
     if (!task.error) return "";
-    const e = task.error
-      .replace(/Error code: \d+ - \[.*?'message': '/g, "")
-      .replace(/'.*$/g, "")
-      .replace(/MCP endpoint 없음[:：]\s*/i, "MCP 오프라인")
-      .replace(/MCP 오프라인[:：]\s*/i, "MCP 오프라인")
-      .trim();
-    return e.length > 60 ? e.slice(0, 60) + "…" : e;
+    const e = task.error;
+    if (/quota|rate.?limit|429/i.test(e)) return "API 한도 초과";
+    if (/offline|오프라인|not.?connected/i.test(e)) return "MCP 오프라인";
+    if (/401|unauthorized/i.test(e)) return "인증 실패";
+    if (/timeout/i.test(e)) return "응답 시간 초과";
+    if (/최대 반복/.test(e)) return "반복 한도 초과";
+    // Error code: 404 - [{'error': {'code': 404, 'message': '...'}}] 파싱
+    const match = e.match(/'message':\s*'([^']{0,60})/);
+    if (match) return match[1];
+    return e.slice(0, 40);
+  }
+
+  function getFullError(task: AiTask): string {
+    if (!task.error) return "";
+    // Error code 형태 파싱해서 읽기 좋게
+    const match = task.error.match(/'message':\s*'([^']+)'/);
+    if (match) return match[1];
+    return task.error;
   }
 
   const sorted = [...tasks]
@@ -176,7 +192,8 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
                 key={task.id}
                 task={task}
                 command={getCommand(task)}
-                errorText={getErrorText(task)}
+                errorSummary={getErrorSummary(task)}
+                fullError={getFullError(task)}
                 expanded={expandedId === task.id}
                 onToggle={() => setExpandedId(expandedId === task.id ? null : task.id)}
                 onRevert={() => handleRevert(task.id)}
@@ -197,24 +214,27 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
 interface TaskCardProps {
   task: AiTask;
   command: string;
-  errorText: string;
+  errorSummary: string;
+  fullError: string;
   expanded: boolean;
   onToggle: () => void;
   onRevert: () => void;
   reverting: boolean;
 }
 
-function TaskCard({ task, command, errorText, expanded, onToggle, onRevert, reverting }: TaskCardProps) {
+function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, onRevert, reverting }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
+  const hasFailed = task.status === "failed" && !!fullError;
+  const isExpandable = hasDiff || hasFailed;
 
   type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled";
   const STATUS_CONFIG: Record<StatusKey, { dot: string; label: string; labelColor: string; cardBorder: string }> = {
-    completed:       { dot: "#4ade80", label: "완료",     labelColor: "#4ade80",            cardBorder: "rgba(34,197,94,0.15)" },
-    failed:          { dot: "#f87171", label: "실패",     labelColor: "#f87171",            cardBorder: "rgba(239,68,68,0.15)" },
-    running:         { dot: "var(--accent)", label: "진행중", labelColor: "var(--accent)",  cardBorder: "rgba(99,102,241,0.2)" },
-    pending:         { dot: "var(--accent)", label: "대기중", labelColor: "var(--accent)",  cardBorder: "rgba(99,102,241,0.12)" },
-    awaiting_confirm:{ dot: "#facc15", label: "동의 필요", labelColor: "#facc15",           cardBorder: "rgba(234,179,8,0.18)" },
-    cancelled:       { dot: "var(--text-muted)", label: "취소", labelColor: "var(--text-muted)", cardBorder: "var(--border-subtle)" },
+    completed:        { dot: "#4ade80",          label: "완료",      labelColor: "#4ade80",            cardBorder: "rgba(34,197,94,0.15)" },
+    failed:           { dot: "#f87171",          label: "실패",      labelColor: "#f87171",            cardBorder: "rgba(239,68,68,0.15)" },
+    running:          { dot: "var(--accent)",    label: "진행중",    labelColor: "var(--accent)",      cardBorder: "rgba(99,102,241,0.2)" },
+    pending:          { dot: "var(--accent)",    label: "대기중",    labelColor: "var(--accent)",      cardBorder: "rgba(99,102,241,0.12)" },
+    awaiting_confirm: { dot: "#facc15",          label: "동의 필요", labelColor: "#facc15",            cardBorder: "rgba(234,179,8,0.18)" },
+    cancelled:        { dot: "var(--text-muted)", label: "취소",     labelColor: "var(--text-muted)",  cardBorder: "var(--border-subtle)" },
   };
 
   const cfg = STATUS_CONFIG[task.status as StatusKey] ?? STATUS_CONFIG.pending;
@@ -226,7 +246,7 @@ function TaskCard({ task, command, errorText, expanded, onToggle, onRevert, reve
         style={{
           width: "100%", display: "flex", alignItems: "center",
           gap: 9, padding: "9px 11px", textAlign: "left",
-          background: "transparent", border: "none", cursor: "pointer",
+          background: "transparent", border: "none", cursor: isExpandable ? "pointer" : "default",
         }}
       >
         <span style={{
@@ -246,36 +266,48 @@ function TaskCard({ task, command, errorText, expanded, onToggle, onRevert, reve
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
             <span style={{ fontSize: 10, color: cfg.labelColor, fontWeight: 600 }}>{cfg.label}</span>
-            {errorText ? (
-              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorText}</span>
+            {errorSummary ? (
+              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorSummary}</span>
             ) : hasDiff ? (
               <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· 파일 변경됨</span>
             ) : null}
           </div>
         </div>
 
-        {hasDiff && (
+        {isExpandable && (
           <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </span>
         )}
       </button>
 
-      {expanded && hasDiff && (
+      {expanded && (
         <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
-          <DiffViewer diff={task.result_diff!} />
-          {task.status === "completed" && (
-            <div style={{ padding: "0 11px 11px" }}>
-              <Button
-                variant="outline"
-                size="sm"
-                style={{ width: "100%", fontSize: 11, height: 28 }}
-                onClick={onRevert}
-                loading={reverting}
-              >
-                <RotateCcw size={10} />
-                되돌리기
-              </Button>
+          {hasFailed && (
+            <div style={{ padding: "10px 12px", background: "rgba(239,68,68,0.04)" }}>
+              <p style={{ fontSize: 11, color: "#f87171", fontWeight: 600, marginBottom: 4 }}>오류 내용</p>
+              <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, wordBreak: "break-all" }}>
+                {fullError}
+              </p>
+            </div>
+          )}
+          {hasDiff && (
+            <div>
+              <DiffViewer diff={task.result_diff!} />
+              {task.status === "completed" && (
+                <div style={{ padding: "0 11px 11px" }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    style={{ width: "100%", fontSize: 11, height: 28 }}
+                    onClick={onRevert}
+                    loading={reverting}
+                  >
+                    <RotateCcw size={10} />
+                    되돌리기
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -306,3 +338,5 @@ function DiffViewer({ diff }: { diff: string }) {
   );
 }
 
+  );
+}

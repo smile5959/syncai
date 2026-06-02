@@ -21,6 +21,26 @@ from app.routers.ws import broadcast, chat_connections, task_connections
 
 router = APIRouter(tags=["Messages"])
 
+
+def _format_error_for_chat(error: str) -> str:
+    """에러 메시지를 사용자 친화적인 한국어로 변환"""
+    e = error.lower()
+    if "quota" in e or "rate limit" in e or "429" in e:
+        return "API 요청 한도를 초과했어요. 잠시 후 다시 시도해 주세요."
+    if "mcp" in e and ("오프라인" in error or "offline" in e or "not connected" in e):
+        return "PC(MCP)가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
+    if "401" in e or "unauthorized" in e or "api key" in e:
+        return "AI API 인증에 실패했어요. 관리자에게 문의해 주세요."
+    if "404" in e and "model" in e:
+        return "AI 모델을 찾을 수 없어요. 설정을 확인해 주세요."
+    if "timeout" in e:
+        return "응답 시간이 초과됐어요. 다시 시도해 주세요."
+    if "최대 반복" in error:
+        return "작업이 너무 복잡해서 완료하지 못했어요. 더 구체적으로 요청해 주세요."
+    # 기술적 에러는 간단히 요약
+    return "작업 중 오류가 발생했어요. 다시 시도해 주세요."
+
+
 # ── Chat-only 시스템 프롬프트 (MCP 없을 때) ───────────────────────────────────
 CHAT_ONLY_SYSTEM_PROMPT = (
     "당신은 SyncAI입니다. 개발 팀의 AI 어시스턴트입니다.\n\n"
@@ -361,6 +381,18 @@ async def _run_ai_task(
             task.status = "failed"
             task.error = str(e)
             db.commit()
+        error_msg = _format_error_for_chat(str(e))
+        await broadcast(chat_connections, room_id, {
+            "type": "message",
+            "data": {
+                "id": f"err-{task_id}",
+                "room_id": room_id,
+                "user_id": None,
+                "content": f"⚠️ {error_msg}",
+                "type": "ai_res",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        })
         await broadcast(task_connections, room_id, {
             "type": "task_failed",
             "data": {"task_id": task_id, "error": str(e)},
@@ -482,6 +514,18 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             task.status = "failed"
             task.error = str(e)
             db.commit()
+        error_msg = _format_error_for_chat(str(e))
+        await broadcast(chat_connections, room_id, {
+            "type": "message",
+            "data": {
+                "id": f"err-{task_id}",
+                "room_id": room_id,
+                "user_id": None,
+                "content": f"⚠️ {error_msg}",
+                "type": "ai_res",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        })
         await broadcast(task_connections, room_id, {
             "type": "task_failed",
             "data": {"task_id": task_id, "error": str(e)},
@@ -847,4 +891,36 @@ async def ai_confirm(
     if task.mcp_config_id:
         mcp_config = db.query(McpConfig).filter(McpConfig.id == task.mcp_config_id).first()
 
-    original_msg = db.query(Message).filter(Message.id == task.messa
+    original_msg = db.query(Message).filter(Message.id == task.message_id).first()
+    content = original_msg.content if original_msg else ""
+
+    task.status = "pending"
+    db.commit()
+
+    if mcp_config:
+        idle_exists = (
+            db.query(Worker)
+            .filter(Worker.team_id == uuid.UUID(team_id), Worker.status == WorkerStatus.idle)
+            .first()
+        ) is not None
+
+        if idle_exists:
+            asyncio.create_task(
+                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name)
+            )
+        else:
+            q = _get_queue(team_id)
+            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name))
+            await broadcast(task_connections, room_id, {
+                "type": "task_queued",
+                "data": {
+                    "task_id": str(task.id),
+                    "message": "Worker가 모두 사용 중입니다. 순서대로 처리됩니다.",
+                },
+            })
+    else:
+        asyncio.create_task(
+            _run_chat_only(str(task.id), content, room_id, current_user.name)
+        )
+
+    return JSONResponse({"status": "confirmed", "task_id": str(task.id)})
