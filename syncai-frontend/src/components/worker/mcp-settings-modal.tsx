@@ -791,8 +791,10 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
 
 // ─── Worker 슬롯 탭 ──────────────────────────────────────────────────────────
 const WORKER_MODELS = [
-  { id: "google/gemini-2.5-flash:free", label: "Gemini 2.5 Flash", badge: "무료" },
-  { id: "google/gemini-2.5-pro",        label: "Gemini 2.5 Pro",   badge: "유료" },
+  { id: "google/gemma-4-31b-it:free",   label: "Gemma 4 31B",      badge: "무료" },
+  { id: "google/gemma-4-31b-it",        label: "Gemma 4 31B",      badge: "유료" },
+  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash", badge: "유료" },
+  { id: "google/gemini-3.5-flash",      label: "Gemini 3.5 Flash", badge: "유료" },
   { id: "openai/gpt-4o",                label: "GPT-4o",           badge: "유료" },
   { id: "openai/gpt-4o-mini",           label: "GPT-4o Mini",      badge: "유료" },
   { id: "anthropic/claude-sonnet-4",    label: "Claude Sonnet 4",  badge: "유료" },
