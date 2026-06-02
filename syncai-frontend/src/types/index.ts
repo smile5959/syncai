@@ -45,6 +45,7 @@ export interface Worker {
   name: string;
   status: WorkerStatus;
   current_task_id: string | null;
+  model: string;
   created_at: string;
 }
 

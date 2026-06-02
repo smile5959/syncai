@@ -145,6 +145,9 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
                   <span style={{ fontSize: 12, color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {w.name}
                   </span>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {(w.model ?? "").split("/").pop()?.replace(":free", "") ?? ""}
+                  </span>
                   {isBusy && <Loader2 size={11} style={{ color: "var(--accent)", animation: "spin 1s linear infinite", flexShrink: 0 }} />}
                 </div>
               );

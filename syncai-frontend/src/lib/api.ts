@@ -98,6 +98,8 @@ export const workers = {
     http.post<Worker>(`/teams/${teamId}/workers`, { name }),
   delete: (teamId: string, workerId: string) =>
     http.delete(`/teams/${teamId}/workers/${workerId}`),
+  updateModel: (teamId: string, workerId: string, model: string) =>
+    http.patch<Worker>(`/teams/${teamId}/workers/${workerId}/model`, { model }),
 };
 
 // ─── MCP Configs (사용자 PC 접근 설정) ───────────────
@@ -177,16 +179,12 @@ export const messages = {
     }),
   send: (roomId: string, content: string) =>
     http.post<Message>(`/rooms/${roomId}/messages`, { content }),
-  sendAi: (roomId: string, content: string, model?: string) =>
-    http.post<{ task_id: string }>(`/rooms/${roomId}/ai`, {
-      content,
-      model: model ?? "google/gemini-2.5-flash:free",
-    }),
-  confirmAi: (roomId: string, taskId: string, confirmed: boolean, model?: string) =>
+  sendAi: (roomId: string, content: string) =>
+    http.post<{ task_id: string }>(`/rooms/${roomId}/ai`, { content }),
+  confirmAi: (roomId: string, taskId: string, confirmed: boolean) =>
     http.post<{ status: string; task_id?: string }>(`/rooms/${roomId}/ai/confirm`, {
       task_id: taskId,
       confirmed,
-      model: model ?? "google/gemini-2.5-flash:free",
     }),
 };
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   X, Plus, Folder, Trash2, RefreshCw, Server, Users,
-  Zap, Check, Download, Pencil, Cpu,
+  Zap, Check, Download, Pencil, Cpu, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -790,6 +790,15 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
 }
 
 // ─── Worker 슬롯 탭 ──────────────────────────────────────────────────────────
+const WORKER_MODELS = [
+  { id: "google/gemini-2.5-flash:free", label: "Gemini 2.5 Flash", badge: "무료" },
+  { id: "google/gemini-2.5-pro",        label: "Gemini 2.5 Pro",   badge: "유료" },
+  { id: "openai/gpt-4o",                label: "GPT-4o",           badge: "유료" },
+  { id: "openai/gpt-4o-mini",           label: "GPT-4o Mini",      badge: "유료" },
+  { id: "anthropic/claude-sonnet-4",    label: "Claude Sonnet 4",  badge: "유료" },
+  { id: "anthropic/claude-haiku-4-5",   label: "Claude Haiku 4.5", badge: "유료" },
+];
+
 function WorkerSlotsTab({ teamId }: { teamId: string }) {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
@@ -797,6 +806,8 @@ function WorkerSlotsTab({ teamId }: { teamId: string }) {
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [modelOpenId, setModelOpenId] = useState<string | null>(null);
+  const [updatingModelId, setUpdatingModelId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -829,6 +840,16 @@ function WorkerSlotsTab({ teamId }: { teamId: string }) {
       setWorkers((prev) => prev.filter((w) => w.id !== workerId));
     } catch { /* ignore */ }
     finally { setDeletingId(null); }
+  }
+
+  async function handleModelChange(workerId: string, model: string) {
+    setUpdatingModelId(workerId);
+    setModelOpenId(null);
+    try {
+      const res = await workersApi.updateModel(teamId, workerId, model);
+      setWorkers((prev) => prev.map((w) => w.id === workerId ? res.data : w));
+    } catch { /* ignore */ }
+    finally { setUpdatingModelId(null); }
   }
 
   const idleCount = workers.filter((w) => w.status === "idle").length;
@@ -954,53 +975,111 @@ function WorkerSlotsTab({ teamId }: { teamId: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {workers.map((w) => {
             const busy = w.status === "busy";
+            const currentModel = WORKER_MODELS.find((m) => m.id === w.model) ?? WORKER_MODELS[0];
+            const isModelOpen = modelOpenId === w.id;
             return (
-              <div key={w.id} style={{
-                background: "var(--bg-elevated)",
-                border: `1px solid ${busy ? "rgba(99,102,241,0.22)" : "rgba(74,222,128,0.15)"}`,
-                borderRadius: 16, padding: "16px 18px",
-                display: "flex", alignItems: "center", gap: 14,
-                transition: "border-color 0.2s ease",
-              }}>
+              <div key={w.id} style={{ position: "relative" }}>
                 <div style={{
-                  width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-                  background: busy ? "rgba(99,102,241,0.12)" : "rgba(34,197,94,0.1)",
-                  border: `1px solid ${busy ? "rgba(99,102,241,0.25)" : "rgba(74,222,128,0.2)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: busy ? "0 0 14px rgba(99,102,241,0.15)" : "0 0 14px rgba(74,222,128,0.1)",
+                  background: "var(--bg-elevated)",
+                  border: `1px solid ${busy ? "rgba(99,102,241,0.22)" : "rgba(74,222,128,0.15)"}`,
+                  borderRadius: 16, padding: "16px 18px",
+                  display: "flex", alignItems: "center", gap: 14,
+                  transition: "border-color 0.2s ease",
                 }}>
-                  <Cpu size={19} color={busy ? "var(--accent)" : "#4ade80"} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {w.name}
-                  </p>
-                  <span style={{
-                    display: "inline-block", marginTop: 4,
-                    fontSize: 11, fontWeight: 600,
-                    padding: "2px 9px", borderRadius: 6,
-                    background: busy ? "rgba(99,102,241,0.1)" : "rgba(34,197,94,0.1)",
-                    color: busy ? "var(--accent)" : "#4ade80",
-                    border: `1px solid ${busy ? "rgba(99,102,241,0.2)" : "rgba(74,222,128,0.2)"}`,
-                  }}>
-                    {busy ? "⚡ 작업중" : "● 대기중"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDelete(w.id, w.name)}
-                  disabled={deletingId === w.id || busy}
-                  title={busy ? "작업 중에는 삭제할 수 없어요" : "삭제"}
-                  style={{
-                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+                    background: busy ? "rgba(99,102,241,0.12)" : "rgba(34,197,94,0.1)",
+                    border: `1px solid ${busy ? "rgba(99,102,241,0.25)" : "rgba(74,222,128,0.2)"}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    background: "transparent", border: "none",
-                    cursor: busy ? "not-allowed" : "pointer",
-                    color: "var(--text-muted)",
-                  }}
-                  className="hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
-                >
-                  <Trash2 size={13} />
-                </button>
+                    boxShadow: busy ? "0 0 14px rgba(99,102,241,0.15)" : "0 0 14px rgba(74,222,128,0.1)",
+                  }}>
+                    <Cpu size={19} color={busy ? "var(--accent)" : "#4ade80"} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {w.name}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+                      <span style={{
+                        display: "inline-block",
+                        fontSize: 11, fontWeight: 600,
+                        padding: "2px 9px", borderRadius: 6,
+                        background: busy ? "rgba(99,102,241,0.1)" : "rgba(34,197,94,0.1)",
+                        color: busy ? "var(--accent)" : "#4ade80",
+                        border: `1px solid ${busy ? "rgba(99,102,241,0.2)" : "rgba(74,222,128,0.2)"}`,
+                      }}>
+                        {busy ? "⚡ 작업중" : "● 대기중"}
+                      </span>
+                      {/* 모델 선택 버튼 */}
+                      <button
+                        onClick={() => setModelOpenId(isModelOpen ? null : w.id)}
+                        disabled={updatingModelId === w.id}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 4,
+                          padding: "2px 8px", borderRadius: 6,
+                          border: "1px solid var(--border)",
+                          background: "var(--bg-base)",
+                          cursor: "pointer", fontSize: 11,
+                          color: "var(--text-secondary)", fontWeight: 500,
+                        }}
+                      >
+                        {updatingModelId === w.id ? "저장중..." : currentModel.label}
+                        <ChevronDown size={10} />
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(w.id, w.name)}
+                    disabled={deletingId === w.id || busy}
+                    title={busy ? "작업 중에는 삭제할 수 없어요" : "삭제"}
+                    style={{
+                      width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "transparent", border: "none",
+                      cursor: busy ? "not-allowed" : "pointer",
+                      color: "var(--text-muted)",
+                    }}
+                    className="hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                {/* 모델 드롭다운 */}
+                {isModelOpen && (
+                  <div style={{
+                    position: "absolute", top: "calc(100% + 6px)", left: 0,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12, overflow: "hidden",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                    zIndex: 100, minWidth: 220,
+                  }}>
+                    {WORKER_MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => handleModelChange(w.id, m.id)}
+                        style={{
+                          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                          gap: 10, padding: "10px 14px",
+                          background: m.id === w.model ? "var(--bg-hover)" : "transparent",
+                          border: "none", cursor: "pointer", textAlign: "left",
+                        }}
+                      >
+                        <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: m.id === w.model ? 600 : 400 }}>
+                          {m.label}
+                        </span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600,
+                          color: m.badge === "무료" ? "#22c55e" : "var(--text-muted)",
+                          background: m.badge === "무료" ? "rgba(34,197,94,0.12)" : "var(--bg-base)",
+                          borderRadius: 4, padding: "2px 6px",
+                        }}>
+                          {m.badge}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -200,12 +200,12 @@ export default function RoomPage() {
     return () => { unsub(); ws.close(); };
   }, [id, teamId]);
 
-  const handleSend = useCallback(async (content: string, isAi: boolean, model?: string) => {
+  const handleSend = useCallback(async (content: string, isAi: boolean) => {
     if (!id) return;
     if (isAi) {
       const cmdContent = content.replace(/^\/ai\s*/, "");
       try {
-        await messagesApi.sendAi(id, cmdContent, model);
+        await messagesApi.sendAi(id, cmdContent);
       } catch (err: unknown) {
         const detail =
           (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
