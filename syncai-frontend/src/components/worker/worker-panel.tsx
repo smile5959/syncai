@@ -45,13 +45,17 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
 
   function getCommand(task: AiTask): string {
     const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
-    const c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
-    // 어미 정리: "해줘/해주세요/부탁해/해봐/해줄래" → "하기"
-    const cleaned = c
-      .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "하기")
-      .replace(/해\s*$/, "하기")
+    let c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
+    // 불필요한 어미/단어 정리
+    c = c
+      .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "")
+      .replace(/해\s*$/, "")
+      .replace(/\s*(좀|한번|한 번|제발|바로|빨리)\s*/g, " ")
+      .replace(/\s+파일\s+/g, " ")   // "파일" 불필요한 경우 제거
+      .replace(/\s+/g, " ")
       .trim();
-    return cleaned.length > 40 ? cleaned.slice(0, 40) + "…" : cleaned;
+    if (!c) c = "AI 작업";
+    return c.length > 30 ? c.slice(0, 30) + "…" : c;
   }
 
   function getErrorSummary(task: AiTask): string {
@@ -224,7 +228,7 @@ interface TaskCardProps {
 
 function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, onRevert, reverting }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
-  const hasFailed = task.status === "failed" && !!fullError;
+  const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
   const isExpandable = hasDiff || hasFailed;
 
   type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled";
@@ -287,7 +291,7 @@ function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, 
             <div style={{ padding: "10px 12px", background: "rgba(239,68,68,0.04)" }}>
               <p style={{ fontSize: 11, color: "#f87171", fontWeight: 600, marginBottom: 4 }}>오류 내용</p>
               <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, wordBreak: "break-all" }}>
-                {fullError}
+                {fullError || errorSummary || "알 수 없는 오류가 발생했어요."}
               </p>
             </div>
           )}
