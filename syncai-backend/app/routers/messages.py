@@ -110,9 +110,8 @@ async def _release_worker(worker_id: str, team_id: str):
     q = _get_queue(team_id)
     if not q.empty():
         item = await q.get()
-        task_id, content, mcp_config_id, room_id, queued_user_name, *rest = item
-        queued_model = rest[0] if rest else ""
-        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name, queued_model))
+        task_id, content, mcp_config_id, room_id, queued_user_name = item
+        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name))
 
 
 # ── MCP Config 선택 ───────────────────────────────────────────────────────────
@@ -205,7 +204,6 @@ async def _run_ai_task(
     room_id: str,
     team_id: str,
     user_name: str = "",
-    model: str = "",
 ):
     from app.models.task import Task
     from app.models.message import Message
@@ -335,7 +333,7 @@ async def _run_ai_task(
             content, context, on_progress,
             on_chunk=on_chunk, on_tool_call=on_tool_call,
             user_name=user_name,
-            model=model or DEFAULT_MODEL,
+            model=worker.model or DEFAULT_MODEL,
         )
         diff = worker_agent.generate_diff()
 
@@ -733,7 +731,7 @@ async def ai_command(
 
     # 3. 백그라운드에서 AI 계획 분석 → ai_plan 메시지 전송
     asyncio.create_task(
-        _send_ai_plan(str(task.id), body.content, room_id, team_id, mention_name, current_user, body.model)
+        _send_ai_plan(str(task.id), body.content, room_id, team_id, mention_name, current_user)
     )
 
     return JSONResponse({"task_id": str(task.id)})
@@ -746,7 +744,6 @@ async def _send_ai_plan(
     team_id: str,
     mention_name: str | None,
     current_user,
-    model: str = "",
 ):
     """AI 계획 분석 후 ai_plan 메시지를 채팅에 전송."""
     import json as _json
@@ -795,7 +792,7 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_chat_only(task_id, content, room_id, current_user.name, model)
+                _run_chat_only(task_id, content, room_id, current_user.name)
             )
             return
 
@@ -809,7 +806,7 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_ai_task(task_id, content, str(proposed_mcp.id), room_id, team_id, current_user.name, model)
+                _run_ai_task(task_id, content, str(proposed_mcp.id), room_id, team_id, current_user.name)
             )
             return
 
@@ -912,11 +909,11 @@ async def ai_confirm(
 
         if idle_exists:
             asyncio.create_task(
-                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name, body.model)
+                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name)
             )
         else:
             q = _get_queue(team_id)
-            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name, body.model))
+            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name))
             await broadcast(task_connections, room_id, {
                 "type": "task_queued",
                 "data": {

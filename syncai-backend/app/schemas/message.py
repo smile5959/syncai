@@ -10,7 +10,6 @@ class MessageCreate(BaseModel):
 class AiCommandRequest(BaseModel):
     content: str
     message_id: uuid.UUID | None = None
-    model: str = "google/gemini-2.5-flash:free"
 
 
 class UserInMessage(BaseModel):
@@ -45,4 +44,3 @@ class AiCommandResponse(BaseModel):
 class AiConfirmRequest(BaseModel):
     task_id: uuid.UUID
     confirmed: bool  # True: 동의 → 실행, False: 거부 → cancelled
-    model: str = "google/gemini-2.5-flash:free"
