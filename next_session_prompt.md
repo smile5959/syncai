@@ -1,5 +1,37 @@
 # SyncAI 다음 세션 프롬프트
 
+## 현재 상태 (2026-06-02) — OpenRouter 전환 + 모델 선택 UI
+
+### Cowork에 보낼 프롬프트
+```
+OpenRouter 전환 마무리 + 모델 선택 UI 구현 해줘.
+
+지난 세션에서 완료된 것:
+- .env에 OPENROUTER_API_KEY 추가
+- config.py에 OPENROUTER_API_KEY 필드 추가
+- supervisor.py 상단: Gemini 직접 호출 제거 → OpenRouter base_url/key로 교체
+
+이번에 할 것:
+1. supervisor.py run() 메서드에서 GEMINI_MODEL → DEFAULT_MODEL로 교체
+2. run() 파라미터에 model: str = DEFAULT_MODEL 추가 (호출 시 모델 선택 가능하게)
+3. messages.py에서 supervisor 호출 시 model 파라미터 전달
+4. 프론트 채팅 입력창 옆에 모델 드롭다운 추가
+   지원 모델: google/gemini-2.5-flash(기본), google/gemini-2.5-pro, openai/gpt-4o, openai/gpt-4o-mini, anthropic/claude-sonnet-4, anthropic/claude-haiku-4-5
+5. /ai 요청 body에 model 필드 추가해서 백엔드까지 전달
+6. 코드 수정 끝나면 배포 프롬프트 짜줘 (Claude Code용)
+```
+
+### Claude Code에 보낼 배포 프롬프트 (코드 수정 끝난 후)
+```
+SyncAI 백엔드 배포해줘.
+경로: C:\khh\syncAI\syncai-backend
+1. fly deploy 실행
+2. 완료 후 헬스체크: curl https://syncai-backend.fly.dev/health
+에러 나면 fly logs --app syncai-backend 로 확인해줘.
+```
+
+---
+
 ## 현재 상태 (2026-05-28)
 
 배포 완료 (fly deploy + vercel). MCP 서버 로컬 실행 시 두 가지 문제 발견 — 이번 세션에서 수정.
