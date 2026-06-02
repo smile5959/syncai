@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
+import { Settings, LogOut, HelpCircle, Sun, Moon, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
+import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 import { InvitationBell } from "@/components/team/invitation-bell";
@@ -360,13 +361,20 @@ export function IconNav() {
           }}>
             <Link
               href="/rooms"
-              className="flex items-center justify-center w-9 h-9 rounded-xl text-white"
+              className="flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden"
               style={{
-                background: "var(--gradient-accent)",
-                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+                background: "#1a1a2e",
+                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
               }}
             >
-              <Zap size={18} fill="white" />
+              <Image
+                src="/logo.jpg"
+                alt="SyncAI"
+                width={36}
+                height={36}
+                style={{ objectFit: "cover", objectPosition: "50% 12%" }}
+                priority
+              />
             </Link>
           </div>
 
