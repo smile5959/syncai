@@ -95,6 +95,7 @@ export interface AiPlanPayload {
   mcp_name: string | null;
   mcp_config_id: string | null;
   confirmation_message: string;
+  model?: string;
 }
 
 export interface MessagesPage {

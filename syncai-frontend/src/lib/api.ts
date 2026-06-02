@@ -177,12 +177,16 @@ export const messages = {
     }),
   send: (roomId: string, content: string) =>
     http.post<Message>(`/rooms/${roomId}/messages`, { content }),
-  sendAi: (roomId: string, content: string) =>
-    http.post<{ task_id: string }>(`/rooms/${roomId}/ai`, { content }),
-  confirmAi: (roomId: string, taskId: string, confirmed: boolean) =>
+  sendAi: (roomId: string, content: string, model?: string) =>
+    http.post<{ task_id: string }>(`/rooms/${roomId}/ai`, {
+      content,
+      model: model ?? "google/gemini-2.5-flash:free",
+    }),
+  confirmAi: (roomId: string, taskId: string, confirmed: boolean, model?: string) =>
     http.post<{ status: string; task_id?: string }>(`/rooms/${roomId}/ai/confirm`, {
       task_id: taskId,
       confirmed,
+      model: model ?? "google/gemini-2.5-flash:free",
     }),
 };
 

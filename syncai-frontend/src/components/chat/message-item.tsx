@@ -82,7 +82,7 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
     if (status !== "idle" || !plan) return;
     setStatus("loading");
     try {
-      await messagesApi.confirmAi(roomId, plan.task_id, confirmed);
+      await messagesApi.confirmAi(roomId, plan.task_id, confirmed, plan.model);
       setStatus(confirmed ? "confirmed" : "cancelled");
     } catch {
       setStatus("idle");
