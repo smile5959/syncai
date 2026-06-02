@@ -151,10 +151,7 @@ def _select_mcp_config(
     )
     if result:
         return result
-    # 2) 팀 연결 + public (온/오프라인 무관)
-    result = base_q.filter(McpConfigTeam.is_public.is_(True)).first()
-    if result:
-        return result
+    # 2) 오프라인 MCP 선택 시 이후 실행 실패하므로 None 반환
     # 3) Fallback: 팀 연결 없어도 소유자 config 중 온라인인 것
     return (
         db.query(McpConfig)
@@ -231,7 +228,7 @@ async def _run_ai_task(
 
         from app.core import mcp_broker
         is_connected = mcp_config.is_online or mcp_broker.is_online(mcp_config.mcp_token or "")
-        if not is_connected and not mcp_config.endpoint:
+        if not is_connected:
             if task:
                 task.status = "failed"
                 task.error = f"MCP 오프라인: {mcp_config.name}"
@@ -294,7 +291,28 @@ async def _run_ai_task(
                 },
             })
 
-        result_text = await supervisor.run(content, context, on_progress, user_name=user_name)
+        async def on_tool_call(tool_name: str, desc: str):
+            await broadcast(task_connections, room_id, {
+                "type": "task_progress",
+                "data": {
+                    "task_id": task_id,
+                    "progress": min(step_counter[0] * 10, 90),
+                    "message": desc,
+                    "step": desc,
+                },
+            })
+
+        async def on_chunk(text: str):
+            await broadcast(chat_connections, room_id, {
+                "type": "message_chunk",
+                "data": {"task_id": task_id, "text": text},
+            })
+
+        result_text = await supervisor.run(
+            content, context, on_progress,
+            on_chunk=on_chunk, on_tool_call=on_tool_call,
+            user_name=user_name,
+        )
         diff = worker_agent.generate_diff()
 
         now = datetime.now(timezone.utc)
@@ -411,7 +429,17 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             max_tokens=4096,
             messages=messages,
         )
-        result_text = response.choices[0].message.content or "(응답 없음)"
+        result_text = response.choices[0].message.content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
+
+        # 스트리밍: 청크 단위로 채팅창에 전송
+        chunk_size = 6
+        import asyncio as _asyncio
+        for i in range(0, len(result_text), chunk_size):
+            await broadcast(chat_connections, room_id, {
+                "type": "message_chunk",
+                "data": {"task_id": task_id, "text": result_text[i:i+chunk_size]},
+            })
+            await _asyncio.sleep(0.02)
 
         now = datetime.now(timezone.utc)
         task.status = "completed"
@@ -819,36 +847,4 @@ async def ai_confirm(
     if task.mcp_config_id:
         mcp_config = db.query(McpConfig).filter(McpConfig.id == task.mcp_config_id).first()
 
-    original_msg = db.query(Message).filter(Message.id == task.message_id).first()
-    content = original_msg.content if original_msg else ""
-
-    task.status = "pending"
-    db.commit()
-
-    if mcp_config:
-        idle_exists = (
-            db.query(Worker)
-            .filter(Worker.team_id == uuid.UUID(team_id), Worker.status == WorkerStatus.idle)
-            .first()
-        ) is not None
-
-        if idle_exists:
-            asyncio.create_task(
-                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name)
-            )
-        else:
-            q = _get_queue(team_id)
-            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name))
-            await broadcast(task_connections, room_id, {
-                "type": "task_queued",
-                "data": {
-                    "task_id": str(task.id),
-                    "message": "Worker가 모두 사용 중입니다. 순서대로 처리됩니다.",
-                },
-            })
-    else:
-        asyncio.create_task(
-            _run_chat_only(str(task.id), content, room_id, current_user.name)
-        )
-
-    return JSONResponse({"status": "confirmed", "task_id": str(task.id)})
+    original_msg = db.query(Message).filter(Message.id == task.messa

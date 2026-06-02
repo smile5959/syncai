@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(fly logs *)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Select-Object -Last 100)",
+      "Bash(fly ssh *)",
+      "Bash(fly deploy *)",
+      "Bash(Select-String \"startup|is_online|mcp.agent|task_failed|disconnect|connect\")",
+      "Bash(Select-Object -Last 30)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(fly logs *)",
+      "PowerShell([System.Net.Dns]::GetHostEntry\\(\"66.241.125.68\"\\).HostName 2>&1)",
+      "Bash(curl *)",
+      "Bash(python3 -c ' *)",
+      "PowerShell(fly secrets *)"
+    ]
+  }
+}

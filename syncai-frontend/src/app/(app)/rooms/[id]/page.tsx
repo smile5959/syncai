@@ -47,6 +47,8 @@ export default function RoomPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [teamMcpConfigs, setTeamMcpConfigs] = useState<McpConfigWithTeam[]>([]);
   const [activeProgress, setActiveProgress] = useState<TaskProgress | null>(null);
+  const [streamingTaskId, setStreamingTaskId] = useState<string | null>(null);
+  const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
   const [showMcpSettings, setShowMcpSettings] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -116,9 +118,30 @@ export default function RoomPage() {
     const ws = createChatWS(id, handleReconnect);
     const unsub = ws.on((event: WsChatEvent) => {
       if (event.type === "message") {
-        setMsgs((prev) =>
-          prev.some((m) => m.id === event.data.id) ? prev : [...prev, event.data]
-        );
+        setMsgs((prev) => {
+          const filtered = prev.filter((m) => !m.id.startsWith("streaming-"));
+          return filtered.some((m) => m.id === event.data.id) ? filtered : [...filtered, event.data];
+        });
+        setStreamingTaskId(null);
+        setThinkingSteps([]);
+      } else if (event.type === "message_chunk") {
+        const streamId = `streaming-${event.data.task_id}`;
+        setMsgs((prev) => {
+          const exists = prev.some((m) => m.id === streamId);
+          if (!exists) {
+            return [...prev, {
+              id: streamId,
+              room_id: id,
+              user_id: null,
+              content: event.data.text,
+              type: "ai_res" as const,
+              created_at: new Date().toISOString(),
+            }];
+          }
+          return prev.map((m) =>
+            m.id === streamId ? { ...m, content: m.content + event.data.text } : m
+          );
+        });
       }
     });
     return () => { unsub(); ws.close(); };
@@ -142,9 +165,11 @@ export default function RoomPage() {
     const unsub = ws.on((event: WsTaskEvent) => {
       if (event.type === "task_progress") {
         setActiveProgress(event.data);
+        if (event.data.step) setThinkingSteps((prev) => [...prev, event.data.step!]);
       } else if (event.type === "task_started") {
         setActiveProgress({ task_id: event.data.task_id, progress: 0, message: "AI가 작업을 시작했어요..." });
-        // worker 슬롯 상태 즉시 갱신
+        setStreamingTaskId(event.data.task_id);
+        setThinkingSteps([]);
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_completed") {
         setActiveProgress(null);
@@ -152,6 +177,9 @@ export default function RoomPage() {
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_failed") {
         setActiveProgress(null);
+        setStreamingTaskId(null);
+        setThinkingSteps([]);
+        setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_queued") {
@@ -356,7 +384,16 @@ export default function RoomPage() {
                   prev.type !== msg.type ||
                   new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
                 return (
-                  <MessageItem key={msg.id} message={msg} showAvatar={showAvatar} isMe={msg.user_id === me?.id} roomId={id} tasks={taskList} />
+                  <MessageItem
+                    key={msg.id}
+                    message={msg}
+                    showAvatar={showAvatar}
+                    isMe={msg.user_id === me?.id}
+                    roomId={id}
+                    tasks={taskList}
+                    isStreaming={msg.id === `streaming-${streamingTaskId}`}
+                    thinkingSteps={msg.id === `streaming-${streamingTaskId}` ? thinkingSteps : []}
+                  />
                 );
               })}
               <div ref={bottomRef} />

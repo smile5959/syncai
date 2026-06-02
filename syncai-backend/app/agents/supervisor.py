@@ -11,7 +11,7 @@ from app.config import settings
 from app.agents.mcp_client import MCPClient, MCPFatalError
 from app.agents.worker import WorkerAgent
 
-GEMINI_MODEL = "google/gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 _GOOGLE_AI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 _VERTEX_BASE_URL_TEMPLATE = (
     "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/"
@@ -105,6 +105,8 @@ class SupervisorAgent:
         context_messages: list[dict],
         on_progress: Callable[[str], Awaitable[None]],
         user_name: str = "",
+        on_chunk: Callable[[str], Awaitable[None]] | None = None,
+        on_tool_call: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> str:
         base_url, api_key = await _get_client()
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -169,7 +171,13 @@ class SupervisorAgent:
             message = choice.message
 
             if finish_reason == "stop":
-                return message.content or "(응답 없음)"
+                content = message.content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
+                if on_chunk:
+                    chunk_size = 6
+                    for i in range(0, len(content), chunk_size):
+                        await on_chunk(content[i:i+chunk_size])
+                        await asyncio.sleep(0.02)
+                return content
 
             if finish_reason == "tool_calls":
                 messages.append(message)
@@ -183,6 +191,8 @@ class SupervisorAgent:
 
                     desc = _describe_tool(tool_name, tool_args)
                     await on_progress(desc)
+                    if on_tool_call:
+                        await on_tool_call(tool_name, desc)
 
                     try:
                         result = await self.worker.execute_tool(tool_name, tool_args)
@@ -199,10 +209,16 @@ class SupervisorAgent:
                 continue
 
             if message.content:
-                return message.content
+                content = message.content
+                if on_chunk:
+                    chunk_size = 6
+                    for i in range(0, len(content), chunk_size):
+                        await on_chunk(content[i:i+chunk_size])
+                        await asyncio.sleep(0.02)
+                return content
             break
 
-        return "최대 반복 횟수에 도달했습니다."
+        return "작업을 완료하지 못했습니다. 다시 시도해 주세요."
 
 
 def _describe_tool(name: str, args: dict) -> str:
@@ -210,20 +226,4 @@ def _describe_tool(name: str, args: dict) -> str:
         return f"파일 읽는 중: {args.get('path', '')}"
     elif name in ("write_file", "create_file"):
         return f"파일 수정 중: {args.get('path', '')}"
-    elif name == "list_directory":
-        return f"디렉토리 조회 중: {args.get('path', '.')}"
-    elif name == "delete_file":
-        return f"파일 삭제 중: {args.get('path', '')}"
-    elif name == "create_directory":
-        return f"폴더 생성 중: {args.get('path', '')}"
-    elif name == "move_file":
-        return f"이동 중: {args.get('src', '')} -> {args.get('dest', '')}"
-    elif name == "copy_file":
-        return f"복사 중: {args.get('src', '')} -> {args.get('dest', '')}"
-    elif name == "delete_directory":
-        return f"폴더 삭제 중: {args.get('path', '')}"
-    elif name == "search_files":
-        return f"파일 검색 중: {args.get('pattern', '') or args.get('keyword', '')}"
-    elif name == "get_file_info":
-        return f"파일 정보 조회 중: {args.get('path', '')}"
-    return f"툴 실행 중: {name}"
+    

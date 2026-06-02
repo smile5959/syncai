@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Message, AiPlanPayload, AiTask } from "@/types";
 import { messages as messagesApi, mcpConfigs } from "@/lib/api";
-import { Bot, Zap, Check, X, Loader2, ShieldCheck } from "lucide-react";
+import { Bot, Zap, Check, X, Loader2, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 
 interface MessageItemProps {
   message: Message;
@@ -12,6 +12,8 @@ interface MessageItemProps {
   isMe?: boolean;
   roomId?: string;
   tasks?: AiTask[];
+  isStreaming?: boolean;
+  thinkingSteps?: string[];
 }
 
 const AVATAR_GRADIENTS = [
@@ -198,9 +200,58 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
   );
 }
 
+// ─── Thinking Panel ──────────────────────────────────────────────────────────
+
+function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          background: "rgba(99,102,241,0.08)",
+          border: "1px solid rgba(99,102,241,0.18)",
+          borderRadius: 8, padding: "3px 10px",
+          cursor: "pointer", fontSize: 11.5,
+          color: "var(--accent)", fontWeight: 500,
+        }}
+      >
+        {isStreaming
+          ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+          : open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        {isStreaming ? "작업 중..." : `작업 내역 ${steps.length}개`}
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+      </button>
+      {(open || isStreaming) && steps.length > 0 && (
+        <div style={{
+          marginTop: 6,
+          background: "rgba(99,102,241,0.04)",
+          border: "1px solid rgba(99,102,241,0.12)",
+          borderRadius: 8, padding: "8px 12px",
+          display: "flex", flexDirection: "column", gap: 4,
+        }}>
+          {steps.map((step, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--text-secondary)" }}>
+              <span style={{ color: "var(--accent)", fontSize: 10 }}>▸</span>
+              {step}
+            </div>
+          ))}
+          {isStreaming && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--text-muted)" }}>
+              <Loader2 size={10} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
+              생각 중...
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function MessageItem({ message, showAvatar = true, isMe = false, roomId = "", tasks }: MessageItemProps) {
+export function MessageItem({ message, showAvatar = true, isMe = false, roomId = "", tasks, isStreaming = false, thinkingSteps = [] }: MessageItemProps) {
   const isAi = message.type === "ai_res";
   const isPlan = message.type === "ai_plan";
   const isCmd = message.type === "ai_cmd" || message.content.startsWith("/ai ");
@@ -285,9 +336,17 @@ export function MessageItem({ message, showAvatar = true, isMe = false, roomId =
       >
         <div
           className="bg-gradient-to-br from-[var(--accent)] to-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_14px_var(--accent-glow)]"
-          style={{ width: 36, height: 36, borderRadius: "50%" }}
+          style={{ width: 36, height: 36, borderRadius: "50%", position: "relative" }}
         >
           <Bot size={15} className="text-white" />
+          {isStreaming && (
+            <span style={{
+              position: "absolute", bottom: 1, right: 1,
+              width: 8, height: 8, borderRadius: "50%",
+              background: "#4ade80", boxShadow: "0 0 6px #4ade80",
+              animation: "pulse 1.2s ease-in-out infinite",
+            }} />
+          )}
         </div>
         <div className="flex-1 min-w-0" style={{ paddingTop: 2 }}>
           <div className="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
@@ -299,12 +358,24 @@ export function MessageItem({ message, showAvatar = true, isMe = false, roomId =
             </span>
             <span className="text-[var(--text-muted)]" style={{ fontSize: 11 }}>{formatTime(message.created_at)}</span>
           </div>
+          {thinkingSteps.length > 0 && (
+            <ThinkingPanel steps={thinkingSteps} isStreaming={isStreaming} />
+          )}
           <div className="border-l-2 border-[var(--ai-border)]" style={{ paddingLeft: 14 }}>
             <p className="text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap" style={{ fontSize: 13.5 }}>
               {message.content}
+              {isStreaming && (
+                <span style={{
+                  display: "inline-block", width: 2, height: "1em",
+                  background: "var(--accent)", marginLeft: 2,
+                  verticalAlign: "text-bottom",
+                  animation: "blink 1s step-end infinite",
+                }} />
+              )}
             </p>
           </div>
         </div>
+        <style>{"@keyframes blink{0%,100%{opacity:1}50%{opacity:0}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}"}</style>
       </div>
     );
   }

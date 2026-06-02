@@ -140,7 +140,12 @@ export interface WsTaskStarted {
 
 export interface WsTaskProgress {
   type: "task_progress";
-  data: { task_id: string; progress: number; message: string };
+  data: { task_id: string; progress: number; message: string; step?: string };
+}
+
+export interface WsMessageChunk {
+  type: "message_chunk";
+  data: { task_id: string; text: string };
 }
 
 export interface WsTaskCompleted {
@@ -158,7 +163,7 @@ export interface WsTaskQueued {
   data: { task_id: string; message: string };
 }
 
-export type WsChatEvent = WsChatMessage;
+export type WsChatEvent = WsChatMessage | WsMessageChunk;
 export type WsTaskEvent =
   | WsTaskStarted
   | WsTaskProgress

@@ -15,6 +15,15 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 async def startup_event():
+    from app.database import SessionLocal
+    from app.models.mcp_config import McpConfig
+    db = SessionLocal()
+    try:
+        updated = db.query(McpConfig).filter(McpConfig.is_online == True).update({"is_online": False})
+        db.commit()
+        print(f"[startup] is_online 리셋: {updated}개")
+    finally:
+        db.close()
     asyncio.create_task(ws.redis_subscriber())
 
 # CORS — 허용 출처는 환경변수 CORS_ORIGINS 로 관리
