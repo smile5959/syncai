@@ -1,4 +1,4 @@
-﻿name: Deploy Backend to Fly.io
+name: Deploy Backend to Fly.io
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'syncai-backend/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
