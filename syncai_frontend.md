@@ -3,10 +3,6 @@
 ## 기술 스택
 Next.js 16.2.5 (App Router) / TypeScript / Tailwind CSS v4 / Zustand / Axios / Radix UI / Lucide
 
-## 에셋
-- `public/logo.jpg` — SyncAI 로고 이미지 (무한대+코드 심볼, 보라/파랑 그라디언트)
-  - `IconNav` 상단 앱 아이콘으로 사용 (36×36, objectPosition: "50% 12%" 로 심볼 영역 크롭)
-
 ## 프로젝트 구조
 ```
 syncai-frontend/
