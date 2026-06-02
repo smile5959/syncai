@@ -110,8 +110,9 @@ async def _release_worker(worker_id: str, team_id: str):
     q = _get_queue(team_id)
     if not q.empty():
         item = await q.get()
-        task_id, content, mcp_config_id, room_id, queued_user_name = item
-        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name))
+        task_id, content, mcp_config_id, room_id, queued_user_name, *rest = item
+        queued_model = rest[0] if rest else ""
+        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name, queued_model))
 
 
 # ── MCP Config 선택 ───────────────────────────────────────────────────────────
@@ -204,6 +205,7 @@ async def _run_ai_task(
     room_id: str,
     team_id: str,
     user_name: str = "",
+    model: str = "",
 ):
     from app.models.task import Task
     from app.models.message import Message
@@ -328,10 +330,12 @@ async def _run_ai_task(
                 "data": {"task_id": task_id, "text": text},
             })
 
+        from app.agents.supervisor import DEFAULT_MODEL
         result_text = await supervisor.run(
             content, context, on_progress,
             on_chunk=on_chunk, on_tool_call=on_tool_call,
             user_name=user_name,
+            model=model or DEFAULT_MODEL,
         )
         diff = worker_agent.generate_diff()
 
@@ -405,8 +409,8 @@ async def _run_ai_task(
 
 # ── Chat-only AI (MCP 없는 순수 대화 모드) ────────────────────────────────────
 
-async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = ""):
-    from app.agents.supervisor import _get_client, GEMINI_MODEL
+async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = "", model: str = ""):
+    from app.agents.supervisor import _get_client, DEFAULT_MODEL
     from app.services.room_service import get_recent_messages
     from openai import AsyncOpenAI
 
@@ -457,7 +461,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
         messages.append({"role": "user", "content": content})
 
         response = await client.chat.completions.create(
-            model=GEMINI_MODEL,
+            model=model or DEFAULT_MODEL,
             max_tokens=4096,
             messages=messages,
         )
@@ -562,7 +566,7 @@ async def _plan_ai_task(
     반환: {needs_mcp: bool, mcp_name: str|None, confirmation_message: str}
     """
     import json as _json
-    from app.agents.supervisor import _get_client, GEMINI_MODEL
+    from app.agents.supervisor import _get_client, DEFAULT_MODEL
     from openai import AsyncOpenAI
 
     base_url, api_key = await _get_client()
@@ -584,7 +588,7 @@ async def _plan_ai_task(
 
     try:
         response = await client.chat.completions.create(
-            model=GEMINI_MODEL,
+            model=DEFAULT_MODEL,  # 플래닝은 항상 기본 모델 고정
             max_tokens=512,
             messages=messages,
         )
@@ -729,7 +733,7 @@ async def ai_command(
 
     # 3. 백그라운드에서 AI 계획 분석 → ai_plan 메시지 전송
     asyncio.create_task(
-        _send_ai_plan(str(task.id), body.content, room_id, team_id, mention_name, current_user)
+        _send_ai_plan(str(task.id), body.content, room_id, team_id, mention_name, current_user, body.model)
     )
 
     return JSONResponse({"task_id": str(task.id)})
@@ -742,6 +746,7 @@ async def _send_ai_plan(
     team_id: str,
     mention_name: str | None,
     current_user,
+    model: str = "",
 ):
     """AI 계획 분석 후 ai_plan 메시지를 채팅에 전송."""
     import json as _json
@@ -790,7 +795,7 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_chat_only(task_id, content, room_id, current_user.name)
+                _run_chat_only(task_id, content, room_id, current_user.name, model)
             )
             return
 
@@ -804,7 +809,7 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_ai_task(task_id, content, str(proposed_mcp.id), room_id, team_id, current_user.name)
+                _run_ai_task(task_id, content, str(proposed_mcp.id), room_id, team_id, current_user.name, model)
             )
             return
 
@@ -817,6 +822,7 @@ async def _send_ai_plan(
             "mcp_name": plan["mcp_name"],
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
             "confirmation_message": plan["confirmation_message"],
+            "model": model,
         }, ensure_ascii=False)
 
         plan_msg = Message(
@@ -906,11 +912,11 @@ async def ai_confirm(
 
         if idle_exists:
             asyncio.create_task(
-                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name)
+                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name, body.model)
             )
         else:
             q = _get_queue(team_id)
-            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name))
+            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name, body.model))
             await broadcast(task_connections, room_id, {
                 "type": "task_queued",
                 "data": {

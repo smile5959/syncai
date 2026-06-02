@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
+    OPENROUTER_API_KEY: str = ""
     APP_ENV: str = "development"
     # CORS — 쉼표로 구분된 허용 출처 목록
     # 예: CORS_ORIGINS=http://localhost:3000,https://your-app.vercel.app

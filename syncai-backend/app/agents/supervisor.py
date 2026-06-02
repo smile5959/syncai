@@ -1,6 +1,6 @@
 """
 Supervisor 에이전트
-Gemini API (OpenAI 호환 엔드포인트)를 사용해 /ai 커맨드를 분석하고
+OpenRouter API를 사용해 /ai 커맨드를 분석하고
 Worker에게 MCP 툴 호출을 위임한다.
 """
 import json
@@ -11,42 +11,12 @@ from app.config import settings
 from app.agents.mcp_client import MCPClient, MCPFatalError
 from app.agents.worker import WorkerAgent
 
-GEMINI_MODEL = "gemini-2.5-flash"
-_GOOGLE_AI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-_VERTEX_BASE_URL_TEMPLATE = (
-    "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/"
-    "{project_id}/locations/us-central1/endpoints/openapi/"
-)
-
-
-def _get_client_sync():
-    if settings.GOOGLE_APPLICATION_CREDENTIALS:
-        try:
-            import json as _json
-            from google.oauth2 import service_account
-            from google.auth.transport.requests import Request as GoogleRequest
-
-            with open(settings.GOOGLE_APPLICATION_CREDENTIALS) as f:
-                sa_info = _json.load(f)
-            project_id = sa_info.get("project_id", "")
-            creds = service_account.Credentials.from_service_account_file(
-                settings.GOOGLE_APPLICATION_CREDENTIALS,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"],
-            )
-            creds.refresh(GoogleRequest())
-            base_url = _VERTEX_BASE_URL_TEMPLATE.format(project_id=project_id)
-            print(f"[supervisor] Vertex AI 사용 (project={project_id})")
-            return base_url, creds.token
-        except Exception as e:
-            print(f"[supervisor] 서비스 계정 토큰 발급 실패: {e} — API 키 fallback")
-
-    print("[supervisor] Google AI Studio API 키 사용")
-    return _GOOGLE_AI_BASE_URL, settings.GEMINI_API_KEY
+DEFAULT_MODEL = "google/gemini-2.5-flash:free"
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 async def _get_client() -> tuple[str, str]:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _get_client_sync)
+    return _OPENROUTER_BASE_URL, settings.OPENROUTER_API_KEY
 
 
 MCP_TOOLS = [
@@ -107,6 +77,7 @@ class SupervisorAgent:
         user_name: str = "",
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
         on_tool_call: Callable[[str, str], Awaitable[None]] | None = None,
+        model: str = DEFAULT_MODEL,
     ) -> str:
         base_url, api_key = await _get_client()
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -160,7 +131,7 @@ class SupervisorAgent:
             await on_progress(f"분석 중... ({iteration + 1}단계)")
 
             response = await client.chat.completions.create(
-                model=GEMINI_MODEL,
+                model=model,
                 max_tokens=4096,
                 tools=MCP_TOOLS,
                 messages=messages,
