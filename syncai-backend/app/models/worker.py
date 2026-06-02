@@ -22,7 +22,7 @@ class Worker(Base):
     )
     # 현재 처리 중인 task ID (FK 없는 단순 UUID — 순환 참조 방지)
     current_task_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False, default="google/gemini-2.5-flash:free")
+    model: Mapped[str] = mapped_column(String(100), nullable=False, default="google/gemma-4-31b-it:free")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # relationships

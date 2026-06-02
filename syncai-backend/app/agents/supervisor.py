@@ -11,7 +11,7 @@ from app.config import settings
 from app.agents.mcp_client import MCPClient, MCPFatalError
 from app.agents.worker import WorkerAgent
 
-DEFAULT_MODEL = "google/gemini-2.5-flash:free"
+DEFAULT_MODEL = "google/gemma-4-31b-it:free"
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 

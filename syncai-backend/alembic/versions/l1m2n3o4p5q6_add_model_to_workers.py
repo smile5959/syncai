@@ -19,7 +19,7 @@ def upgrade():
         'model',
         sa.String(100),
         nullable=False,
-        server_default='google/gemini-2.5-flash:free',
+        server_default='google/gemma-4-31b-it:free',
     ))
 
 

@@ -16,7 +16,7 @@ class WorkerOut(BaseModel):
     name: str
     status: WorkerStatus
     current_task_id: uuid.UUID | None = None
-    model: str = "google/gemini-2.5-flash:free"
+    model: str = "google/gemma-4-31b-it:free"
     created_at: datetime
 
 
