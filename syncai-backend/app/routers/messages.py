@@ -246,7 +246,7 @@ async def _run_ai_task(
         public_mcps = _get_public_mcp_list(db, team_id)
 
         from app.core import mcp_broker
-        is_connected = mcp_config.is_online or mcp_broker.is_online(mcp_config.mcp_token or "")
+        is_connected = mcp_broker.is_online(mcp_config.mcp_token or "")
         if not is_connected:
             if task:
                 task.status = "failed"

@@ -190,6 +190,7 @@ async def ws_mcp_agent(websocket: WebSocket):
             return
         user_id = str(config.owner_user_id)
         config_id = str(config.id)
+        base_dir = config.base_dir  # commit 전에 읽어야 expire 안 됨
         config.is_online = True
         db.commit()
     finally:
@@ -201,6 +202,14 @@ async def ws_mcp_agent(websocket: WebSocket):
 
     # 연결 이벤트 → 프론트 실시간 알림
     _publish_mcp_status(user_id, config_id, online=True)
+
+    # PC 재부팅 후 base_dir 복원: DB 값을 MCP 서버에 전달
+    if base_dir:
+        try:
+            await websocket.send_json({"type": "base_dir_restore", "base_dir": base_dir})
+            log.info("[mcp-agent] base_dir 복원 전송: ...%s → %s", mcp_token[-6:], base_dir)
+        except Exception as e:
+            log.warning("[mcp-agent] base_dir 복원 전송 실패: %s", e)
 
     try:
         while True:

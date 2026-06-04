@@ -183,6 +183,13 @@ async def _ws_loop(backend_url: str, token: str) -> None:
                         else:
                             log.info("[ws] 폴더 선택 취소됨")
 
+                    elif msg_type == "base_dir_restore":
+                        # 백엔드가 WS 연결 직후 DB의 base_dir를 전달 (PC 재부팅 후 복원용)
+                        base_dir = data.get("base_dir", "")
+                        if base_dir:
+                            _cfg.register_token(token, base_dir, persist=True)
+                            log.info("[ws] base_dir 복원 완료: %s", base_dir)
+
                     elif msg_type == "ping":
                         pass  # keep-alive
 
