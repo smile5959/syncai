@@ -8,6 +8,7 @@ SyncAI_서버운영가이드.docx
 
 # Claude 로컬 설정
 .claude/settings.local.json
+_memory/
 
 # 임시/쿼리 파일
 **/query

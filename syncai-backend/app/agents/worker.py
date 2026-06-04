@@ -148,17 +148,21 @@ class WorkerAgent:
 
         parts = []
         for path, change in self.file_changes.items():
+            is_new_file = change["before"] is None
             before_lines = (change["before"] or "").splitlines(keepends=True)
             after_lines = (change["after"] or "").splitlines(keepends=True)
             diff_lines = difflib.unified_diff(
                 before_lines,
                 after_lines,
-                fromfile=f"a/{path}",
+                fromfile="/dev/null" if is_new_file else f"a/{path}",
                 tofile=f"b/{path}",
             )
             diff_text = "".join(diff_lines)
             if diff_text:
                 parts.append(diff_text)
+            elif is_new_file:
+                # 빈 파일 신규 생성 — unified_diff가 빈 문자열 반환하므로 명시적으로 표시
+                parts.append(f"--- /dev/null\n+++ b/{path}\n(새 파일 생성, 내용 없음)\n")
 
         return "\n".join(parts)
 

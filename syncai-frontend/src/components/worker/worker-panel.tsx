@@ -81,7 +81,7 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
   }
 
   const sorted = [...tasks]
-    .filter((t) => t.result_diff || t.error || t.status === "running" || (t.status === "completed" && t.result_diff))
+    .filter((t) => t.result_diff || t.error || t.status === "running" || t.status === "completed")
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 50);
 
