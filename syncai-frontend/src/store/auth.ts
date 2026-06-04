@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { User, Team } from "@/types";
 
 interface AuthState {
@@ -9,28 +10,33 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  team: null,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      team: null,
 
-  setUser: (user) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("team_id", ""); // team_id는 비워두고 setTeam에서 세팅
-    }
-    set({ user });
-  },
+      setUser: (user) => {
+        set({ user });
+      },
 
-  setTeam: (team) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("team_id", team.id);
-    }
-    set({ team });
-  },
+      setTeam: (team) => {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("team_id", team.id);
+        }
+        set({ team });
+      },
 
-  logout: () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("team_id");
+      logout: () => {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("team_id");
+        }
+        set({ user: null, team: null });
+      },
+    }),
+    {
+      name: "syncai-auth", // localStorage key
+      partialize: (state) => ({ user: state.user, team: state.team }),
     }
-    set({ user: null, team: null });
-  },
-}));
+  )
+);
