@@ -2,6 +2,10 @@
 Worker LLM 에이전트
 슬롯별 모델(worker.model)로 tool-calling 루프 실행.
 Supervisor.analyze()가 반환한 task_plan을 받아 MCP 툴을 호출하며 작업을 완료한다.
+
+토큰 최적화:
+  D) 툴 결과 truncation: 파일/디렉토리 결과를 일정 길이로 자름
+  E) 오래된 툴 메시지 압축: 2회 이전 iteration의 tool 메시지를 [완료]로 대체
 """
 import json
 import asyncio
@@ -43,6 +47,22 @@ WORKER_SYSTEM_PROMPT = (
 )
 
 MAX_ITERATIONS = 20
+
+# D: 툴 결과별 최대 길이 (chars)
+_TOOL_RESULT_LIMITS: dict[str, int] = {
+    "read_file": 2000,
+    "list_directory": 800,
+    "search_files": 1000,
+}
+_DEFAULT_TOOL_RESULT_LIMIT = 1500
+
+
+def _truncate_tool_result(content: str, tool_name: str) -> str:
+    """D: 툴 결과를 적절한 크기로 자른다. 잘린 경우 생략 안내 추가."""
+    limit = _TOOL_RESULT_LIMITS.get(tool_name, _DEFAULT_TOOL_RESULT_LIMIT)
+    if len(content) > limit:
+        return content[:limit] + f"\n…(+{len(content) - limit}자 생략)"
+    return content
 
 
 def _describe_tool(name: str, args: dict) -> str:
@@ -146,12 +166,24 @@ class WorkerLLM:
             messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": task_plan})
 
+        # E: 툴 배치 인덱스 추적 (start, end) — 2회 이전 배치를 압축하기 위해
+        tool_batches: list[tuple[int, int]] = []
+
         for iteration in range(MAX_ITERATIONS):
+            # E: 2회 이전 iteration의 tool 메시지 압축
+            if len(tool_batches) > 2:
+                old_start, old_end = tool_batches[-3]
+                for i in range(old_start, old_end):
+                    m = messages[i]
+                    if isinstance(m, dict) and m.get("role") == "tool":
+                        if len(m.get("content", "")) > 20:
+                            messages[i] = {**m, "content": "[완료]"}
+
             await on_progress(f"작업 중... ({iteration + 1}단계)")
 
             response = await client.chat.completions.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=2048,
                 tools=MCP_TOOLS,
                 messages=messages,
             )
@@ -169,6 +201,7 @@ class WorkerLLM:
                 return content
 
             if finish_reason == "tool_calls":
+                batch_start = len(messages)
                 messages.append(message)
 
                 for tool_call in (message.tool_calls or []):
@@ -188,12 +221,17 @@ class WorkerLLM:
                     except MCPFatalError as e:
                         return f"[MCP 오류] {e}"
 
+                    # D: 툴 결과 truncation
+                    truncated = _truncate_tool_result(result, tool_name)
+
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "content": result,
+                        "content": truncated,
                     })
 
+                batch_end = len(messages)
+                tool_batches.append((batch_start, batch_end))
                 continue
 
             if message.content:

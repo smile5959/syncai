@@ -337,15 +337,49 @@ async def _run_ai_task(
             selected_mcp_name=mcp_config.name,
         )
         base_url, api_key = await _get_client()
+        worker_model = worker.model or DEFAULT_MODEL
+
         result_text = await worker_llm.run(
             task_plan, context, on_progress,
-            model=worker.model or DEFAULT_MODEL,
+            model=worker_model,
             base_url=base_url,
             api_key=api_key,
             user_name=user_name,
             on_chunk=on_chunk,
             on_tool_call=on_tool_call,
         )
+
+        # Supervisor 검증 + 재시도 루프 (최대 2회)
+        # 멀티 워커 확장 시: supervisor.validate()에 여러 Worker 결과 리스트 전달
+        MAX_RETRIES = 2
+        for retry_num in range(MAX_RETRIES):
+            validation = await supervisor.validate(
+                task_plan=task_plan,
+                worker_result=result_text,
+                file_changes=worker_agent.file_changes,
+            )
+            if validation["success"] or not validation["retry_plan"]:
+                break
+
+            print(f"[_run_ai_task] 재시도 {retry_num + 1}/{MAX_RETRIES}: {validation['retry_plan']}")
+            await broadcast(task_connections, room_id, {
+                "type": "task_progress",
+                "data": {
+                    "task_id": task_id,
+                    "progress": 50 + retry_num * 20,
+                    "message": f"작업 보완 중... ({retry_num + 1}/{MAX_RETRIES})",
+                },
+            })
+            result_text = await worker_llm.run(
+                validation["retry_plan"], context, on_progress,
+                model=worker_model,
+                base_url=base_url,
+                api_key=api_key,
+                user_name=user_name,
+                on_chunk=on_chunk,
+                on_tool_call=on_tool_call,
+            )
+
         diff = worker_agent.generate_diff()
 
         now = datetime.now(timezone.utc)
@@ -482,7 +516,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 
         response = await client.chat.completions.create(
             model=chat_model,
-            max_tokens=4096,
+            max_tokens=2048,
             messages=messages,
         )
         result_text = response.choices[0].message.content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."

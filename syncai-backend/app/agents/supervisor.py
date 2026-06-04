@@ -1,7 +1,10 @@
 """
 Supervisor 에이전트
 DEFAULT_MODEL(gemma:free) 고정.
-작업 분석/계획만 담당 — tool-calling 루프 없음.
+역할:
+  1. analyze()  — 작업 계획 생성 (Worker에게 전달할 지시)
+  2. validate() — Worker 결과 검증 + 재시도 판단
+멀티 워커 확장 시 validate()의 file_changes를 list[dict]로 변경.
 """
 import json
 from openai import AsyncOpenAI
@@ -25,6 +28,18 @@ ANALYZE_SYSTEM_PROMPT = (
     "- 간결하고 명확하게 작성하세요"
 )
 
+VALIDATE_SYSTEM_PROMPT = (
+    "당신은 SyncAI의 작업 검증기입니다. Worker가 수행한 결과를 검토해 "
+    "작업이 성공적으로 완료됐는지 판단하세요.\n\n"
+    "반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):\n"
+    "{\"success\": true/false, \"retry_plan\": \"재시도 지시 또는 null\"}\n\n"
+    "판단 기준:\n"
+    "- 파일 변경이 필요한 작업인데 실제 변경 내역이 없으면 false\n"
+    "- Worker 응답에 오류/실패 언급이 있으면 false\n"
+    "- 요청한 작업이 실제로 수행됐으면 true\n"
+    "- retry_plan: success=false일 때 Worker에게 줄 구체적 보완 지시 (한국어), success=true면 null"
+)
+
 
 class SupervisorAgent:
     def __init__(
@@ -45,7 +60,7 @@ class SupervisorAgent:
     ) -> str:
         """
         사용자 명령과 채팅 맥락을 분석해 Worker LLM에 전달할 작업 계획 문자열을 반환한다.
-        DEFAULT_MODEL(gemma:free) 고정.
+        컨텍스트는 최근 5개만 사용 (토큰 절약).
         실패 시 원본 command를 그대로 반환 (Worker가 직접 처리).
         """
         base_url, api_key = await _get_client()
@@ -61,7 +76,8 @@ class SupervisorAgent:
             system += f"\n요청자: {user_name}"
 
         messages = [{"role": "system", "content": system}]
-        for msg in context_messages[-10:]:
+        # F: 최근 5개만 (Supervisor는 판단만 하므로 전체 맥락 불필요)
+        for msg in context_messages[-5:]:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             if isinstance(content, list):
@@ -83,3 +99,57 @@ class SupervisorAgent:
         except Exception as e:
             print(f"[SupervisorAgent.analyze] 분석 실패: {e}")
             return command
+
+    async def validate(
+        self,
+        task_plan: str,
+        worker_result: str,
+        file_changes: dict,
+    ) -> dict:
+        """
+        Worker 실행 결과를 검증하고 재시도 여부를 결정한다.
+
+        멀티 워커 확장 시 변경 방향:
+          - file_changes: dict → results: list[dict] (각 Worker의 결과 + file_changes)
+          - validate()가 여러 Worker 결과를 취합해 최종 판단
+
+        반환: {"success": bool, "retry_plan": str | None}
+        실패 시 success=True로 간주 (재시도 루프 무한 방지).
+        """
+        base_url, api_key = await _get_client()
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+        # 파일 변경 요약 생성
+        if file_changes:
+            changes_summary = "\n".join(
+                f"- {path}: {'신규 생성' if v.get('before') is None else '삭제' if v.get('after') is None else '수정'}"
+                for path, v in file_changes.items()
+            )
+        else:
+            changes_summary = "없음"
+
+        user_content = (
+            f"[작업 지시]\n{task_plan}\n\n"
+            f"[Worker 응답]\n{worker_result[:400]}\n\n"
+            f"[실제 파일 변경 내역]\n{changes_summary}"
+        )
+
+        try:
+            response = await client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                max_tokens=256,
+                messages=[
+                    {"role": "system", "content": VALIDATE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            raw = (response.choices[0].message.content or "{}").strip()
+            raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            data = json.loads(raw)
+            return {
+                "success": bool(data.get("success", True)),
+                "retry_plan": data.get("retry_plan") or None,
+            }
+        except Exception as e:
+            print(f"[SupervisorAgent.validate] 검증 실패: {e}")
+            return {"success": True, "retry_plan": None}
