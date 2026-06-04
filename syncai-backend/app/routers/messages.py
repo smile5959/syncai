@@ -382,8 +382,15 @@ async def _run_ai_task(
 
         diff = worker_agent.generate_diff()
 
+        # 모든 재시도 후에도 에러 응답이면 failed 처리
+        is_error_result = result_text.startswith("[MCP 오류]") or result_text.startswith("⚠️")
+
         now = datetime.now(timezone.utc)
-        task.status = "completed"
+        if is_error_result:
+            task.status = "failed"
+            task.error = result_text
+        else:
+            task.status = "completed"
         task.result_diff = diff if diff else None
         # revert용: 파일 원본 스냅샷 + 실행에 사용한 MCP Config 저장
         snapshot = worker_agent.build_backup_snapshot()
