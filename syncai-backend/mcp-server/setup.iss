@@ -23,7 +23,7 @@
 ; ============================================================
 
 #define MyAppName      "SyncAI MCP Client"
-#define MyAppVersion   "1.0.1"
+#define MyAppVersion   "1.0.2"
 #define MyAppPublisher "SyncAI"
 #define MyAppURL       "https://syncai-backend.fly.dev"
 #define MyAppExeName   "server\server.exe"

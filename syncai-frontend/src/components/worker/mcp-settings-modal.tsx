@@ -182,6 +182,7 @@ function MyMcpTab() {
     configId: string;
     name: string;
     downloadUrl?: string;
+    downloadUrlError?: boolean;
   } | null>(null);
 
   // 인라인 편집 상태
@@ -243,7 +244,7 @@ function MyMcpTab() {
             downloadUrl: dlRes.data.download_url,
           });
         } catch {
-          setPostCreate({ online: false, token, configId: mcp_config.id, name: mcp_config.name });
+          setPostCreate({ online: false, token, configId: mcp_config.id, name: mcp_config.name, downloadUrlError: true });
         }
       }
     } catch (e: unknown) {
@@ -341,7 +342,7 @@ function MyMcpTab() {
                 <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
                   PC에 MCP 서버가 없습니다. 설치 파일을 실행하면 자동으로 연결됩니다.
                 </p>
-                {postCreate.downloadUrl && (
+                {postCreate.downloadUrl ? (
                   <a
                     href={postCreate.downloadUrl}
                     style={{
@@ -355,7 +356,30 @@ function MyMcpTab() {
                     <Download size={13} />
                     SyncAI-MCP-Setup.exe 다운로드
                   </a>
-                )}
+                ) : postCreate.downloadUrlError ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      다운로드 URL을 불러오지 못했습니다.
+                    </span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const dlRes = await mcpApi.getDownloadUrl(postCreate.token);
+                          setPostCreate((prev) => prev ? { ...prev, downloadUrl: dlRes.data.download_url, downloadUrlError: false } : prev);
+                        } catch { /* 무시 */ }
+                      }}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        padding: "6px 14px", borderRadius: 9,
+                        background: "var(--accent)", color: "white",
+                        fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+                      }}
+                    >
+                      <RefreshCw size={11} />
+                      재시도
+                    </button>
+                  </div>
+                ) : null}
               </>
             )}
           </div>

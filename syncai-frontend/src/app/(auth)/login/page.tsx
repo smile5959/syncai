@@ -89,6 +89,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // 입력값 바꾸면 에러 지움 (submit 시작 시 지우지 않음)
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (error) setError("");
+  };
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (error) setError("");
+  };
+
   const pwStrength = (() => {
     if (!password) return 0;
     let s = 0;
@@ -103,7 +113,6 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     setLoading(true);
     try {
       // 프론트(Vercel)와 백엔드(Fly.io)가 다른 도메인이라
@@ -361,7 +370,7 @@ export default function LoginPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               required
             />
             <FieldInput
@@ -370,7 +379,7 @@ export default function LoginPage() {
               type={showPw ? "text" : "password"}
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               required
               rightIcon={
                 <button
@@ -421,9 +430,22 @@ export default function LoginPage() {
                 marginBottom: 14, padding: "9px 12px", borderRadius: 10,
                 background: "rgba(239, 68, 68, 0.08)",
                 border: "1px solid rgba(239, 68, 68, 0.2)",
-                fontSize: 12.5, color: "var(--red)", textAlign: "center",
+                fontSize: 12.5, color: "var(--red)",
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
               }}>
-                {error}
+                <span style={{ flex: 1, textAlign: "center" }}>{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  style={{
+                    background: "transparent", border: 0, cursor: "pointer",
+                    color: "var(--red)", opacity: 0.6, flexShrink: 0,
+                    padding: 0, lineHeight: 1, fontSize: 16,
+                  }}
+                  aria-label="닫기"
+                >
+                  ×
+                </button>
               </div>
             )}
 
