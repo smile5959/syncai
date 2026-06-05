@@ -175,10 +175,9 @@ def download_installer(
     if not config:
         raise HTTPException(status_code=404, detail="해당 토큰의 MCP Config를 찾을 수 없습니다.")
 
-    installer_base = getattr(settings, "MCP_INSTALLER_URL", None)
-    if not installer_base:
+    if not settings.MCP_INSTALLER_URL:
         raise HTTPException(status_code=503, detail="인스톨러 URL이 설정되지 않았습니다. 관리자에게 문의하세요.")
-    download_url = installer_base
+    download_url = settings.MCP_INSTALLER_URL
 
     return {
         "download_url": download_url,

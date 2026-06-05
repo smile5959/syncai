@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # 예: CORS_ORIGINS=http://localhost:3000,https://your-app.vercel.app
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     FRONTEND_URL: str = "https://syncai-frontend.vercel.app"
+    MCP_INSTALLER_URL: str = ""
 
     def get_cors_origins(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
