@@ -183,7 +183,7 @@ class WorkerLLM:
 
             response = await client.chat.completions.create(
                 model=model,
-                max_tokens=2048,
+                max_tokens=1500,
                 tools=MCP_TOOLS,
                 messages=messages,
             )
