@@ -18,7 +18,25 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(fly status *)",
-      "Bash(fly secrets *)"
+      "Bash(fly secrets *)",
+      "PowerShell(& \"C:\\\\Users\\\\admin\\\\AppData\\\\Local\\\\Programs\\\\Inno Setup 6\\\\ISCC.exe\" \"C:\\\\khh\\\\syncAI\\\\syncai-backend\\\\mcp-server\\\\setup.iss\" 2>&1 | Select-Object -Last 15)",
+      "PowerShell(Start-Process \"C:\\\\khh\\\\syncAI\\\\syncai-backend\\\\mcp-server\\\\Output\\\\SyncAI-MCP-Setup.exe\" -Wait)",
+      "PowerShell(gh release *)",
+      "Bash(gh release *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(git config *)",
+      "PowerShell(winget install *)",
+      "PowerShell(gh auth *)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); $cred = \"protocol=https`nhost=github.com`n\" | git credential fill 2>$null; $cred)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); [System.Net.NetworkCredential]::new\\(\"\", \\(cmdkey /list:github.com 2>$null\\)\\).Password)",
+      "PowerShell(cmdkey *)",
+      "PowerShell(& \"C:\\\\Users\\\\admin\\\\AppData\\\\Local\\\\Programs\\\\Inno Setup 6\\\\ISCC.exe\" \"C:\\\\khh\\\\syncAI\\\\syncai-backend\\\\mcp-server\\\\setup.iss\" 2>&1 | Select-Object -Last 5)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:7860/health\" -Method Get | ConvertTo-Json)",
+      "PowerShell(Invoke-RestMethod -Uri \"https://syncai-backend.fly.dev/health\" -Method Get | ConvertTo-Json)",
+      "PowerShell(sc query *)",
+      "PowerShell(sc.exe query SyncAIMCPServer 2>&1)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

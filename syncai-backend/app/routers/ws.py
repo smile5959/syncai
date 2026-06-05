@@ -200,16 +200,27 @@ async def ws_mcp_agent(websocket: WebSocket):
     mcp_broker.agent_connections[mcp_token] = websocket
     log.info("[mcp-agent] 연결: config=%s ...%s", config_id[:8], mcp_token[-6:])
 
-    # 연결 이벤트 → 프론트 실시간 알림
-    _publish_mcp_status(user_id, config_id, online=True)
-
-    # PC 재부팅 후 base_dir 복원: DB 값을 MCP 서버에 전달
+    # base_dir을 먼저 MCP 서버에 전달한 뒤 프론트에 "온라인" 알림.
+    # 순서가 반대면 Worker가 tool_call을 보내는 시점에 MCP 서버의 base_dir가
+    # 아직 None일 수 있어 "base_dir 미설정" 오류가 발생한다.
     if base_dir:
+        # PC 재부팅 후 base_dir 복원: DB 값을 MCP 서버에 전달
         try:
             await websocket.send_json({"type": "base_dir_restore", "base_dir": base_dir})
             log.info("[mcp-agent] base_dir 복원 전송: ...%s → %s", mcp_token[-6:], base_dir)
         except Exception as e:
             log.warning("[mcp-agent] base_dir 복원 전송 실패: %s", e)
+    else:
+        # DB에 base_dir 없음 → MCP 서버에 폴더 선택 팝업 요청
+        # (최초 설치 또는 DB 초기화 후 복원 불가 상황)
+        try:
+            await websocket.send_json({"type": "request_folder_pick", "mcp_config_id": config_id})
+            log.info("[mcp-agent] base_dir 없음 → 폴더 선택 요청: config=%s", config_id[:8])
+        except Exception as e:
+            log.warning("[mcp-agent] 폴더 선택 요청 전송 실패: %s", e)
+
+    # base_dir 전달 완료 후 프론트에 "온라인" 알림
+    _publish_mcp_status(user_id, config_id, online=True)
 
     try:
         while True:
