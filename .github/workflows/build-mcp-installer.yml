@@ -1,0 +1,87 @@
+name: Build MCP Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '버전 (예: 1.0.4)'
+        required: true
+        default: '1.0.4'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        working-directory: syncai-backend/mcp-server
+        run: pip install pyinstaller fastapi "uvicorn[standard]" httpx python-dotenv websockets
+
+      - name: Download cloudflared.exe
+        working-directory: syncai-backend/mcp-server
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+            -OutFile "cloudflared.exe"
+
+      - name: Download WinSW (syncai-mcp.exe)
+        working-directory: syncai-backend/mcp-server
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe" `
+            -OutFile "installer\syncai-mcp.exe"
+
+      - name: Update version in setup.iss
+        working-directory: syncai-backend/mcp-server
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}"
+          (Get-Content setup.iss) `
+            -replace '#define MyAppVersion\s+"[^"]+"', "#define MyAppVersion   `"$v`"" |
+            Set-Content setup.iss
+
+      - name: Build with PyInstaller
+        working-directory: syncai-backend/mcp-server
+        run: python -m PyInstaller server.spec --noconfirm
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer with Inno Setup
+        working-directory: syncai-backend/mcp-server
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: MCP Installer v${{ github.event.inputs.version }}
+          files: syncai-backend/mcp-server/Output/SyncAI-MCP-Setup.exe
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Update Fly secret (MCP_INSTALLER_URL)
+        shell: pwsh
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          $url = "https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/SyncAI-MCP-Setup.exe"
+          flyctl secrets set MCP_INSTALLER_URL="$url" --app syncai-backend

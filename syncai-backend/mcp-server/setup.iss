@@ -170,6 +170,9 @@ begin
     ResultCode
   );
 
+  { PyInstaller exe 시작 대기 (포트 54321 바인딩까지 시간 필요) }
+  Sleep(5000);
+
   { 브라우저 오픈 }
   BrowserURL :=
     'https://syncai-backend.fly.dev/installer-auth' +
@@ -313,8 +316,4 @@ begin
       mbConfirmation, MB_YESNO
     ) = IDYES then
     begin
-      DelTree(ExpandConstant('{app}\server\.env'), False, True, False);
-      DelTree(ExpandConstant('{app}\logs'), True, True, True);
-    end;
-  end;
-end;
+      DelTree(ExpandConstant('{app}\server\.env'), False, T
