@@ -80,6 +80,11 @@ a = Analysis(
         'httpx',
         'httpx._transports',
         'httpx._transports.default',
+        # ── websockets (ws_client.py — AppData에서 동적 로드) ──
+        'websockets',
+        'websockets.legacy',
+        'websockets.legacy.client',
+        'websockets.exceptions',
         # ── 로컬 모듈은 번들에서 제외 ──
         # heartbeat.py, server.py, config.py, tools.py, ws_client.py, tunnel.py 는
         # %APPDATA%\SyncAI\code\ 에 code.zip으로 배포되어 런타임에 로드됨.
