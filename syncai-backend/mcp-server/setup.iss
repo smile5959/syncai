@@ -69,6 +69,13 @@ Source: "syncai-mcp.xml"; DestDir: "{app}"; Flags: ignoreversion
 [Dirs]
 Name: "{app}\logs"
 
+[Registry]
+; syncai:// custom URL scheme — Windows launches server.exe with the URL as argument
+Root: HKCR; Subkey: "syncai"; ValueType: string; ValueName: ""; ValueData: "URL:SyncAI Protocol"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "syncai"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletekey
+Root: HKCR; Subkey: "syncai\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\server\server.exe,0"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "syncai\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\server\server.exe"" ""%1"""; Flags: uninsdeletekey
+
 [Icons]
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
@@ -143,8 +150,8 @@ end;
 
 
 { -- OAuth 플로우 실행 ------------------------------------- }
-{ server.exe --setup-mode 가 .env 에 MCP_AUTH_TOKEN 을 저장 }
-{ 이후 .env 에 MCP_BASE_DIR 만 추가 (append)                }
+{ 브라우저가 syncai:// 딥링크로 콜백 →                      }
+{ Windows가 server.exe "%1" 실행 → .env 저장               }
 procedure RunOAuthFlow;
 var
   State:      String;
@@ -160,28 +167,15 @@ begin
   if FileExists(EnvPath) then
     DeleteFile(EnvPath);
 
-  { server.exe --setup-mode 백그라운드 실행 (포트 54321 대기) }
-  Exec(
-    ExpandConstant('{app}\server\server.exe'),
-    '--setup-mode --state ' + State + ' --redirect http://localhost:54321',
-    ExpandConstant('{app}\server'),
-    SW_HIDE,
-    ewNoWait,
-    ResultCode
-  );
-
-  { PyInstaller exe 시작 대기 (포트 54321 바인딩까지 시간 필요) }
-  Sleep(12000);
-
-  { 브라우저 오픈 }
+  { 브라우저 오픈 — syncai:// 딥링크로 콜백 (localhost HTTP 서버 불필요) }
   BrowserURL :=
     'https://syncai-backend.fly.dev/installer-auth' +
     '?state=' + State +
-    '&redirect=http%3A%2F%2Flocalhost%3A54321';
+    '&redirect=syncai%3A%2F%2Fauth';
 
   ShellExec('open', BrowserURL, '', '', SW_SHOW, ewNoWait, ResultCode);
 
-  { server.exe 가 .env 를 생성할 때까지 최대 120초 대기 (500ms 간격) }
+  { server.exe(URL handler)가 .env를 생성할 때까지 최대 120초 대기 (500ms 간격) }
   Elapsed := 0;
   while (Elapsed < 240) and (not FileExists(EnvPath)) do
   begin

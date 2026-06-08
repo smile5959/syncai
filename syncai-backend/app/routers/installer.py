@@ -27,6 +27,7 @@ router = APIRouter(tags=["Installer"])
 _ALLOWED_REDIRECT_PREFIXES = (
     "http://localhost:",
     "http://127.0.0.1:",
+    "syncai://",
 )
 
 

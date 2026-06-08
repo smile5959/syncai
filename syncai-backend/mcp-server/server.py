@@ -291,89 +291,24 @@ async def shutdown() -> None:
     ws_client_module.stop()
 
 
-def run_setup_mode(expected_state: str, redirect_base: str) -> None:
-    """
-    Lightweight HTTP server on port 54321 that waits for the OAuth callback
-    from the browser, saves MCP_AUTH_TOKEN to .env, then exits.
-    Called by the Inno Setup installer via --setup-mode flag.
-    """
-    import http.server
-    import time
-    from urllib.parse import urlparse, parse_qs
-
-    PORT = 54321
-    received: dict = {}
-
-    class _Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
-            qs = parse_qs(urlparse(self.path).query)
-            token = qs.get("token", [""])[0]
-            state = qs.get("state", [""])[0]
-            config_id = qs.get("config_id", [""])[0]
-
-            if expected_state and state != expected_state:
-                body = b"<h2>State mismatch. Please retry.</h2>"
-                self.send_response(400)
-            elif not token:
-                body = b"<h2>No token received.</h2>"
-                self.send_response(400)
-            else:
-                received["token"] = token
-                received["config_id"] = config_id
-                body = (
-                    b"<!DOCTYPE html><html><body style='font-family:sans-serif;"
-                    b"text-align:center;padding:60px'>"
-                    b"<h2>SyncAI MCP Connected!</h2>"
-                    b"<p>This window can now be closed.</p>"
-                    b"<script>setTimeout(()=>window.close(),2000)</script>"
-                    b"</body></html>"
-                )
-                self.send_response(200)
-
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *args) -> None:
-            pass  # suppress access log
-
-    server = http.server.HTTPServer(("127.0.0.1", PORT), _Handler)
-    server.timeout = 1  # non-blocking poll
-
-    log.info("[setup-mode] Listening on port %d (timeout 120s)...", PORT)
-    deadline = time.time() + 120
-    while time.time() < deadline and "token" not in received:
-        server.handle_request()
-
-    server.server_close()
-
-    if "token" not in received:
-        log.error("[setup-mode] Timeout — no token received within 120s")
-        import sys as _sys
-        _sys.exit(1)
-
-    # Write .env (MCP_BASE_DIR will be set via pick-folder flow later)
-    env_path = config._APP_DIR / ".env"
-    env_path.write_text(
-        f"MCP_AUTH_TOKEN={received['token']}\n",
-        encoding="utf-8",
-    )
-    log.info("[setup-mode] Token saved → %s", env_path)
-
 
 if __name__ == "__main__":
-    import argparse as _argparse
+    import sys as _sys
 
-    _parser = _argparse.ArgumentParser(add_help=False)
-    _parser.add_argument("--setup-mode", action="store_true")
-    _parser.add_argument("--state", default="")
-    _parser.add_argument("--redirect", default="http://localhost:54321")
-    _args, _ = _parser.parse_known_args()
-
-    if _args.setup_mode:
-        run_setup_mode(_args.state, _args.redirect)
-        import sys as _sys
+    # Custom URL scheme handler: server.exe "syncai://auth?token=...&state=..."
+    # Triggered by Windows when the browser navigates to syncai:// after login.
+    if len(_sys.argv) > 1 and _sys.argv[1].startswith("syncai://"):
+        from urllib.parse import urlparse as _urlparse, parse_qs as _parse_qs
+        _parsed = _urlparse(_sys.argv[1])
+        _qs = _parse_qs(_parsed.query)
+        _token = _qs.get("token", [""])[0].strip()
+        if _token:
+            _env_path = config._APP_DIR / ".env"
+            _env_path.write_text(f"MCP_AUTH_TOKEN={_token}\n", encoding="utf-8")
+            log.info("[url-handler] Token saved → %s", _env_path)
+        else:
+            log.error("[url-handler] No token in URL: %s", _sys.argv[1])
+            _sys.exit(1)
         _sys.exit(0)
 
     configs = config.snapshot()
