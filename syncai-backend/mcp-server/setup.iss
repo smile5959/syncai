@@ -162,7 +162,7 @@ var
   BrowserURL:  String;
   ResultCode:  Integer;
   Elapsed:     Integer;
-  Token:       String;
+  Token:       AnsiString;
 begin
   State       := GenerateState;
   EnvPath     := ExpandConstant('{app}\server\.env');
