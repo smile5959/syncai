@@ -70,6 +70,15 @@ def _build_download_url(version: str) -> str | None:
     return f"https://github.com/{repo}/releases/download/mcp/v{version}/code.zip"
 
 
+def _safe_extractall(zf: zipfile.ZipFile, target_dir: Path) -> None:
+    """Zip Slip 방지: 절대경로·상위경로(..) 포함 항목 거부 후 추출."""
+    for member in zf.infolist():
+        parts = Path(member.filename).parts
+        if any(p in ("", "..") or Path(p).is_absolute() for p in parts):
+            raise ValueError(f"안전하지 않은 zip 항목: {member.filename}")
+        zf.extract(member, target_dir)
+
+
 def _update(version: str, download_url: str) -> bool:
     """
     code.zip 다운로드 후 CODE_DIR 에 파일 교체.
@@ -90,10 +99,10 @@ def _update(version: str, download_url: str) -> bool:
             resp.raise_for_status()
             Path(tmp_zip).write_bytes(resp.content)
 
-        # ② 임시 디렉터리에 압축 해제
+        # ② 임시 디렉터리에 압축 해제 (Zip Slip 방지)
         tmp_dir = tempfile.mkdtemp()
         with zipfile.ZipFile(tmp_zip) as zf:
-            zf.extractall(tmp_dir)
+            _safe_extractall(zf, Path(tmp_dir))
 
         # ③ CODE_DIR로 파일 이동 (덮어쓰기)
         for src in Path(tmp_dir).rglob("*"):

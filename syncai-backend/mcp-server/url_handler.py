@@ -6,6 +6,7 @@ Called by Windows when the browser navigates to syncai://auth?token=...
 Usage: url_handler.exe "syncai://auth?token=...&state=..."
 """
 import os
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -37,7 +38,21 @@ def main():
     PENDING_DIR.mkdir(parents=True, exist_ok=True)
     pending_path = PENDING_DIR / "pending_token.txt"
     pending_path.write_text(token, encoding="utf-8")
+    _restrict_file_acl(pending_path)
     _log(f"OK: token staged → {pending_path}")
+
+
+def _restrict_file_acl(path: Path) -> None:
+    """현재 사용자 + SYSTEM 만 읽을 수 있도록 Windows ACL 설정."""
+    try:
+        username = os.environ.get("USERNAME", "")
+        cmd = ["icacls", str(path), "/inheritance:r"]
+        if username:
+            cmd += ["/grant:r", f"{username}:(F)"]
+        cmd += ["/grant:r", "SYSTEM:(F)"]
+        subprocess.run(cmd, check=False, capture_output=True)
+    except Exception:
+        pass  # icacls 실패해도 계속 진행
 
 
 def _log(msg: str):

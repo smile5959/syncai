@@ -1,6 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
+from app.core.limiter import limiter
 from app.database import get_db
 from app.schemas.auth import (
     SignupRequest, LoginRequest, RefreshRequest,
@@ -56,7 +57,8 @@ def _get_user_teams(user_id, db: Session) -> list:
 
 
 @router.post("/signup", response_model=CookieSignupResponse, status_code=201)
-def signup(body: SignupRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def signup(request: Request, body: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -73,7 +75,8 @@ def signup(body: SignupRequest, response: Response, db: Session = Depends(get_db
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
