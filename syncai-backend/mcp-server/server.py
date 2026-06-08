@@ -275,10 +275,15 @@ async def health(request: Request) -> JSONResponse:
 
 @app.on_event("startup")
 async def startup() -> None:
-    # WS 클라이언트 시작 (백엔드에 역방향 WebSocket 연결)
+    import heartbeat as heartbeat_module
+    import tunnel as tunnel_module
+
     backend_url = os.getenv("SYNCAI_BACKEND_URL", "https://syncai-backend.fly.dev").rstrip("/")
     mcp_token   = os.getenv("MCP_AUTH_TOKEN", "").strip()
+
     ws_client_module.start(backend_url, mcp_token)
+    asyncio.create_task(tunnel_module.start_and_detect(config.PORT))
+    heartbeat_module.start_heartbeat()
 
 
 @app.on_event("shutdown")

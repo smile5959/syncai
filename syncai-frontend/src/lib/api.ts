@@ -36,7 +36,9 @@ async function _logoutAndRedirect() {
 http.interceptors.response.use(
   (r) => r,
   async (err) => {
-    if (err.response?.status === 401 && !err.config._retry) {
+    const skipUrls = ["/auth/login", "/auth/signup", "/auth/refresh"];
+    const isSkip = skipUrls.some((u) => err.config?.url?.includes(u));
+    if (err.response?.status === 401 && !err.config._retry && !isSkip) {
       err.config._retry = true;
       if (!_refreshing) {
         _refreshing = axios

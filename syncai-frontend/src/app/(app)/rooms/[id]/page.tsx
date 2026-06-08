@@ -227,10 +227,25 @@ export default function RoomPage() {
         setMsgs((prev) => [...prev, errorMsg]);
       }
     } else {
-      const res = await messagesApi.send(id, content);
-      setMsgs((prev) => prev.some((m) => m.id === res.data.id) ? prev : [...prev, res.data]);
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: Message = {
+        id: tempId,
+        room_id: id,
+        user_id: me?.id ?? null,
+        content,
+        type: "chat",
+        created_at: new Date().toISOString(),
+        user: me ?? undefined,
+      };
+      setMsgs((prev) => [...prev, optimistic]);
+      try {
+        const res = await messagesApi.send(id, content);
+        setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m));
+      } catch {
+        setMsgs((prev) => prev.filter((m) => m.id !== tempId));
+      }
     }
-  }, [id]);
+  }, [id, me]);
 
   // AI는 항상 사용 가능 (MCP 없어도 대화 가능)
   const mcpAvailable = true;
