@@ -68,6 +68,7 @@ Source: "syncai-mcp.xml"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\logs"
+Name: "{commonappdata}\SyncAI"; Permissions: users-modify
 
 [Registry]
 ; syncai:// custom URL scheme — Windows launches server.exe with the URL as argument
@@ -151,23 +152,27 @@ end;
 
 { -- OAuth 플로우 실행 ------------------------------------- }
 { 브라우저가 syncai:// 딥링크로 콜백 →                      }
-{ Windows가 server.exe "%1" 실행 → .env 저장               }
+{ server.exe(일반유저)가 ProgramData에 토큰 저장 →          }
+{ 인스톨러(admin)가 읽어서 .env 작성                        }
 procedure RunOAuthFlow;
 var
-  State:      String;
-  EnvPath:    String;
-  BrowserURL: String;
-  ResultCode: Integer;
-  Elapsed:    Integer;
+  State:       String;
+  EnvPath:     String;
+  PendingPath: String;
+  BrowserURL:  String;
+  ResultCode:  Integer;
+  Elapsed:     Integer;
+  Token:       String;
 begin
-  State   := GenerateState;
-  EnvPath := ExpandConstant('{app}\server\.env');
+  State       := GenerateState;
+  EnvPath     := ExpandConstant('{app}\server\.env');
+  PendingPath := ExpandConstant('{commonappdata}\SyncAI\pending_token.txt');
 
-  { 기존 .env 삭제 (이전 설치 잔여물) }
-  if FileExists(EnvPath) then
-    DeleteFile(EnvPath);
+  { 잔여 파일 삭제 }
+  if FileExists(EnvPath)     then DeleteFile(EnvPath);
+  if FileExists(PendingPath) then DeleteFile(PendingPath);
 
-  { 브라우저 오픈 — syncai:// 딥링크로 콜백 (localhost HTTP 서버 불필요) }
+  { 브라우저 오픈 — syncai:// 딥링크로 콜백 }
   BrowserURL :=
     'https://syncai-backend.fly.dev/installer-auth' +
     '?state=' + State +
@@ -175,15 +180,15 @@ begin
 
   ShellExec('open', BrowserURL, '', '', SW_SHOW, ewNoWait, ResultCode);
 
-  { server.exe(URL handler)가 .env를 생성할 때까지 최대 120초 대기 (500ms 간격) }
+  { server.exe(URL handler)가 pending_token.txt를 생성할 때까지 최대 120초 대기 }
   Elapsed := 0;
-  while (Elapsed < 240) and (not FileExists(EnvPath)) do
+  while (Elapsed < 240) and (not FileExists(PendingPath)) do
   begin
     Sleep(500);
     Elapsed := Elapsed + 1;
   end;
 
-  if not FileExists(EnvPath) then
+  if not FileExists(PendingPath) then
   begin
     MsgBox(
       'Authentication timed out (120s).' + #13#10 +
@@ -193,6 +198,13 @@ begin
     OAuthDone := False;
     Exit;
   end;
+
+  { 토큰 읽기 → .env 작성 (인스톨러는 admin 권한으로 실행 중) }
+  LoadStringFromFile(PendingPath, Token);
+  Token := Trim(Token);
+  DeleteFile(PendingPath);
+
+  SaveStringToFile(EnvPath, 'MCP_AUTH_TOKEN=' + Token + #13#10, False);
 
   OAuthDone := True;
 

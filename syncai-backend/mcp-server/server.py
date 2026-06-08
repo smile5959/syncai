@@ -297,15 +297,20 @@ if __name__ == "__main__":
 
     # Custom URL scheme handler: server.exe "syncai://auth?token=...&state=..."
     # Triggered by Windows when the browser navigates to syncai:// after login.
+    # Writes token to C:\ProgramData\SyncAI\pending_token.txt (user-writable),
+    # because C:\Program Files\ requires admin and the URL handler runs as normal user.
     if len(_sys.argv) > 1 and _sys.argv[1].startswith("syncai://"):
+        import os as _os
         from urllib.parse import urlparse as _urlparse, parse_qs as _parse_qs
         _parsed = _urlparse(_sys.argv[1])
         _qs = _parse_qs(_parsed.query)
         _token = _qs.get("token", [""])[0].strip()
         if _token:
-            _env_path = config._APP_DIR / ".env"
-            _env_path.write_text(f"MCP_AUTH_TOKEN={_token}\n", encoding="utf-8")
-            log.info("[url-handler] Token saved → %s", _env_path)
+            _pending_dir = Path(_os.environ.get("PROGRAMDATA", "C:/ProgramData")) / "SyncAI"
+            _pending_dir.mkdir(parents=True, exist_ok=True)
+            _pending_path = _pending_dir / "pending_token.txt"
+            _pending_path.write_text(_token, encoding="utf-8")
+            log.info("[url-handler] Token staged → %s", _pending_path)
         else:
             log.error("[url-handler] No token in URL: %s", _sys.argv[1])
             _sys.exit(1)
