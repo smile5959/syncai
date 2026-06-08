@@ -125,20 +125,23 @@ export default function LoginPage() {
         if (refreshToken) document.cookie = `refresh_token=${refreshToken}; ${opts}`;
       };
 
+      let loginTeams;
       if (tab === "login") {
         const res = await auth.login(email, password);
         setUser(res.data.user);
         setAuthCookies(res.data.token, res.data.refresh_token);
+        loginTeams = res.data.teams;
       } else {
         const res = await auth.signup(email, password, name);
         setUser(res.data.user);
         setAuthCookies(res.data.token, res.data.refresh_token);
+        loginTeams = res.data.teams;
       }
       if (nextUrl) {
         router.push(nextUrl);
         return;
       }
-      const teams = res.data.teams ?? (await usersApi.myTeams()).data.teams;
+      const teams = loginTeams ?? (await usersApi.myTeams()).data.teams;
       if (teams.length > 0) {
         setTeam(teams[0]);
         router.push("/rooms");
