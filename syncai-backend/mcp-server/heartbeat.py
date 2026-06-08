@@ -81,8 +81,7 @@ async def _sse_connect(email: str) -> None:
             async with httpx.AsyncClient(timeout=None) as client:
                 async with client.stream("GET", url, params=params) as resp:
                     if resp.status_code == 404:
-                        log.warning("[SSE] 사용자 없음 (404) — 재시도 중단")
-                        return
+                        log.warning("[SSE] 사용자 없음 (404) — %ds 후 재시도", backoff)
                     if resp.status_code != 200:
                         log.warning("[SSE] 연결 실패 (%d) — %ds 후 재연결", resp.status_code, backoff)
                         await asyncio.sleep(backoff)
@@ -228,9 +227,10 @@ async def _token_loop(token: str) -> None:
         elif result in ("404", "err"):
             fail_count += 1
             if fail_count >= 3:
-                log.warning("[...%s] heartbeat 3회 연속 실패 — 루프 종료", token[-6:])
-                # SSE가 재연결 및 토큰 재발급을 처리하므로 여기선 종료
-                return
+                log.warning("[...%s] heartbeat 3회 연속 실패 — 120초 대기 후 재시도", token[-6:])
+                fail_count = 0
+                await asyncio.sleep(120)
+                continue
 
         await asyncio.sleep(INTERVAL)
 
