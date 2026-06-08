@@ -36,7 +36,11 @@
       "PowerShell(Invoke-RestMethod -Uri \"https://syncai-backend.fly.dev/health\" -Method Get | ConvertTo-Json)",
       "PowerShell(sc query *)",
       "PowerShell(sc.exe query SyncAIMCPServer 2>&1)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "PowerShell(fly pg *)",
+      "PowerShell(fly mpg *)",
+      "PowerShell(fly ssh console --app syncai-backend -C \"echo \\\\$DATABASE_URL\" 2>&1)",
+      "PowerShell(fly ssh *)"
     ]
   }
 }

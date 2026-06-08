@@ -121,6 +121,7 @@ async def _sse_connect(email: str) -> None:
                                 _cfg.register_token(token, effective_base_dir, persist=True)
                                 log.info("[SSE] 기존 토큰 확인 (...%s) base_dir=%s", token[-6:], effective_base_dir or "(미설정)")
                                 _start_loop(token)
+                                _ensure_ws_client(token)
                             else:
                                 log.info("[SSE] 연결됨 — 토큰 없음, 슬롯 생성 대기 중")
 
@@ -134,6 +135,7 @@ async def _sse_connect(email: str) -> None:
                                 _cfg.register_token(token, effective_base_dir, persist=True)
                                 log.info("[SSE] 새 토큰 수신 (...%s) base_dir=%s", token[-6:], effective_base_dir or "(미설정)")
                                 _start_loop(token)
+                                _ensure_ws_client(token)
 
                         elif etype == "base_dir_updated":
                             token = event.get("mcp_token")
@@ -273,3 +275,12 @@ def _start_loop(token: str) -> None:
         return  # 이미 실행 중
     task = asyncio.create_task(_token_loop(token))
     _tasks[token] = task
+
+
+def _ensure_ws_client(token: str) -> None:
+    """
+    SSE 이벤트에서 토큰을 받은 후 WS 클라이언트가 이 토큰으로 실행 중인지 확인.
+    startup 시 토큰 없어 WS를 건너뛴 경우(최초 설치 등)를 복구한다.
+    """
+    import ws_client as _ws
+    _ws.ensure_started(BACKEND_URL, token)

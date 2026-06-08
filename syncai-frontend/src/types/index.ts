@@ -165,13 +165,19 @@ export interface WsTaskQueued {
   data: { task_id: string; message: string };
 }
 
+export interface WsTaskCancelled {
+  type: "task_cancelled";
+  data: { task_id: string };
+}
+
 export type WsChatEvent = WsChatMessage | WsMessageChunk;
 export type WsTaskEvent =
   | WsTaskStarted
   | WsTaskProgress
   | WsTaskCompleted
   | WsTaskFailed
-  | WsTaskQueued;
+  | WsTaskQueued
+  | WsTaskCancelled;
 
 
 export interface Invitation {

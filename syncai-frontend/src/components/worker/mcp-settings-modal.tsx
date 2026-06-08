@@ -14,6 +14,7 @@ import type { McpConfig, McpConfigWithTeam, Worker } from "@/types";
 interface McpSettingsModalProps {
   teamId: string;
   onClose: () => void;
+  onWorkerUpdate?: (worker: Worker) => void;
 }
 
 type Tab = "my" | "team" | "workers";
@@ -50,7 +51,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 }
 
 // ─── 메인 모달 ───────────────────────────────────────────────────────────────
-export function McpSettingsModal({ teamId, onClose }: McpSettingsModalProps) {
+export function McpSettingsModal({ teamId, onClose, onWorkerUpdate }: McpSettingsModalProps) {
   const [tab, setTab] = useState<Tab>("my");
   const mouseDownOnBackdrop = useRef(false);
 
@@ -158,7 +159,7 @@ export function McpSettingsModal({ teamId, onClose }: McpSettingsModalProps) {
           <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
             {tab === "my"      && <MyMcpTab />}
             {tab === "team"    && <TeamVisibilityTab teamId={teamId} />}
-            {tab === "workers" && <WorkerSlotsTab teamId={teamId} />}
+            {tab === "workers" && <WorkerSlotsTab teamId={teamId} onWorkerUpdate={onWorkerUpdate} />}
           </div>
         </div>
       </div>
@@ -825,7 +826,7 @@ const WORKER_MODELS = [
   { id: "anthropic/claude-haiku-4-5",   label: "Claude Haiku 4.5", badge: "유료" },
 ];
 
-function WorkerSlotsTab({ teamId }: { teamId: string }) {
+function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUpdate?: (worker: Worker) => void }) {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -874,6 +875,7 @@ function WorkerSlotsTab({ teamId }: { teamId: string }) {
     try {
       const res = await workersApi.updateModel(teamId, workerId, model);
       setWorkers((prev) => prev.map((w) => w.id === workerId ? res.data : w));
+      onWorkerUpdate?.(res.data);  // 오른쪽 워커 패널 즉시 반영
     } catch { /* ignore */ }
     finally { setUpdatingModelId(null); }
   }

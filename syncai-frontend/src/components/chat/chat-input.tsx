@@ -68,12 +68,9 @@ export function ChatInput({ onSend, disabled, mcpAvailable, mcpConnected, availa
     setMentionQuery(null);
     setSending(true);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    try {
-      await onSend(content, isAiCmd);
-    } finally {
-      setSending(false);
-      setTimeout(() => textareaRef.current?.focus(), 0);
-    }
+    setTimeout(() => textareaRef.current?.focus(), 0);  // 즉시 포커스 복귀
+    // fire-and-forget: textarea를 블록하지 않고 바로 다음 입력 가능
+    onSend(content, isAiCmd).catch(console.error).finally(() => setSending(false));
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -176,7 +173,7 @@ export function ChatInput({ onSend, disabled, mcpAvailable, mcpConnected, availa
               ? "/ai [명령] 또는 메시지를 입력하세요..."
               : "/ai [질문] 또는 메시지를 입력하세요..."
           }
-          disabled={disabled || sending}
+          disabled={disabled}
           rows={1}
           className={cn(
             "flex-1 bg-transparent resize-none text-[var(--text-primary)]",

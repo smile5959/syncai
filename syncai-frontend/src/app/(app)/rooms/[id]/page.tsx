@@ -182,6 +182,13 @@ export default function RoomPage() {
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
+      } else if (event.type === "task_cancelled") {
+        setActiveProgress(null);
+        setStreamingTaskId(null);
+        setThinkingSteps([]);
+        setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
+        tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
+        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_queued") {
         // 큐 대기 안내 메시지를 채팅에 임시 표시
         const queueMsg: Message = {
@@ -431,6 +438,15 @@ export default function RoomPage() {
               t.id === taskId ? { ...t, status: "failed" as const } : t
             ));
           }}
+          onCancel={(taskId) => {
+            setTaskList((prev) => prev.map((t) =>
+              t.id === taskId ? { ...t, status: "cancelled" as const } : t
+            ));
+            setActiveProgress(null);
+            setStreamingTaskId(null);
+            setThinkingSteps([]);
+            setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
+          }}
         />
       </div>
 
@@ -458,9 +474,11 @@ export default function RoomPage() {
       {showMcpSettings && teamId && (
         <McpSettingsModal
           teamId={teamId}
+          onWorkerUpdate={(updatedWorker) => {
+            setWorkers((prev) => prev.map((w) => w.id === updatedWorker.id ? updatedWorker : w));
+          }}
           onClose={() => {
             setShowMcpSettings(false);
-            // MCP 목록 갱신
             mcpConfigsApi.listForTeam(teamId).then((r) => setTeamMcpConfigs(r.data)).catch(() => {});
           }}
         />

@@ -201,7 +201,4 @@ export const tasks = {
   list: (roomId: string) =>    http.get<{ tasks: AiTask[] }>(`/rooms/${roomId}/tasks`),
   get: (id: string) => http.get<AiTask>(`/tasks/${id}`),
   revert: (id: string) => http.post(`/tasks/${id}/revert`),
-  cancel: (id: string) => http.post(`/tasks/${id}/cancel`),
-};
-ancel: (id: string) => http.post(`/tasks/${id}/cancel`),
 };

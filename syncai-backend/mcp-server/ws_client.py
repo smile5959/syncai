@@ -35,6 +35,7 @@ _BACKOFF_INIT = 5
 _BACKOFF_MAX  = 60
 
 _ws_task: asyncio.Task | None = None
+_current_token: str = ""
 _stop_event: asyncio.Event = asyncio.Event()
 
 
@@ -111,7 +112,7 @@ async def _ws_loop(backend_url: str, token: str) -> None:
     while not _stop_event.is_set():
         log.info("[ws] 연결 시도: %s ...%s", backend_url, token[-6:])
         try:
-            async with websockets.connect(ws_url, ping_interval=30, ping_timeout=10) as ws:
+            async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10) as ws:
                 log.info("[ws] 연결 완료 (...%s)", token[-6:])
                 backoff = _BACKOFF_INIT  # 성공하면 백오프 리셋
 
@@ -221,7 +222,7 @@ def start(backend_url: str, token: str) -> None:
     server.py startup 이벤트에서 asyncio.create_task()로 호출.
     백엔드 URL과 MCP 토큰을 받아 WS 루프를 시작한다.
     """
-    global _ws_task
+    global _ws_task, _current_token
     if not backend_url:
         log.warning("[ws] SYNCAI_BACKEND_URL 미설정 — WS 연결 건너뜀")
         return
@@ -229,8 +230,23 @@ def start(backend_url: str, token: str) -> None:
         log.warning("[ws] MCP_AUTH_TOKEN 미설정 — WS 연결 건너뜀")
         return
 
+    _current_token = token
     _ws_task = asyncio.create_task(_ws_loop(backend_url, token))
     log.info("[ws] WS 클라이언트 시작 (token=...%s)", token[-6:])
+
+
+def ensure_started(backend_url: str, token: str) -> None:
+    """
+    SSE를 통해 토큰을 받았을 때 호출 — WS 루프가 이미 이 토큰으로 실행 중이면
+    무시하고, 아니면 시작(또는 다른 토큰으로 교체)한다.
+    """
+    global _ws_task, _current_token
+    if _ws_task and not _ws_task.done() and _current_token == token:
+        return
+    if _ws_task and not _ws_task.done():
+        log.info("[ws] 토큰 변경 — 기존 WS task 취소 (...%s → ...%s)", _current_token[-6:], token[-6:])
+        _ws_task.cancel()
+    start(backend_url, token)
 
 
 def stop() -> None:

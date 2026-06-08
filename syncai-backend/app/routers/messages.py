@@ -62,6 +62,9 @@ CHAT_ONLY_SYSTEM_PROMPT = (
 # 큐 항목: (task_id, content, mcp_config_id, room_id, team_id)
 _team_queues: dict[str, asyncio.Queue] = {}
 
+# ── 실행 중인 asyncio Task 참조 (취소용) ────────────────────────────────────
+_active_tasks: dict[str, "asyncio.Task[None]"] = {}
+
 
 def _get_queue(team_id: str) -> asyncio.Queue:
     if team_id not in _team_queues:
@@ -216,6 +219,11 @@ async def _run_ai_task(
     db = SessionLocal()
     task = None
     worker_id: str | None = None
+
+    # 현재 asyncio Task 등록 (취소 버튼 지원)
+    _cur = asyncio.current_task()
+    if _cur:
+        _active_tasks[task_id] = _cur
 
     try:
         task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
@@ -429,6 +437,17 @@ async def _run_ai_task(
             },
         })
 
+    except asyncio.CancelledError:
+        print(f"[_run_ai_task] 사용자 취소: {task_id}")
+        if task:
+            task.status = "cancelled"
+            db.commit()
+        await broadcast(task_connections, room_id, {
+            "type": "task_cancelled",
+            "data": {"task_id": task_id},
+        })
+        # streaming 청크 제거용 빈 message 이벤트는 보내지 않음
+        raise  # CancelledError는 반드시 re-raise
     except Exception as e:
         print(f"[_run_ai_task] 오류: {e}")
         if task:
@@ -452,6 +471,7 @@ async def _run_ai_task(
             "data": {"task_id": task_id, "error": str(e)},
         })
     finally:
+        _active_tasks.pop(task_id, None)
         db.close()
         if worker_id:
             await _release_worker(worker_id, team_id)
@@ -466,6 +486,12 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 
     db = SessionLocal()
     task = None
+
+    # 현재 asyncio Task 등록 (취소 버튼 지원)
+    _cur = asyncio.current_task()
+    if _cur:
+        _active_tasks[task_id] = _cur
+
     try:
         task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
         if not task:
@@ -573,6 +599,16 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             },
         })
 
+    except asyncio.CancelledError:
+        print(f"[_run_chat_only] 사용자 취소: {task_id}")
+        if task:
+            task.status = "cancelled"
+            db.commit()
+        await broadcast(task_connections, room_id, {
+            "type": "task_cancelled",
+            "data": {"task_id": task_id},
+        })
+        raise
     except Exception as e:
         print(f"[_run_chat_only] 오류: {e}")
         if task:
@@ -596,6 +632,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             "data": {"task_id": task_id, "error": str(e)},
         })
     finally:
+        _active_tasks.pop(task_id, None)
         db.close()
 
 
@@ -989,3 +1026,35 @@ async def ai_confirm(
         )
 
     return JSONResponse({"status": "confirmed", "task_id": str(task.id)})
+
+
+# ── AI 작업 취소 ──────────────────────────────────────────────────────────────
+
+@router.post("/tasks/{task_id}/cancel", status_code=200)
+async def cancel_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """실행 중인 AI 작업을 취소한다."""
+    task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status not in ("running", "pending"):
+        raise HTTPException(status_code=400, detail=f"Task is not running (status: {task.status})")
+
+    # asyncio Task 취소
+    active = _active_tasks.get(task_id)
+    if active and not active.done():
+        active.cancel()
+    else:
+        # 큐 대기 중 또는 이미 끝난 경우 직접 상태 변경
+        task.status = "cancelled"
+        db.commit()
+        room_id = str(task.room_id)
+        await broadcast(task_connections, room_id, {
+            "type": "task_cancelled",
+            "data": {"task_id": task_id},
+        })
+
+    return JSONResponse({"status": "cancelled", "task_id": task_id})

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatTime } from "@/lib/utils";
 import {
   CheckCircle2, XCircle, RotateCcw, ChevronDown, ChevronRight,
-  Loader2, Zap, Square,
+  Loader2, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tasks as tasksApi } from "@/lib/api";
@@ -22,13 +22,11 @@ interface WorkerPanelProps {
   msgs?: Message[];
   activeProgress: TaskProgress | null;
   onRevert?: (taskId: string) => void;
-  onCancel?: (taskId: string) => void;
 }
 
-export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRevert, onCancel }: WorkerPanelProps) {
+export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRevert }: WorkerPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reverting, setReverting] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const idleCount = workers.filter((w) => w.status === "idle").length;
   const busyCount = workers.filter((w) => w.status === "busy").length;
@@ -42,18 +40,6 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
       console.error(e);
     } finally {
       setReverting(null);
-    }
-  }
-
-  async function handleCancel(taskId: string) {
-    setCancelling(taskId);
-    try {
-      await tasksApi.cancel(taskId);
-      onCancel?.(taskId);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setCancelling(null);
     }
   }
 
@@ -169,30 +155,14 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
           </div>
         )}
 
+        {/* 진행 바 */}
         {activeProgress && (
           <div style={{ marginTop: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                 {activeProgress.message}
               </span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{activeProgress.progress}%</span>
-                <button
-                  onClick={() => handleCancel(activeProgress.task_id)}
-                  disabled={cancelling === activeProgress.task_id}
-                  title="stop"
-                  style={{
-                    width: 22, height: 22, borderRadius: 6, border: "1px solid rgba(239,68,68,0.35)",
-                    background: "rgba(239,68,68,0.08)", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#f87171",
-                  }}
-                >
-                  {cancelling === activeProgress.task_id
-                    ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
-                    : <Square size={9} fill="#f87171" />}
-                </button>
-              </div>
+              <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0, marginLeft: 6 }}>{activeProgress.progress}%</span>
             </div>
             <div style={{ height: 3, background: "rgba(99,102,241,0.12)", borderRadius: 99, overflow: "hidden" }}>
               <div style={{
@@ -235,8 +205,6 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
                 onToggle={() => setExpandedId(expandedId === task.id ? null : task.id)}
                 onRevert={() => handleRevert(task.id)}
                 reverting={reverting === task.id}
-                onCancel={() => handleCancel(task.id)}
-                cancelling={cancelling === task.id}
               />
             ))}
           </div>
@@ -259,11 +227,9 @@ interface TaskCardProps {
   onToggle: () => void;
   onRevert: () => void;
   reverting: boolean;
-  onCancel: () => void;
-  cancelling: boolean;
 }
 
-function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, onRevert, reverting, onCancel, cancelling }: TaskCardProps) {
+function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, onRevert, reverting }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
   const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
   const isExpandable = hasDiff || hasFailed;
@@ -282,65 +248,45 @@ function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, 
 
   return (
     <div style={{ borderRadius: 9, border: `1px solid ${cfg.cardBorder}`, overflow: "hidden", background: "var(--bg-base)" }}>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div
-          role="button"
-          onClick={onToggle}
-          style={{
-            flex: 1, minWidth: 0, display: "flex", alignItems: "center",
-            gap: 9, padding: "9px 11px",
-            background: "transparent", cursor: isExpandable ? "pointer" : "default",
-          }}
-        >
-          <span style={{
-            width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-            background: cfg.dot,
-            boxShadow: task.status === "running" ? `0 0 5px ${cfg.dot}` : "none",
-          }} />
+      <button
+        onClick={onToggle}
+        style={{
+          width: "100%", display: "flex", alignItems: "center",
+          gap: 9, padding: "9px 11px", textAlign: "left",
+          background: "transparent", border: "none", cursor: isExpandable ? "pointer" : "default",
+        }}
+      >
+        <span style={{
+          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+          background: cfg.dot,
+          boxShadow: task.status === "running" ? `0 0 5px ${cfg.dot}` : "none",
+        }} />
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {command}
-              </span>
-              <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
-                {formatTime(task.completed_at ?? task.created_at)}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
-              <span style={{ fontSize: 10, color: cfg.labelColor, fontWeight: 600 }}>{cfg.label}</span>
-              {errorSummary ? (
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorSummary}</span>
-              ) : hasDiff ? (
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· 파일 변경됨</span>
-              ) : null}
-            </div>
-          </div>
-
-          {isExpandable && (
-            <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {command}
             </span>
-          )}
+            <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
+              {formatTime(task.completed_at ?? task.created_at)}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+            <span style={{ fontSize: 10, color: cfg.labelColor, fontWeight: 600 }}>{cfg.label}</span>
+            {errorSummary ? (
+              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorSummary}</span>
+            ) : hasDiff ? (
+              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· 파일 변경됨</span>
+            ) : null}
+          </div>
         </div>
-        {task.status === "running" && (
-          <button
-            onClick={onCancel}
-            disabled={cancelling}
-            title="stop"
-            style={{
-              width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(239,68,68,0.35)",
-              background: "rgba(239,68,68,0.08)", cursor: "pointer", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#f87171", marginRight: 8,
-            }}
-          >
-            {cancelling
-              ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
-              : <Square size={9} fill="#f87171" />}
-          </button>
+
+        {isExpandable && (
+          <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </span>
         )}
-      </div>
+      </button>
 
       {expanded && (
         <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
