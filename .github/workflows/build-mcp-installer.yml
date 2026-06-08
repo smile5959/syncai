@@ -1,6 +1,9 @@
 name: Build MCP Installer
 
 on:
+  push:
+    tags:
+      - 'mcp/v*'
   workflow_dispatch:
     inputs:
       version:
@@ -14,6 +17,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $v = "${{ github.event.inputs.version }}"
+          } else {
+            # 태그 형식: mcp/v1.0.4 → 1.0.4
+            $v = "${{ github.ref_name }}" -replace '^mcp/v', ''
+          }
+          echo "VERSION=$v" >> $env:GITHUB_OUTPUT
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -45,7 +60,7 @@ jobs:
         working-directory: syncai-backend/mcp-server
         shell: pwsh
         run: |
-          $v = "${{ github.event.inputs.version }}"
+          $v = "${{ steps.ver.outputs.VERSION }}"
           (Get-Content setup.iss) `
             -replace '#define MyAppVersion\s+"[^"]+"', "#define MyAppVersion   `"$v`"" |
             Set-Content setup.iss
@@ -68,8 +83,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: MCP Installer v${{ github.event.inputs.version }}
+          tag_name: mcp/v${{ steps.ver.outputs.VERSION }}
+          name: MCP Installer v${{ steps.ver.outputs.VERSION }}
           files: syncai-backend/mcp-server/Output/SyncAI-MCP-Setup.exe
           make_latest: true
         env:
@@ -83,5 +98,5 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          $url = "https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/SyncAI-MCP-Setup.exe"
+          $url = "https://github.com/${{ github.repository }}/releases/download/mcp/v${{ steps.ver.outputs.VERSION }}/SyncAI-MCP-Setup.exe"
           flyctl secrets set MCP_INSTALLER_URL="$url" --app syncai-backend
