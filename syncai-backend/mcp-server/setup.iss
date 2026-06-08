@@ -316,4 +316,8 @@ begin
       mbConfirmation, MB_YESNO
     ) = IDYES then
     begin
-      DelTree(ExpandConstant('{app}\server\.env'), False, T
+      DeleteFile(ExpandConstant('{app}\server\.env'));
+      DelTree(ExpandConstant('{app}\logs'), True, True, True);
+    end;
+  end;
+end;
