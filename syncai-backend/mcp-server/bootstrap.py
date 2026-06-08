@@ -201,23 +201,15 @@ def main() -> None:
         _run_server_py()
         return
 
-    # ── 일반 서비스 모드: server(서브프로세스) + heartbeat(현재 프로세스) ──────
+    # ── 일반 서비스 모드: server 서브프로세스 실행 후 종료 대기 ────────────────
+    # heartbeat/ws_client는 server.py의 uvicorn startup 이벤트 내부에서 실행됨.
     server_proc = subprocess.Popen(
         [sys.executable, "--mode=server"],
         env=os.environ.copy(),
     )
     log.info("[bootstrap] server.py 서브프로세스 시작 (PID %d)", server_proc.pid)
-
-    sys.argv = [sys.argv[0]]
-    try:
-        _run_heartbeat_py()
-    finally:
-        log.info("[bootstrap] heartbeat 종료 — server 서브프로세스 정리 중...")
-        server_proc.terminate()
-        try:
-            server_proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            server_proc.kill()
+    server_proc.wait()
+    log.info("[bootstrap] server.py 서브프로세스 종료 (종료 코드: %d)", server_proc.returncode)
 
 
 if __name__ == "__main__":
