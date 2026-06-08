@@ -57,24 +57,27 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
     }
   }
 
-  function getCommand(task: AiTask): string {
-    // ai_plan 메시지의 confirmation_message를 제목으로 사용
-    const aiPlanMsg = msgs.find((m) => {
+  function getAiPlanPayload(task: AiTask) {
+    const m = msgs.find((m) => {
       if (m.type !== "ai_plan") return false;
       try { return JSON.parse(m.content).task_id === task.id; }
       catch { return false; }
     });
-    if (aiPlanMsg) {
-      try {
-        const msg = JSON.parse(aiPlanMsg.content).confirmation_message as string;
-        const title = msg
-          .replace(/\?$|？$/, "")
-          .replace(/할까요$|하시겠어요$|진행할까요$/, "")
-          .trim();
-        return title.length > 35 ? title.slice(0, 35) + "…" : title || "AI 작업";
-      } catch { /* fallthrough */ }
-    }
+    if (!m) return null;
+    try { return JSON.parse(m.content); } catch { return null; }
+  }
 
+  function getCommand(task: AiTask): string {
+    const payload = getAiPlanPayload(task);
+    if (payload?.confirmation_message) {
+      const title = (payload.confirmation_message as string)
+        .replace(/\?$|？$/, "")
+        .replace(/할까요$|하시겠어요$|진행할까요$/, "")
+        .replace(/^.+?님의\s+PC에\s+/, "")   // "김환희님의 PC에 " 앞부분 제거
+        .replace(/^.+?의\s+PC에\s+/, "")
+        .trim();
+      return title.length > 32 ? title.slice(0, 32) + "…" : title || "AI 작업";
+    }
     // fallback: 유저 메시지에서 추출
     const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
     let c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
@@ -82,11 +85,15 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
       .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "")
       .replace(/해\s*$/, "")
       .replace(/\s*(좀|한번|한 번|제발|바로|빨리)\s*/g, " ")
-      .replace(/\s+파일\s+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
     if (!c) c = "AI 작업";
     return c.length > 30 ? c.slice(0, 30) + "…" : c;
+  }
+
+  function getMcpName(task: AiTask): string | null {
+    const payload = getAiPlanPayload(task);
+    return payload?.mcp_name ?? null;
   }
 
   function getErrorSummary(task: AiTask): string {
@@ -246,6 +253,7 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
                 key={task.id}
                 task={task}
                 command={getCommand(task)}
+              mcpName={getMcpName(task)}
                 errorSummary={getErrorSummary(task)}
                 fullError={getFullError(task)}
                 expanded={expandedId === task.id}
@@ -270,6 +278,7 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
 interface TaskCardProps {
   task: AiTask;
   command: string;
+  mcpName: string | null;
   errorSummary: string;
   fullError: string;
   expanded: boolean;
@@ -280,7 +289,7 @@ interface TaskCardProps {
   cancelling: boolean;
 }
 
-function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, onRevert, reverting, onCancel, cancelling }: TaskCardProps) {
+function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, onToggle, onRevert, reverting, onCancel, cancelling }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
   const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
   const isExpandable = hasDiff || hasFailed;
@@ -324,7 +333,16 @@ function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, 
                 {formatTime(task.completed_at ?? task.created_at)}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, flexWrap: "wrap" }}>
+              {mcpName && (
+                <span style={{
+                  fontSize: 10, padding: "1px 6px", borderRadius: 4, fontWeight: 500,
+                  background: "rgba(99,102,241,0.1)", color: "var(--accent)",
+                  border: "1px solid rgba(99,102,241,0.2)",
+                }}>
+                  {mcpName}
+                </span>
+              )}
               <span style={{ fontSize: 10, color: cfg.labelColor, fontWeight: 600 }}>{cfg.label}</span>
               {errorSummary ? (
                 <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorSummary}</span>
@@ -396,22 +414,64 @@ function TaskCard({ task, command, errorSummary, fullError, expanded, onToggle, 
 
 function DiffViewer({ diff }: { diff: string }) {
   const lines = diff.split("\n");
+
+  // 파일별 섹션 파싱
+  type Section = { file: string; added: number; removed: number; content: { line: string; type: "add" | "del" | "ctx" }[] };
+  const sections: Section[] = [];
+  let cur: Section | null = null;
+
+  for (const line of lines) {
+    if (line.startsWith("diff ") || line.startsWith("--- ") || line.startsWith("\\ ")) continue;
+    if (line.startsWith("+++ ")) {
+      const file = line.replace(/^\+\+\+ [ab]\//, "").replace(/^\+\+\+ /, "").split("/").pop() ?? line;
+      cur = { file, added: 0, removed: 0, content: [] };
+      sections.push(cur);
+      continue;
+    }
+    if (!cur) continue;
+    if (line.startsWith("@@ ")) continue;
+    if (line.startsWith("+")) { cur.added++; cur.content.push({ line: line.slice(1), type: "add" }); }
+    else if (line.startsWith("-")) { cur.removed++; cur.content.push({ line: line.slice(1), type: "del" }); }
+    else if (line !== "") { cur.content.push({ line: line.slice(1), type: "ctx" }); }
+  }
+
+  // 파싱 실패 시 raw fallback
+  if (sections.length === 0) {
+    return (
+      <div style={{ maxHeight: 180, overflowY: "auto", fontFamily: "monospace", fontSize: 11, lineHeight: "18px", padding: "8px 12px" }}>
+        {lines.map((l, i) => <div key={i} style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--text-secondary)" }}>{l || " "}</div>)}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxHeight: 200, overflowY: "auto", fontFamily: "monospace", fontSize: 11, lineHeight: "19px", padding: "10px 12px", background: "var(--bg-base)" }}>
-      {lines.map((line, i) => {
-        const isAdded = line.startsWith("+") && !line.startsWith("+++");
-        const isRemoved = line.startsWith("-") && !line.startsWith("---");
-        const isHeader = line.startsWith("@@") || line.startsWith("diff");
-        return (
-          <div key={i} style={{
-            color: isAdded ? "#4ade80" : isRemoved ? "#f87171" : isHeader ? "var(--accent)" : "var(--text-secondary)",
-            background: isAdded ? "rgba(34,197,94,0.06)" : isRemoved ? "rgba(239,68,68,0.06)" : "transparent",
-            whiteSpace: "pre-wrap", wordBreak: "break-all",
+    <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+      {sections.map((sec, si) => (
+        <div key={si}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "5px 12px", background: "var(--bg-elevated)",
+            borderBottom: "1px solid var(--border-subtle)",
           }}>
-            {line || " "}
+            <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-secondary)" }}>{sec.file}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {sec.added > 0 && <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 600 }}>+{sec.added}</span>}
+              {sec.removed > 0 && <span style={{ fontSize: 10, color: "#f87171", fontWeight: 600 }}>-{sec.removed}</span>}
+            </div>
           </div>
-        );
-      })}
+          <div style={{ maxHeight: 160, overflowY: "auto", fontFamily: "monospace", fontSize: 11, lineHeight: "18px", padding: "6px 12px" }}>
+            {sec.content.map((c, i) => (
+              <div key={i} style={{
+                whiteSpace: "pre-wrap", wordBreak: "break-all",
+                color: c.type === "add" ? "#4ade80" : c.type === "del" ? "#f87171" : "var(--text-secondary)",
+                background: c.type === "add" ? "rgba(34,197,94,0.06)" : c.type === "del" ? "rgba(239,68,68,0.06)" : "transparent",
+              }}>
+                {c.type === "add" ? "+ " : c.type === "del" ? "- " : "  "}{c.line || " "}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
