@@ -203,5 +203,3 @@ export const tasks = {
   revert: (id: string) => http.post(`/tasks/${id}/revert`),
   cancel: (id: string) => http.post(`/tasks/${id}/cancel`),
 };
-ancel: (id: string) => http.post(`/tasks/${id}/cancel`),
-};
