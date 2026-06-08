@@ -138,9 +138,9 @@ export default function LoginPage() {
         router.push(nextUrl);
         return;
       }
-      const teamsRes = await usersApi.myTeams();
-      if (teamsRes.data.teams.length > 0) {
-        setTeam(teamsRes.data.teams[0]);
+      const teams = res.data.teams ?? (await usersApi.myTeams()).data.teams;
+      if (teams.length > 0) {
+        setTeam(teams[0]);
         router.push("/rooms");
       } else {
         router.push("/onboarding");

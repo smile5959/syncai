@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
+from app.schemas.team import TeamOut
 import uuid
 
 
@@ -41,9 +42,11 @@ class LoginResponse(BaseModel):
     user: UserOut
     token: str
     refresh_token: str
+    teams: list[TeamOut] = []
 
 
 class CookieSignupResponse(BaseModel):
     user: UserOut
     token: str
     refresh_token: str
+    teams: list[TeamOut] = []

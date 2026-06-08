@@ -120,7 +120,17 @@ export default function RoomPage() {
       if (event.type === "message") {
         setMsgs((prev) => {
           const filtered = prev.filter((m) => !m.id.startsWith("streaming-"));
-          return filtered.some((m) => m.id === event.data.id) ? filtered : [...filtered, event.data];
+          if (filtered.some((m) => m.id === event.data.id)) return filtered;
+          // WS가 API 응답보다 먼저 오면 낙관적 temp 메시지를 실제 메시지로 교체
+          const tempIdx = filtered.findLastIndex(
+            (m) => m.id.startsWith("temp-") && m.content === event.data.content
+          );
+          if (tempIdx !== -1) {
+            const next = [...filtered];
+            next[tempIdx] = event.data;
+            return next;
+          }
+          return [...filtered, event.data];
         });
         setStreamingTaskId(null);
         setThinkingSteps([]);

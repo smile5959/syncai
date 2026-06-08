@@ -9,6 +9,7 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.models.user import User
+from app.models.team import Team, TeamMember
 from app.core.auth import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.config import settings
 
@@ -47,6 +48,13 @@ def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie("refresh_token", path="/", secure=_SECURE, samesite=_SAMESITE)
 
 
+def _get_user_teams(user_id, db: Session) -> list:
+    owned = db.query(Team).filter(Team.owner_id == user_id).all()
+    member_ids = [r[0] for r in db.query(TeamMember.team_id).filter(TeamMember.user_id == user_id).all()]
+    member_teams = db.query(Team).filter(Team.id.in_(member_ids)).all() if member_ids else []
+    return list({str(t.id): t for t in owned + member_teams}.values())
+
+
 @router.post("/signup", response_model=CookieSignupResponse, status_code=201)
 def signup(body: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
@@ -60,7 +68,8 @@ def signup(body: SignupRequest, response: Response, db: Session = Depends(get_db
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     _set_auth_cookies(response, access_token, refresh_token)
-    return {"user": user, "token": access_token, "refresh_token": refresh_token}
+    teams = _get_user_teams(user.id, db)
+    return {"user": user, "token": access_token, "refresh_token": refresh_token, "teams": teams}
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -72,7 +81,8 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     _set_auth_cookies(response, access_token, refresh_token)
-    return {"user": user, "token": access_token, "refresh_token": refresh_token}
+    teams = _get_user_teams(user.id, db)
+    return {"user": user, "token": access_token, "refresh_token": refresh_token, "teams": teams}
 
 
 @router.post("/logout")
