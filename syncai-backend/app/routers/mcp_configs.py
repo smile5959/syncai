@@ -546,9 +546,9 @@ def lookup_by_email(
     if endpoint and config.mcp_token:
         _pending_endpoints[str(user.id)] = {"endpoint": endpoint, "token": config.mcp_token}
 
+    # mcp_token은 응답에서 제외 — 이메일만 알면 누구나 타인의 MCP 토큰을 획득할 수 있으므로
     return {
         "mcp_config_id": str(config.id),
-        "mcp_token": config.mcp_token,
         "base_dir": config.base_dir,
         "name": config.name,
     }
@@ -609,10 +609,11 @@ async def mcp_sse(email: str, endpoint: str = "", db: Session = Depends(get_db))
 
     async def event_stream():
         try:
-            # 첫 이벤트: 현재 상태 전달
+            # 첫 이벤트: 연결 확인 + base_dir 전달
+            # mcp_token은 포함하지 않음 — 이메일만 알면 누구나 SSE에 연결해 토큰을 획득할 수 있으므로.
+            # 기존 토큰 보유 PC는 .env에서 직접 읽고, 신규 설치는 token_assigned 이벤트로 수신한다.
             initial = {
                 "type": "connected",
-                "mcp_token": config.mcp_token if config else None,
                 "mcp_config_id": str(config.id) if config else None,
                 "base_dir": config.base_dir if config else None,
             }

@@ -8,7 +8,7 @@ import secrets
 import uuid
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,21 @@ from app.models.user import User
 from app.config import settings
 
 router = APIRouter(tags=["Installer"])
+
+# 인스톨러 로컬 서버만 허용 — MCP auth token이 외부로 유출되지 않도록 한다
+_ALLOWED_REDIRECT_PREFIXES = (
+    "http://localhost:",
+    "http://127.0.0.1:",
+)
+
+
+def _validate_redirect_url(redirect: str) -> None:
+    """redirect 파라미터가 localhost 이외를 가리키면 400 반환."""
+    if not any(redirect.startswith(p) for p in _ALLOWED_REDIRECT_PREFIXES):
+        raise HTTPException(
+            status_code=400,
+            detail="redirect URL must point to localhost",
+        )
 
 
 # ─── Browser redirect entry point ────────────────────────────────────────────
@@ -42,6 +57,8 @@ def installer_auth(
     here — in that case we redirect to the frontend installer-auth page, which
     handles login and then calls /v1/installer/token.
     """
+    _validate_redirect_url(redirect)
+
     token = request.cookies.get("access_token") if request else None
     user = _user_from_cookie(token, db)
 
@@ -71,6 +88,8 @@ def installer_token(
     Creates an MCP config and returns the token so the frontend can redirect to
     the installer's local HTTP server.
     """
+    _validate_redirect_url(redirect)
+
     mcp_token, config_id = _create_config(current_user, db)
     params = urlencode({"token": mcp_token, "config_id": config_id, "state": state})
     return {

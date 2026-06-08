@@ -112,6 +112,9 @@ async def _sse_connect(email: str) -> None:
                             continue
 
                         elif etype == "connected":
+                            # 백엔드가 보안상 connected 이벤트에 mcp_token을 포함하지 않으므로
+                            # .env / token_registry에 저장된 기존 토큰으로 루프를 시작한다.
+                            # 신규 설치(토큰 없음) 또는 레거시 백엔드 대응으로 token 필드가 있으면 사용.
                             token = event.get("mcp_token")
                             base_dir = event.get("base_dir")
                             if token:
@@ -119,11 +122,19 @@ async def _sse_connect(email: str) -> None:
                                 effective_base_dir = base_dir or env_base_dir
                                 _save_token_to_env(token)
                                 _cfg.register_token(token, effective_base_dir, persist=True)
-                                log.info("[SSE] 기존 토큰 확인 (...%s) base_dir=%s", token[-6:], effective_base_dir or "(미설정)")
+                                log.info("[SSE] 토큰 수신 (...%s) base_dir=%s", token[-6:], effective_base_dir or "(미설정)")
                                 _start_loop(token)
                                 _ensure_ws_client(token)
                             else:
-                                log.info("[SSE] 연결됨 — 토큰 없음, 슬롯 생성 대기 중")
+                                # 보안 강화된 백엔드: connected에 토큰 없음 → 기존 토큰 사용
+                                existing_tokens = _cfg.all_tokens()
+                                if existing_tokens:
+                                    for t in existing_tokens:
+                                        log.info("[SSE] 연결됨 — 기존 토큰 사용 (...%s)", t[-6:])
+                                        _start_loop(t)
+                                        _ensure_ws_client(t)
+                                else:
+                                    log.info("[SSE] 연결됨 — 토큰 없음, 슬롯 생성 대기 중")
 
                         elif etype == "token_assigned":
                             token = event.get("mcp_token")
