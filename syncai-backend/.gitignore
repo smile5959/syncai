@@ -23,3 +23,4 @@ mcp-server/Output/
 mcp-server/venv/
 mcp-server/cloudflared.exe
 mcp-server/token_registry.json
+mcp-server/installer/
