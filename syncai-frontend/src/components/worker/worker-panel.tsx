@@ -58,14 +58,31 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
   }
 
   function getCommand(task: AiTask): string {
+    // ai_plan 메시지의 confirmation_message를 제목으로 사용
+    const aiPlanMsg = msgs.find((m) => {
+      if (m.type !== "ai_plan") return false;
+      try { return JSON.parse(m.content).task_id === task.id; }
+      catch { return false; }
+    });
+    if (aiPlanMsg) {
+      try {
+        const msg = JSON.parse(aiPlanMsg.content).confirmation_message as string;
+        const title = msg
+          .replace(/\?$|？$/, "")
+          .replace(/할까요$|하시겠어요$|진행할까요$/, "")
+          .trim();
+        return title.length > 35 ? title.slice(0, 35) + "…" : title || "AI 작업";
+      } catch { /* fallthrough */ }
+    }
+
+    // fallback: 유저 메시지에서 추출
     const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
     let c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
-    // 불필요한 어미/단어 정리
     c = c
       .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "")
       .replace(/해\s*$/, "")
       .replace(/\s*(좀|한번|한 번|제발|바로|빨리)\s*/g, " ")
-      .replace(/\s+파일\s+/g, " ")   // "파일" 불필요한 경우 제거
+      .replace(/\s+파일\s+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
     if (!c) c = "AI 작업";
