@@ -338,7 +338,7 @@ def run_setup_mode(expected_state: str, redirect_base: str) -> None:
         def log_message(self, *args) -> None:
             pass  # suppress access log
 
-    server = http.server.HTTPServer(("0.0.0.0", PORT), _Handler)
+    server = http.server.HTTPServer(("127.0.0.1", PORT), _Handler)
     server.timeout = 1  # non-blocking poll
 
     log.info("[setup-mode] Listening on port %d (timeout 120s)...", PORT)

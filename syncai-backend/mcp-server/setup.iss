@@ -171,7 +171,7 @@ begin
   );
 
   { PyInstaller exe 시작 대기 (포트 54321 바인딩까지 시간 필요) }
-  Sleep(5000);
+  Sleep(12000);
 
   { 브라우저 오픈 }
   BrowserURL :=
