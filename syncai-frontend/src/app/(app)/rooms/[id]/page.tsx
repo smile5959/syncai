@@ -248,12 +248,12 @@ export default function RoomPage() {
         user: me ?? undefined,
       };
       setMsgs((prev) => [...prev, optimistic]);
-      try {
-        const res = await messagesApi.send(id, content);
+      // API 호출은 백그라운드 — promise 반환 전에 UI 이미 업데이트됨
+      messagesApi.send(id, content).then((res) => {
         setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m));
-      } catch {
+      }).catch(() => {
         setMsgs((prev) => prev.filter((m) => m.id !== tempId));
-      }
+      });
     }
   }, [id, me]);
 
