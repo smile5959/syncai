@@ -183,7 +183,7 @@ class WorkerLLM:
 
             response = await client.chat.completions.create(
                 model=model,
-                max_tokens=1024,
+                max_tokens=512,
                 tools=MCP_TOOLS,
                 messages=messages,
             )
@@ -244,3 +244,4 @@ class WorkerLLM:
             break
 
         return "작업을 완료하지 못했습니다. 다시 시도해 주세요."
+ 
