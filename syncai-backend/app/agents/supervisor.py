@@ -88,7 +88,7 @@ class SupervisorAgent:
         try:
             response = await client.chat.completions.create(
                 model=DEFAULT_MODEL,
-                max_tokens=512,
+                max_tokens=450,
                 messages=messages,
             )
             raw = (response.choices[0].message.content or "{}").strip()

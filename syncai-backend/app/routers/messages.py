@@ -687,7 +687,7 @@ async def _plan_ai_task(
     try:
         response = await client.chat.completions.create(
             model=DEFAULT_MODEL,  # 플래닝은 항상 기본 모델 고정
-            max_tokens=512,
+            max_tokens=450,
             messages=messages,
         )
         raw = response.choices[0].message.content or "{}"
