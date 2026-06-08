@@ -346,6 +346,9 @@ function MyMcpTab() {
                 {postCreate.downloadUrl ? (
                   <a
                     href={postCreate.downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 7,
                       padding: "8px 18px", borderRadius: 10,
