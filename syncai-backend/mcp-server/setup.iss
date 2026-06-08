@@ -296,7 +296,7 @@ end;
 { ssInstall = [Files] 처리 후, [Run] 실행 전             }
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssInstall then
+  if CurStep = ssPostInstall then
     RunOAuthFlow;
 end;
 
