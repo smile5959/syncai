@@ -139,3 +139,35 @@ coll = COLLECT(
     ],
     name='server',              # 결과 폴더: dist/server/
 )
+
+# ── url_handler.exe — syncai:// URL 스킴 핸들러 ──────────────────────────────
+# stdlib만 사용하므로 hiddenimports 불필요. console=False로 창 없이 실행.
+a_uh = Analysis(
+    ['url_handler.py'],
+    pathex=['.'],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    runtime_hooks=[],
+    excludes=[],
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz_uh = PYZ(a_uh.pure, a_uh.zipped_data, cipher=block_cipher)
+
+exe_uh = EXE(
+    pyz_uh,
+    a_uh.scripts,
+    a_uh.binaries,
+    a_uh.zipfiles,
+    a_uh.datas,
+    [],
+    name='url_handler',         # 결과: dist/server/url_handler.exe
+    debug=False,
+    strip=False,
+    upx=True,
+    console=False,              # 창 없이 실행 (URL 핸들러는 백그라운드 처리)
+    onefile=True,               # 단일 exe — _internal/ 폴더 불필요
+)

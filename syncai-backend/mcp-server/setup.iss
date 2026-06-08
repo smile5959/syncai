@@ -74,8 +74,8 @@ Name: "{commonappdata}\SyncAI"; Permissions: users-modify
 ; syncai:// custom URL scheme — Windows launches server.exe with the URL as argument
 Root: HKCR; Subkey: "syncai"; ValueType: string; ValueName: ""; ValueData: "URL:SyncAI Protocol"; Flags: uninsdeletekey
 Root: HKCR; Subkey: "syncai"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletekey
-Root: HKCR; Subkey: "syncai\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\server\server.exe,0"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "syncai\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\server\server.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKCR; Subkey: "syncai\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\server\url_handler.exe,0"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "syncai\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\server\url_handler.exe"" ""%1"""; Flags: uninsdeletekey
 
 [Icons]
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
