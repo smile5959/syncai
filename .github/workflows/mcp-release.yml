@@ -1,0 +1,65 @@
+name: Release MCP Code Bundle
+
+on:
+  push:
+    tags:
+      - 'mcp/v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '버전 (예: 1.0.4)'
+        required: true
+        default: '1.0.4'
+
+jobs:
+  release-code:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=$(echo "${{ github.ref_name }}" | sed 's|^mcp/v||')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create code.zip
+        working-directory: syncai-backend/mcp-server
+        run: |
+          zip code.zip \
+            heartbeat.py \
+            server.py \
+            config.py \
+            tools.py \
+            ws_client.py \
+            tunnel.py
+
+      - name: Upload code.zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mcp/v${{ steps.ver.outputs.VERSION }}
+          name: MCP Installer v${{ steps.ver.outputs.VERSION }}
+          files: syncai-backend/mcp-server/code.zip
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Update Fly secrets (MCP_CODE_VERSION, MCP_GITHUB_REPO)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          VERSION="${{ steps.ver.outputs.VERSION }}"
+          REPO="${{ github.repository }}"
+          flyctl secrets set \
+            MCP_CODE_VERSION="$VERSION" \
+            MCP_GITHUB_REPO="$REPO" \
+            --app syncai-backend

@@ -50,6 +50,26 @@ router = APIRouter(tags=["MCP Configs"])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 자동 업데이트 버전 엔드포인트
+# ─────────────────────────────────────────────────────────────────────────────
+
+import os as _os
+
+@router.get("/mcp-version")
+def get_mcp_version():
+    """MCP 코드 최신 버전 반환 (bootstrap.py 자동 업데이트용, 인증 불필요)."""
+    version      = _os.environ.get("MCP_CODE_VERSION", "0.0.0")
+    github_repo  = _os.environ.get("MCP_GITHUB_REPO", "").strip()
+    data: dict   = {"version": version}
+    if github_repo and version != "0.0.0":
+        data["download_url"] = (
+            f"https://github.com/{github_repo}"
+            f"/releases/download/mcp/v{version}/code.zip"
+        )
+    return data
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 내 MCP 목록 / 생성 / 수정 / 삭제
 # ─────────────────────────────────────────────────────────────────────────────
 

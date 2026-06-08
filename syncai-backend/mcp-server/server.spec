@@ -12,6 +12,10 @@ SyncAI MCP Server — PyInstaller 빌드 스펙
   ├── cloudflared.exe    ← Cloudflare Tunnel 클라이언트 (server.exe와 같은 폴더)
   └── _internal/         ← Python 런타임 + 의존성 (자동 생성, 건드리지 말 것)
 
+자동 업데이트 구조:
+  server.exe = bootstrap.py (Python 런타임만 포함)
+  실제 코드  = %APPDATA%\SyncAI\code\ (code.zip으로 배포, 자동 업데이트)
+
 주의사항:
   - cloudflared.exe가 mcp-server/ 폴더에 있어야 빌드에 포함됨.
     없으면 빌드 오류 발생. 미리 다운로드:
@@ -25,7 +29,7 @@ SyncAI MCP Server — PyInstaller 빌드 스펙
 block_cipher = None
 
 a = Analysis(
-    ['server.py'],
+    ['bootstrap.py'],
     pathex=['.'],           # mcp-server/ 폴더를 탐색 경로에 추가
     binaries=[
         # cloudflared.exe를 dist/server/ 루트에 직접 배치
@@ -76,11 +80,9 @@ a = Analysis(
         'httpx',
         'httpx._transports',
         'httpx._transports.default',
-        # ── 로컬 모듈 (같은 폴더) ──
-        'config',
-        'tools',
-        'heartbeat',
-        'tunnel',
+        # ── 로컬 모듈은 번들에서 제외 ──
+        # heartbeat.py, server.py, config.py, tools.py, ws_client.py, tunnel.py 는
+        # %APPDATA%\SyncAI\code\ 에 code.zip으로 배포되어 런타임에 로드됨.
     ],
     hookspath=[],
     hooksconfig={},
