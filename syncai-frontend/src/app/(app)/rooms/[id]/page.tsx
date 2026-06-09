@@ -37,6 +37,29 @@ interface TaskProgress {
   message: string;
 }
 
+function parseDiffSummary(diff: string): string {
+  const fileStats: Record<string, { added: number; removed: number }> = {};
+  let curFile = "";
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+++ ")) {
+      curFile = line.replace(/^\+\+\+ [ab]\//, "").replace(/^\+\+\+ /, "").split("/").pop() ?? line;
+      if (!fileStats[curFile]) fileStats[curFile] = { added: 0, removed: 0 };
+    } else if (curFile && line.startsWith("+") && !line.startsWith("+++")) {
+      fileStats[curFile].added++;
+    } else if (curFile && line.startsWith("-") && !line.startsWith("---")) {
+      fileStats[curFile].removed++;
+    }
+  }
+  const entries = Object.entries(fileStats);
+  if (entries.length === 0) return "";
+  return entries.map(([file, { added, removed }]) => {
+    const parts = [];
+    if (added > 0) parts.push(`+${added}`);
+    if (removed > 0) parts.push(`-${removed}`);
+    return `• ${file}${parts.length ? " (" + parts.join(" / ") + ")" : ""}`;
+  }).join("\n");
+}
+
 export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
 
@@ -185,6 +208,22 @@ export default function RoomPage() {
         setActiveProgress(null);
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
+        if (event.data.result_diff) {
+          const diffSummary = parseDiffSummary(event.data.result_diff);
+          if (diffSummary) {
+            const completeMsg: Message = {
+              id: `complete-${event.data.task_id}`,
+              room_id: id,
+              user_id: null,
+              content: `✅ 작업 완료\n${diffSummary}`,
+              type: "ai_res",
+              created_at: event.data.completed_at,
+            };
+            setMsgs((prev) =>
+              prev.some((m) => m.id === completeMsg.id) ? prev : [...prev, completeMsg]
+            );
+          }
+        }
       } else if (event.type === "task_failed") {
         setActiveProgress(null);
         setStreamingTaskId(null);
@@ -458,11 +497,6 @@ export default function RoomPage() {
           tasks={taskList}
           msgs={msgs}
           activeProgress={activeProgress}
-          onRevert={(taskId) => {
-            setTaskList((prev) => prev.map((t) =>
-              t.id === taskId ? { ...t, status: "failed" as const } : t
-            ));
-          }}
           onCancel={(taskId) => {
             setTaskList((prev) => prev.map((t) =>
               t.id === taskId ? { ...t, status: "cancelled" as const } : t

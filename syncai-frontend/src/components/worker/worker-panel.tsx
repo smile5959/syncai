@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { formatTime } from "@/lib/utils";
 import {
-  CheckCircle2, XCircle, RotateCcw, ChevronDown, ChevronRight,
+  CheckCircle2, XCircle, ChevronDown, ChevronRight,
   Loader2, Zap, Square,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { tasks as tasksApi } from "@/lib/api";
 import type { AiTask, Worker, Message } from "@/types";
 
@@ -21,29 +20,15 @@ interface WorkerPanelProps {
   tasks: AiTask[];
   msgs?: Message[];
   activeProgress: TaskProgress | null;
-  onRevert?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
 }
 
-export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRevert, onCancel }: WorkerPanelProps) {
+export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCancel }: WorkerPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [reverting, setReverting] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   const idleCount = workers.filter((w) => w.status === "idle").length;
   const busyCount = workers.filter((w) => w.status === "busy").length;
-
-  async function handleRevert(taskId: string) {
-    setReverting(taskId);
-    try {
-      await tasksApi.revert(taskId);
-      onRevert?.(taskId);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setReverting(null);
-    }
-  }
 
   async function handleCancel(taskId: string) {
     setCancelling(taskId);
@@ -258,8 +243,6 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onRever
                 fullError={getFullError(task)}
                 expanded={expandedId === task.id}
                 onToggle={() => setExpandedId(expandedId === task.id ? null : task.id)}
-                onRevert={() => handleRevert(task.id)}
-                reverting={reverting === task.id}
                 onCancel={() => handleCancel(task.id)}
                 cancelling={cancelling === task.id}
               />
@@ -283,13 +266,11 @@ interface TaskCardProps {
   fullError: string;
   expanded: boolean;
   onToggle: () => void;
-  onRevert: () => void;
-  reverting: boolean;
   onCancel: () => void;
   cancelling: boolean;
 }
 
-function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, onToggle, onRevert, reverting, onCancel, cancelling }: TaskCardProps) {
+function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, onToggle, onCancel, cancelling }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
   const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
   const isExpandable = hasDiff || hasFailed;
@@ -390,20 +371,6 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, o
           {hasDiff && (
             <div>
               <DiffViewer diff={task.result_diff!} />
-              {task.status === "completed" && (
-                <div style={{ padding: "0 11px 11px" }}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    style={{ width: "100%", fontSize: 11, height: 28 }}
-                    onClick={onRevert}
-                    loading={reverting}
-                  >
-                    <RotateCcw size={10} />
-                    되돌리기
-                  </Button>
-                </div>
-              )}
             </div>
           )}
         </div>
