@@ -83,6 +83,7 @@ export default function RoomPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatWsRef = useRef<ReturnType<typeof createChatWS> | null>(null);
+  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const me = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const currentTeam = useAuthStore((s) => s.team);
@@ -151,6 +152,9 @@ export default function RoomPage() {
             (m) => m.id.startsWith("temp-") && m.content === event.data.content
           );
           if (tempIdx !== -1) {
+            const tempId = filtered[tempIdx].id;
+            const timer = pendingTimers.current.get(tempId);
+            if (timer) { clearTimeout(timer); pendingTimers.current.delete(tempId); }
             const next = [...filtered];
             next[tempIdx] = event.data;
             return next;
@@ -291,16 +295,28 @@ export default function RoomPage() {
       };
       setMsgs((prev) => [...prev, optimistic]);
 
-      // WS로 전송 (HTTP 오버헤드 없음) — WS 미연결 시 HTTP fallback
-      if (chatWsRef.current) {
-        chatWsRef.current.send({ type: "send_message", content });
-      } else {
-        messagesApi.send(id, content).then((res) => {
-          setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m));
-        }).catch(() => {
-          setMsgs((prev) => prev.filter((m) => m.id !== tempId));
-        });
+      const httpFallback = () =>
+        messagesApi.send(id, content)
+          .then((res) => setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m)))
+          .catch(() => setMsgs((prev) => prev.filter((m) => m.id !== tempId)));
+
+      // WS로 전송 — 실패 시 즉시 HTTP fallback
+      const wsSent = chatWsRef.current?.send({ type: "send_message", content }) ?? false;
+      if (!wsSent) {
+        httpFallback();
+        return;
       }
+
+      // WS 전송 성공했지만 3초 안에 서버 echo 없으면 HTTP fallback (서버 크래시 대비)
+      const fallbackTimer = setTimeout(() => {
+        pendingTimers.current.delete(tempId);
+        setMsgs((prev) => {
+          const stillTemp = prev.some((m) => m.id === tempId);
+          if (stillTemp) httpFallback();
+          return prev;
+        });
+      }, 3000);
+      pendingTimers.current.set(tempId, fallbackTimer);
     }
   }, [id, me]);
 

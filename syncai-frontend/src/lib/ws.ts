@@ -102,10 +102,16 @@ export class SyncWS<T> {
     };
   }
 
-  send(data: unknown) {
+  send(data: unknown): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+      try {
+        this.ws.send(JSON.stringify(data));
+        return true;
+      } catch {
+        return false;
+      }
     }
+    return false;
   }
 
   on(handler: Handler<T>): () => void {
