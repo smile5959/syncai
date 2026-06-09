@@ -122,19 +122,33 @@ async def ws_chat(websocket: WebSocket, room_id: str):
         await websocket.close(code=4001)
         return
 
-    chat_connections.setdefault(room_id, set()).add(websocket)
+    # slug → UUID 정규화 (broadcast 키 통일)
+    from app.database import SessionLocal
+    from app.models.chat_room import ChatRoom
+    import uuid as _uuid
+    db = SessionLocal()
+    try:
+        try:
+            room = db.query(ChatRoom).filter(ChatRoom.id == _uuid.UUID(room_id)).first()
+        except (ValueError, AttributeError):
+            room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
+        resolved_room_id = str(room.id) if room else room_id
+    finally:
+        db.close()
+
+    chat_connections.setdefault(resolved_room_id, set()).add(websocket)
 
     try:
         while True:
             data = await websocket.receive_json()
-            await broadcast(chat_connections, room_id, {
+            await broadcast(chat_connections, resolved_room_id, {
                 "type": "message",
                 "data": data,
             })
     except WebSocketDisconnect:
-        chat_connections[room_id].discard(websocket)
+        chat_connections[resolved_room_id].discard(websocket)
     except Exception:
-        chat_connections[room_id].discard(websocket)
+        chat_connections[resolved_room_id].discard(websocket)
 
 
 @router.websocket("/ws/rooms/{room_id}/tasks")
@@ -147,15 +161,29 @@ async def ws_tasks(websocket: WebSocket, room_id: str):
         await websocket.close(code=4001)
         return
 
-    task_connections.setdefault(room_id, set()).add(websocket)
+    # slug → UUID 정규화
+    from app.database import SessionLocal
+    from app.models.chat_room import ChatRoom
+    import uuid as _uuid
+    db = SessionLocal()
+    try:
+        try:
+            room = db.query(ChatRoom).filter(ChatRoom.id == _uuid.UUID(room_id)).first()
+        except (ValueError, AttributeError):
+            room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
+        resolved_room_id = str(room.id) if room else room_id
+    finally:
+        db.close()
+
+    task_connections.setdefault(resolved_room_id, set()).add(websocket)
 
     try:
         while True:
             await websocket.receive_text()  # keep-alive ping 수신
     except WebSocketDisconnect:
-        task_connections[room_id].discard(websocket)
+        task_connections[resolved_room_id].discard(websocket)
     except Exception:
-        task_connections[room_id].discard(websocket)
+        task_connections[resolved_room_id].discard(websocket)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
