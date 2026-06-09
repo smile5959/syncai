@@ -23,11 +23,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# PyInstaller 번들 실행 시: sys.executable = dist/server/server.exe → 설치 디렉토리
+# PyInstaller 번들 실행 시: sys.executable 기준 디렉토리
+#   - server.exe: dist/server/ → .env가 같은 폴더에 있음
+#   - syncai-mcp.exe (bootstrap): 설치 루트/ → .env는 server/ 하위에 있음
 # 일반 Python 실행 시: __file__ 기준 디렉토리 (mcp-server/)
-# .env / token_registry.json / cloudflared.exe 등 모두 이 경로 기준으로 탐색.
 if getattr(sys, "frozen", False):
     _APP_DIR = Path(sys.executable).parent
+    # bootstrap(syncai-mcp.exe)이 server/ 상위에서 실행되는 경우 보정
+    if not (_APP_DIR / ".env").exists() and (_APP_DIR / "server" / ".env").exists():
+        _APP_DIR = _APP_DIR / "server"
 else:
     _APP_DIR = Path(__file__).parent
 
