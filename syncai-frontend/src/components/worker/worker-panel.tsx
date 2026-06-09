@@ -58,12 +58,11 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
       const title = (payload.confirmation_message as string)
         .replace(/\?$|？$/, "")
         .replace(/할까요$|하시겠어요$|진행할까요$/, "")
-        .replace(/^.+?님의\s+PC에\s+/, "")   // "김환희님의 PC에 " 앞부분 제거
+        .replace(/^.+?님의\s+PC에\s+/, "")
         .replace(/^.+?의\s+PC에\s+/, "")
         .trim();
       return title.length > 32 ? title.slice(0, 32) + "…" : title || "AI 작업";
     }
-    // fallback: 유저 메시지에서 추출
     const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
     let c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
     c = c
@@ -89,7 +88,6 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
     if (/401|unauthorized/i.test(e)) return "인증 실패";
     if (/timeout/i.test(e)) return "응답 시간 초과";
     if (/최대 반복/.test(e)) return "반복 한도 초과";
-    // Error code: 404 - [{'error': {'code': 404, 'message': '...'}}] 파싱
     const match = e.match(/'message':\s*'([^']{0,60})/);
     if (match) return match[1];
     return e.slice(0, 40);
@@ -97,7 +95,6 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
 
   function getFullError(task: AiTask): string {
     if (!task.error) return "";
-    // Error code 형태 파싱해서 읽기 좋게
     const match = task.error.match(/'message':\s*'([^']+)'/);
     if (match) return match[1];
     return task.error;
@@ -112,23 +109,23 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
     <aside style={{
       display: "flex", flexDirection: "column",
       width: "100%", height: "100%",
-      borderLeft: "1px solid var(--border-subtle)",
+      borderLeft: "1px solid var(--border)",
       background: "var(--bg-surface)",
       overflow: "hidden",
       minWidth: 260,
     }}>
       {/* Header */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+      <div style={{ padding: "14px 14px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             Worker
           </span>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 5 }}>
             {idleCount > 0 && (
               <span style={{
-                fontSize: 10, fontWeight: 600, color: "#4ade80",
-                background: "rgba(74,222,128,0.1)", borderRadius: 6,
-                padding: "2px 7px", border: "1px solid rgba(74,222,128,0.2)",
+                fontSize: 10, fontWeight: 600, color: "var(--status-online)",
+                background: "var(--status-online-bg)", borderRadius: 6,
+                padding: "2px 7px", border: "1px solid var(--status-online-border)",
               }}>
                 대기 {idleCount}
               </span>
@@ -136,8 +133,8 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
             {busyCount > 0 && (
               <span style={{
                 fontSize: 10, fontWeight: 600, color: "var(--accent)",
-                background: "rgba(99,102,241,0.1)", borderRadius: 6,
-                padding: "2px 7px", border: "1px solid rgba(99,102,241,0.2)",
+                background: "var(--accent-bg)", borderRadius: 6,
+                padding: "2px 7px", border: "1px solid rgba(129,140,248,0.2)",
               }}>
                 작업 {busyCount}
               </span>
@@ -150,25 +147,25 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
             Worker 슬롯이 없어요.<br />팀 설정에서 추가하세요.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {workers.map((w) => {
               const isBusy = w.status === "busy";
               return (
                 <div key={w.id} style={{
                   display: "flex", alignItems: "center", gap: 8,
-                  padding: "6px 10px", borderRadius: 8,
-                  background: isBusy ? "rgba(99,102,241,0.06)" : "var(--bg-elevated)",
-                  border: `1px solid ${isBusy ? "rgba(99,102,241,0.15)" : "var(--border-subtle)"}`,
+                  padding: "5px 9px", borderRadius: 8,
+                  background: isBusy ? "var(--accent-bg)" : "var(--bg-elevated)",
+                  border: `1px solid ${isBusy ? "rgba(129,140,248,0.2)" : "var(--border)"}`,
                 }}>
                   <span style={{
                     width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                    background: isBusy ? "var(--accent)" : "#4ade80",
-                    boxShadow: isBusy ? "0 0 6px var(--accent)" : "0 0 5px #4ade80",
+                    background: isBusy ? "var(--accent)" : "var(--status-online)",
+                    boxShadow: isBusy ? "0 0 5px var(--accent)" : "0 0 4px var(--status-online)",
                   }} />
                   <span style={{ fontSize: 12, color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {w.name}
                   </span>
-                  <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 10, color: "var(--text-faint)", flexShrink: 0, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {(w.model ?? "").split("/").pop()?.replace(":free", "") ?? ""}
                   </span>
                   {isBusy && <Loader2 size={11} style={{ color: "var(--accent)", animation: "spin 1s linear infinite", flexShrink: 0 }} />}
@@ -180,8 +177,8 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
 
         {activeProgress && (
           <div style={{ marginTop: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 6 }}>
-              <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5, gap: 6 }}>
+              <span style={{ fontSize: 11, color: "var(--accent-soft)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                 {activeProgress.message}
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
@@ -191,22 +188,23 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
                   disabled={cancelling === activeProgress.task_id}
                   title="stop"
                   style={{
-                    width: 22, height: 22, borderRadius: 6, border: "1px solid rgba(239,68,68,0.35)",
-                    background: "rgba(239,68,68,0.08)", cursor: "pointer",
+                    width: 22, height: 22, borderRadius: 6,
+                    border: "1px solid var(--status-error-border)",
+                    background: "var(--status-error-bg)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#f87171",
+                    color: "var(--status-error)",
                   }}
                 >
                   {cancelling === activeProgress.task_id
                     ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
-                    : <Square size={9} fill="#f87171" />}
+                    : <Square size={9} fill="currentColor" />}
                 </button>
               </div>
             </div>
-            <div style={{ height: 3, background: "rgba(99,102,241,0.12)", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ height: 3, background: "var(--border-strong)", borderRadius: 99, overflow: "hidden" }}>
               <div style={{
                 height: "100%", width: `${activeProgress.progress}%`,
-                background: "var(--accent)", borderRadius: 99,
+                background: "var(--gradient-accent)", borderRadius: 99,
                 transition: "width 0.4s ease",
               }} />
             </div>
@@ -215,12 +213,12 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
       </div>
 
       {/* 작업 목록 */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "6px" }}>
         {sorted.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 140, gap: 8 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 10,
-              background: "rgba(99,102,241,0.08)",
+              background: "var(--accent-bg)",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <Zap size={14} style={{ color: "var(--accent)" }} />
@@ -232,13 +230,13 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {sorted.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
                 command={getCommand(task)}
-              mcpName={getMcpName(task)}
+                mcpName={getMcpName(task)}
                 errorSummary={getErrorSummary(task)}
                 fullError={getFullError(task)}
                 expanded={expandedId === task.id}
@@ -276,55 +274,63 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, o
   const isExpandable = hasDiff || hasFailed;
 
   type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled";
-  const STATUS_CONFIG: Record<StatusKey, { dot: string; label: string; labelColor: string; cardBorder: string }> = {
-    completed:        { dot: "#4ade80",          label: "완료",      labelColor: "#4ade80",            cardBorder: "rgba(34,197,94,0.15)" },
-    failed:           { dot: "#f87171",          label: "실패",      labelColor: "#f87171",            cardBorder: "rgba(239,68,68,0.15)" },
-    running:          { dot: "var(--accent)",    label: "진행중",    labelColor: "var(--accent)",      cardBorder: "rgba(99,102,241,0.2)" },
-    pending:          { dot: "var(--accent)",    label: "대기중",    labelColor: "var(--accent)",      cardBorder: "rgba(99,102,241,0.12)" },
-    awaiting_confirm: { dot: "#facc15",          label: "동의 필요", labelColor: "#facc15",            cardBorder: "rgba(234,179,8,0.18)" },
-    cancelled:        { dot: "var(--text-muted)", label: "취소",     labelColor: "var(--text-muted)",  cardBorder: "var(--border-subtle)" },
+  const STATUS_CONFIG: Record<StatusKey, {
+    dot: string; label: string; labelColor: string;
+    cardBorder: string; accentBar: string;
+  }> = {
+    completed:        { dot: "var(--status-online)",  label: "완료",      labelColor: "var(--status-online)",  cardBorder: "var(--status-online-border)",       accentBar: "var(--status-online)" },
+    failed:           { dot: "var(--status-error)",   label: "실패",      labelColor: "var(--status-error)",   cardBorder: "var(--status-error-border)",        accentBar: "var(--status-error)" },
+    running:          { dot: "var(--accent)",          label: "진행중",    labelColor: "var(--accent-soft)",    cardBorder: "rgba(129,140,248,0.25)",            accentBar: "var(--accent)" },
+    pending:          { dot: "var(--accent)",          label: "대기중",    labelColor: "var(--text-muted)",     cardBorder: "var(--border)",                    accentBar: "var(--accent)" },
+    awaiting_confirm: { dot: "#facc15",                label: "동의 필요", labelColor: "#f59e0b",               cardBorder: "rgba(245,158,11,0.25)",             accentBar: "#f59e0b" },
+    cancelled:        { dot: "var(--text-faint)",      label: "취소",      labelColor: "var(--text-faint)",     cardBorder: "var(--border)",                    accentBar: "var(--border-strong)" },
   };
 
   const cfg = STATUS_CONFIG[task.status as StatusKey] ?? STATUS_CONFIG.pending;
 
   return (
-    <div style={{ borderRadius: 9, border: `1px solid ${cfg.cardBorder}`, overflow: "hidden", background: "var(--bg-base)" }}>
-      <div style={{ display: "flex", alignItems: "center" }}>
+    <div style={{
+      borderRadius: 10, border: `1px solid ${cfg.cardBorder}`,
+      overflow: "hidden", background: "var(--bg-elevated)",
+    }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        {/* 왼쪽 상태 바 */}
+        <div style={{ width: 3, flexShrink: 0, background: cfg.accentBar, opacity: 0.7, borderRadius: "0 0 0 0" }} />
+
         <div
           role="button"
           onClick={onToggle}
           style={{
             flex: 1, minWidth: 0, display: "flex", alignItems: "center",
-            gap: 9, padding: "9px 11px",
+            gap: 9, padding: "9px 10px",
             background: "transparent", cursor: isExpandable ? "pointer" : "default",
           }}
         >
-          <span style={{
-            width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-            background: cfg.dot,
-            boxShadow: task.status === "running" ? `0 0 5px ${cfg.dot}` : "none",
-          }} />
-
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4, marginBottom: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {command}
               </span>
-              <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: "var(--text-faint)", flexShrink: 0 }}>
                 {formatTime(task.completed_at ?? task.created_at)}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
               {mcpName && (
                 <span style={{
                   fontSize: 10, padding: "1px 6px", borderRadius: 4, fontWeight: 500,
-                  background: "rgba(99,102,241,0.1)", color: "var(--accent)",
-                  border: "1px solid rgba(99,102,241,0.2)",
+                  background: "var(--accent-bg)", color: "var(--accent-soft)",
+                  border: "1px solid rgba(129,140,248,0.18)",
                 }}>
                   {mcpName}
                 </span>
               )}
-              <span style={{ fontSize: 10, color: cfg.labelColor, fontWeight: 600 }}>{cfg.label}</span>
+              <span style={{
+                fontSize: 10, padding: "1px 6px", borderRadius: 4, fontWeight: 600,
+                color: cfg.labelColor,
+              }}>
+                {cfg.label}
+              </span>
               {errorSummary ? (
                 <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {errorSummary}</span>
               ) : hasDiff ? (
@@ -345,24 +351,26 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, o
             disabled={cancelling}
             title="stop"
             style={{
-              width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(239,68,68,0.35)",
-              background: "rgba(239,68,68,0.08)", cursor: "pointer", flexShrink: 0,
+              width: 30, height: "auto", borderRadius: 0,
+              border: "none", borderLeft: "1px solid var(--border)",
+              background: "transparent", cursor: "pointer", flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#f87171", marginRight: 8,
+              color: "var(--status-error)",
+              padding: "0 8px",
             }}
           >
             {cancelling
               ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
-              : <Square size={9} fill="#f87171" />}
+              : <Square size={9} fill="currentColor" />}
           </button>
         )}
       </div>
 
       {expanded && (
-        <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+        <div style={{ borderTop: `1px solid ${cfg.cardBorder}` }}>
           {hasFailed && (
-            <div style={{ padding: "10px 12px", background: "rgba(239,68,68,0.04)" }}>
-              <p style={{ fontSize: 11, color: "#f87171", fontWeight: 600, marginBottom: 4 }}>오류 내용</p>
+            <div style={{ padding: "10px 13px", background: "var(--status-error-bg)" }}>
+              <p style={{ fontSize: 11, color: "var(--status-error)", fontWeight: 600, marginBottom: 4 }}>오류 내용</p>
               <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, wordBreak: "break-all" }}>
                 {fullError || errorSummary || "알 수 없는 오류가 발생했어요."}
               </p>
@@ -382,7 +390,6 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, expanded, o
 function DiffViewer({ diff }: { diff: string }) {
   const lines = diff.split("\n");
 
-  // 파일별 섹션 파싱
   type Section = { file: string; added: number; removed: number; content: { line: string; type: "add" | "del" | "ctx" }[] };
   const sections: Section[] = [];
   let cur: Section | null = null;
@@ -402,7 +409,6 @@ function DiffViewer({ diff }: { diff: string }) {
     else if (line !== "") { cur.content.push({ line: line.slice(1), type: "ctx" }); }
   }
 
-  // 파싱 실패 시 raw fallback
   if (sections.length === 0) {
     return (
       <div style={{ maxHeight: 180, overflowY: "auto", fontFamily: "monospace", fontSize: 11, lineHeight: "18px", padding: "8px 12px" }}>
@@ -412,26 +418,26 @@ function DiffViewer({ diff }: { diff: string }) {
   }
 
   return (
-    <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+    <div style={{ borderTop: "1px solid var(--border)" }}>
       {sections.map((sec, si) => (
         <div key={si}>
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "5px 12px", background: "var(--bg-elevated)",
-            borderBottom: "1px solid var(--border-subtle)",
+            padding: "5px 12px", background: "var(--bg-soft)",
+            borderBottom: "1px solid var(--border)",
           }}>
-            <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-secondary)" }}>{sec.file}</span>
+            <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)" }}>{sec.file}</span>
             <div style={{ display: "flex", gap: 6 }}>
-              {sec.added > 0 && <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 600 }}>+{sec.added}</span>}
-              {sec.removed > 0 && <span style={{ fontSize: 10, color: "#f87171", fontWeight: 600 }}>-{sec.removed}</span>}
+              {sec.added > 0 && <span style={{ fontSize: 10, color: "var(--status-online)", fontWeight: 600 }}>+{sec.added}</span>}
+              {sec.removed > 0 && <span style={{ fontSize: 10, color: "var(--status-error)", fontWeight: 600 }}>-{sec.removed}</span>}
             </div>
           </div>
           <div style={{ maxHeight: 160, overflowY: "auto", fontFamily: "monospace", fontSize: 11, lineHeight: "18px", padding: "6px 12px" }}>
             {sec.content.map((c, i) => (
               <div key={i} style={{
                 whiteSpace: "pre-wrap", wordBreak: "break-all",
-                color: c.type === "add" ? "#4ade80" : c.type === "del" ? "#f87171" : "var(--text-secondary)",
-                background: c.type === "add" ? "rgba(34,197,94,0.06)" : c.type === "del" ? "rgba(239,68,68,0.06)" : "transparent",
+                color: c.type === "add" ? "var(--status-online)" : c.type === "del" ? "var(--status-error)" : "var(--text-secondary)",
+                background: c.type === "add" ? "var(--status-online-bg)" : c.type === "del" ? "var(--status-error-bg)" : "transparent",
               }}>
                 {c.type === "add" ? "+ " : c.type === "del" ? "- " : "  "}{c.line || " "}
               </div>

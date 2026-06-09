@@ -38,6 +38,12 @@ html.dark {
   --green: #22c55e;
   --red: #ef4444;
   --yellow: #f59e0b;
+  --status-online: #34d399;
+  --status-online-bg: rgba(52, 211, 153, 0.1);
+  --status-online-border: rgba(52, 211, 153, 0.2);
+  --status-error: #f87171;
+  --status-error-bg: rgba(248, 113, 113, 0.08);
+  --status-error-border: rgba(248, 113, 113, 0.2);
   /* 기존 컴포넌트 호환 aliases */
   --bg-base: var(--bg);
   --bg-surface: var(--bg-elev);
@@ -84,6 +90,12 @@ html.light {
   --green: #16a34a;
   --red: #dc2626;
   --yellow: #d97706;
+  --status-online: #10b981;
+  --status-online-bg: rgba(16, 185, 129, 0.1);
+  --status-online-border: rgba(16, 185, 129, 0.2);
+  --status-error: #ef4444;
+  --status-error-bg: rgba(239, 68, 68, 0.08);
+  --status-error-border: rgba(239, 68, 68, 0.2);
   /* 기존 컴포넌트 호환 aliases */
   --bg-base: var(--bg);
   --bg-surface: var(--bg-elev);

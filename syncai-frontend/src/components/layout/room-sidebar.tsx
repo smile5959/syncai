@@ -169,7 +169,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
             </div>
           ) : (
             filteredRooms.map((room) => {
-              const active = currentId === room.id;
+              const active = currentId === room.id || (!!room.slug && currentId === room.slug);
               const isRenaming = renamingId === room.id;
               const menuOpen = menuRoomId === room.id;
 

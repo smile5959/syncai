@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Check, X } from "lucide-react";
+import { Bell, Check, X, Users } from "lucide-react";
 import { invitations as invitationsApi } from "@/lib/api";
 import type { Invitation } from "@/types";
 
@@ -43,14 +43,22 @@ export function InvitationBell({ onAccepted }: InvitationBellProps) {
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-9 h-9 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors relative"
+        className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 relative"
+        style={{
+          color: list.length > 0 ? "var(--accent-soft)" : "var(--text-muted)",
+          background: open ? "var(--accent-bg)" : "transparent",
+        }}
         title="초대 알림"
       >
         <Bell size={17} />
         {list.length > 0 && (
           <span
-            className="absolute top-1 right-1 bg-[var(--accent)] text-white rounded-full flex items-center justify-center"
-            style={{ width: 14, height: 14, fontSize: 9, fontWeight: 700 }}
+            className="absolute top-1 right-1 flex items-center justify-center rounded-full text-white"
+            style={{
+              width: 14, height: 14, fontSize: 9, fontWeight: 700,
+              background: "var(--gradient-accent)",
+              boxShadow: "0 2px 6px rgba(99,102,241,0.4)",
+            }}
           >
             {list.length}
           </span>
@@ -59,62 +67,120 @@ export function InvitationBell({ onAccepted }: InvitationBellProps) {
 
       {open && (
         <>
-          {/* backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          {/* dropdown */}
           <div
-            className="absolute left-12 top-0 z-50 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)]"
-            style={{ width: 300 }}
+            className="absolute z-50"
+            style={{
+              left: 44, top: 0,
+              width: 296,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-strong)",
+              borderRadius: 14,
+              boxShadow: "var(--shadow-lg)",
+              overflow: "hidden",
+            }}
           >
-            <div className="px-4 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
-              <p className="text-[14px] font-semibold text-[var(--text-primary)]">팀 초대</p>
+            {/* 헤더 */}
+            <div style={{
+              padding: "12px 14px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Bell size={13} style={{ color: "var(--accent)" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>팀 초대</span>
+              </div>
               {list.length > 0 && (
-                <span className="text-[11px] text-[var(--text-muted)] bg-[var(--bg-elevated)] px-2 py-0.5 rounded-full">
+                <span style={{
+                  fontSize: 10, fontWeight: 600,
+                  color: "var(--accent-soft)",
+                  background: "var(--accent-bg)",
+                  padding: "2px 8px", borderRadius: 99,
+                  border: "1px solid rgba(129,140,248,0.2)",
+                }}>
                   {list.length}건
                 </span>
               )}
             </div>
 
             {list.length === 0 ? (
-              <div className="px-4 flex flex-col items-center justify-center" style={{ height: 160 }}>
-                <p className="text-[13px] text-[var(--text-muted)]">받은 초대가 없어요</p>
+              <div style={{
+                display: "flex", flexDirection: "column", alignItems: "center",
+                justifyContent: "center", height: 130, gap: 10,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: "var(--bg-soft)",
+                  border: "1px solid var(--border)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Users size={16} style={{ color: "var(--text-faint)" }} />
+                </div>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5 }}>
+                  받은 초대가 없어요
+                </p>
               </div>
             ) : (
-              <div className="overflow-y-auto" style={{ maxHeight: 400 }}>
+              <div style={{ overflowY: "auto", maxHeight: 380 }}>
                 {list.map((inv) => (
                   <div
                     key={inv.id}
-                    className="px-4 py-5 hover:bg-[var(--bg-hover)] transition-colors border-b border-[var(--border-subtle)] last:border-0"
+                    style={{
+                      padding: "12px 14px",
+                      borderBottom: "1px solid var(--border)",
+                    }}
                   >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-[var(--accent-bg)] flex items-center justify-center shrink-0 text-[15px] font-bold text-[var(--accent)]">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                        background: "var(--accent-bg)",
+                        border: "1px solid rgba(129,140,248,0.2)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 14, fontWeight: 700, color: "var(--accent)",
+                      }}>
                         {(inv.team_name ?? "?").charAt(0).toUpperCase()}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-[var(--text-primary)] mb-0.5 truncate">
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {inv.team_name ?? "알 수 없는 팀"}
                         </p>
-                        <p className="text-[11px] text-[var(--text-muted)] truncate">
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {inv.inviter_name ?? inv.inviter_id} 님이 초대했어요
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div style={{ display: "flex", gap: 6 }}>
                       <button
                         onClick={() => handleAccept(inv)}
                         disabled={loading === inv.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                        style={{
+                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                          gap: 5, padding: "7px 0", borderRadius: 8,
+                          background: "var(--gradient-accent)",
+                          boxShadow: "0 2px 8px rgba(99,102,241,0.25)",
+                          border: "none", color: "white", fontSize: 12, fontWeight: 600,
+                          cursor: loading === inv.id ? "not-allowed" : "pointer",
+                          opacity: loading === inv.id ? 0.6 : 1,
+                        }}
                       >
-                        <Check size={13} />
+                        <Check size={12} />
                         수락
                       </button>
                       <button
                         onClick={() => handleReject(inv)}
                         disabled={loading === inv.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-secondary)] text-[13px] font-medium hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
+                        style={{
+                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                          gap: 5, padding: "7px 0", borderRadius: 8,
+                          background: "transparent",
+                          border: "1px solid var(--border-strong)",
+                          color: "var(--text-secondary)", fontSize: 12, fontWeight: 500,
+                          cursor: loading === inv.id ? "not-allowed" : "pointer",
+                          opacity: loading === inv.id ? 0.6 : 1,
+                        }}
                       >
-                        <X size={13} />
+                        <X size={12} />
                         거절
                       </button>
                     </div>
