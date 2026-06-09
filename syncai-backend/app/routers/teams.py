@@ -56,6 +56,7 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
     from app.models.file_lock import FileLock
     from app.models.worker import Worker
     from app.models.invitation import TeamInvitation
+    from app.models.mcp_config_team import McpConfigTeam
 
     team = db.query(Team).filter(Team.id == team_id, Team.owner_id == current_user.id).first()
     if not team:
@@ -72,7 +73,8 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
         db.query(RoomMember).filter(RoomMember.room_id.in_(room_ids)).delete(synchronize_session=False)
         db.query(ChatRoom).filter(ChatRoom.id.in_(room_ids)).delete(synchronize_session=False)
 
-    # Worker, 초대 내역, 팀원 삭제
+    # MCP 연결, Worker, 초대 내역, 팀원 삭제
+    db.query(McpConfigTeam).filter(McpConfigTeam.team_id == team_id).delete(synchronize_session=False)
     db.query(Worker).filter(Worker.team_id == team_id).delete(synchronize_session=False)
     db.query(TeamInvitation).filter(TeamInvitation.team_id == team_id).delete(synchronize_session=False)
     db.query(TeamMember).filter(TeamMember.team_id == team_id).delete(synchronize_session=False)
