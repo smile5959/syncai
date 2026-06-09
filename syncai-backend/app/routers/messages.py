@@ -697,8 +697,8 @@ async def _plan_ai_task(
 
     try:
         response = await client.chat.completions.create(
-            model=DEFAULT_MODEL,  # 플래닝은 항상 기본 모델 고정
-            max_tokens=450,
+            model="meta-llama/llama-3.1-8b-instruct:free",  # 플래닝은 경량 모델로 빠르게
+            max_tokens=256,
             messages=messages,
         )
         raw = response.choices[0].message.content or "{}"
@@ -893,7 +893,16 @@ async def _send_ai_plan(
 
         available_mcps = _get_public_mcp_list(db, team_id)
 
-        # AI 플래닝
+        # MCP가 없고 멘션도 없으면 planning 스킵 → 바로 chat-only 실행 (1-hop)
+        if not available_mcps and not mention_name:
+            task.status = "pending"
+            db.commit()
+            asyncio.create_task(
+                _run_chat_only(task_id, content, room_id, current_user.name, team_id)
+            )
+            return
+
+        # AI 플래닝 (MCP 있을 때만)
         plan = await _plan_ai_task(content, context, available_mcps, mention_name)
 
         # 순수 대화 요청이면 동의 없이 바로 chat-only 실행
