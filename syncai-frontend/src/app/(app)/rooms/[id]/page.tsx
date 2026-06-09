@@ -370,9 +370,9 @@ export default function RoomPage() {
                     letterSpacing: "0.01em",
                   }}
                 >
-                  <span className="relative flex" style={{ width: 7, height: 7 }}>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-70" />
-                    <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 7, height: 7 }} />
+                  <span className="relative flex" style={{ width: 9, height: 9 }}>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-60" />
+                    <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 9, height: 9 }} />
                   </span>
                   슬롯 {idleCount}개 대기중
                 </span>
@@ -388,9 +388,9 @@ export default function RoomPage() {
                     letterSpacing: "0.01em",
                   }}
                 >
-                  <span className="relative flex" style={{ width: 7, height: 7 }}>
+                  <span className="relative flex" style={{ width: 9, height: 9 }}>
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-60" />
-                    <span className="relative inline-flex rounded-full bg-[var(--accent)]" style={{ width: 7, height: 7 }} />
+                    <span className="relative inline-flex rounded-full bg-[var(--accent)]" style={{ width: 9, height: 9 }} />
                   </span>
                   작업중
                 </span>
