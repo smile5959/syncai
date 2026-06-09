@@ -336,6 +336,16 @@ async def _run_ai_task(
             available_mcps=public_mcps,
             selected_mcp_name=mcp_config.name,
         )
+
+        await broadcast(task_connections, room_id, {
+            "type": "task_progress",
+            "data": {
+                "task_id": task_id,
+                "progress": 5,
+                "message": "요청 분석 중...",
+                "step": "요청 분석 중...",
+            },
+        })
         task_plan = await supervisor.analyze(content, context, user_name=user_name)
 
         worker_llm = WorkerLLM(

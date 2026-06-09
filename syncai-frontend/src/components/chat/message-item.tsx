@@ -343,7 +343,7 @@ export function MessageItem({ message, showAvatar = true, isMe = false, roomId =
             <span style={{
               position: "absolute", bottom: 1, right: 1,
               width: 8, height: 8, borderRadius: "50%",
-              background: "#4ade80", boxShadow: "0 0 6px #4ade80",
+              background: "var(--status-online)", boxShadow: "0 0 6px var(--status-online)",
               animation: "pulse 1.2s ease-in-out infinite",
             }} />
           )}

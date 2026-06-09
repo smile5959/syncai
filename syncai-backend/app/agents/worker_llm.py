@@ -8,7 +8,6 @@ Supervisor.analyze()가 반환한 task_plan을 받아 MCP 툴을 호출하며 �
   E) 오래된 툴 메시지 압축: 2회 이전 iteration의 tool 메시지를 [완료]로 대체
 """
 import json
-import asyncio
 from typing import Callable, Awaitable
 from openai import AsyncOpenAI
 from app.agents.mcp_client import MCPFatalError
@@ -116,7 +115,7 @@ class WorkerLLM:
     ) -> str:
         """
         task_plan을 받아 tool-calling 루프로 실행하고 최종 응답 문자열을 반환한다.
-        model: worker 슬롯에 설정된 모델 사용.
+        최종 텍스트 응답은 실시간 스트리밍으로 on_chunk에 전달된다.
         """
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
@@ -157,7 +156,7 @@ class WorkerLLM:
 
         system_prompt = WORKER_SYSTEM_PROMPT + base_dir_note + mcp_note + user_note
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
         for msg in context_messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
@@ -181,33 +180,74 @@ class WorkerLLM:
 
             await on_progress(f"작업 중... ({iteration + 1}단계)")
 
-            response = await client.chat.completions.create(
+            # 스트리밍 요청
+            stream = await client.chat.completions.create(
                 model=model,
                 max_tokens=400,
                 tools=MCP_TOOLS,
                 messages=messages,
+                stream=True,
             )
 
-            choice = response.choices[0]
-            finish_reason = choice.finish_reason
-            message = choice.message
+            text_content = ""
+            tool_calls_acc: dict[int, dict] = {}
+            finish_reason: str | None = None
 
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                choice = chunk.choices[0]
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
+                delta = choice.delta
+
+                # 텍스트 청크 — 실시간으로 전달
+                if delta.content:
+                    text_content += delta.content
+                    if on_chunk:
+                        await on_chunk(delta.content)
+
+                # 툴 콜 델타 누적
+                if delta.tool_calls:
+                    for tc_delta in delta.tool_calls:
+                        idx = tc_delta.index
+                        if idx not in tool_calls_acc:
+                            tool_calls_acc[idx] = {
+                                "id": tc_delta.id or "",
+                                "type": "function",
+                                "function": {
+                                    "name": (tc_delta.function.name or "") if tc_delta.function else "",
+                                    "arguments": (tc_delta.function.arguments or "") if tc_delta.function else "",
+                                },
+                            }
+                        else:
+                            if tc_delta.id:
+                                tool_calls_acc[idx]["id"] = tc_delta.id
+                            if tc_delta.function:
+                                if tc_delta.function.name:
+                                    tool_calls_acc[idx]["function"]["name"] += tc_delta.function.name
+                                if tc_delta.function.arguments:
+                                    tool_calls_acc[idx]["function"]["arguments"] += tc_delta.function.arguments
+
+            # 스트리밍 완료 후 처리
             if finish_reason == "stop":
-                content = message.content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
-                if on_chunk:
-                    for i in range(0, len(content), 6):
-                        await on_chunk(content[i:i+6])
-                        await asyncio.sleep(0.02)
-                return content
+                return text_content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
 
-            if finish_reason == "tool_calls":
+            if finish_reason == "tool_calls" and tool_calls_acc:
+                tool_calls_list = [tool_calls_acc[i] for i in sorted(tool_calls_acc.keys())]
+
                 batch_start = len(messages)
-                messages.append(message)
+                # assistant 메시지 (dict 형태로 추가)
+                messages.append({
+                    "role": "assistant",
+                    "content": text_content or None,
+                    "tool_calls": tool_calls_list,
+                })
 
-                for tool_call in (message.tool_calls or []):
-                    tool_name = tool_call.function.name
+                for tc in tool_calls_list:
+                    tool_name = tc["function"]["name"]
                     try:
-                        tool_args = json.loads(tool_call.function.arguments)
+                        tool_args = json.loads(tc["function"]["arguments"])
                     except Exception:
                         tool_args = {}
 
@@ -223,10 +263,9 @@ class WorkerLLM:
 
                     # D: 툴 결과 truncation
                     truncated = _truncate_tool_result(result, tool_name)
-
                     messages.append({
                         "role": "tool",
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tc["id"],
                         "content": truncated,
                     })
 
@@ -234,13 +273,9 @@ class WorkerLLM:
                 tool_batches.append((batch_start, batch_end))
                 continue
 
-            if message.content:
-                content = message.content
-                if on_chunk:
-                    for i in range(0, len(content), 6):
-                        await on_chunk(content[i:i+6])
-                        await asyncio.sleep(0.02)
-                return content
+            # finish_reason이 없거나 알 수 없는 경우 — 텍스트가 있으면 반환
+            if text_content:
+                return text_content
             break
 
         return "작업을 완료하지 못했습니다. 다시 시도해 주세요."
