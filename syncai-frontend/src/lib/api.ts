@@ -151,7 +151,7 @@ export const mcpConfigs = {
     http.patch<{ auto_approve: boolean }>(`/mcp-configs/${id}/auto-approve`),
   /** 인스톨러 다운로드 URL 반환 */
   getDownloadUrl: (token: string) =>
-    http.get<{ download_url: string; token: string; config_id: string; name: string }>(
+    http.get<{ download_url: string; install_sh_url?: string; token: string; config_id: string; name: string }>(
       `/mcp-configs/download`, { params: { token } }
     ),
 };

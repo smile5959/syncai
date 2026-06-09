@@ -50,6 +50,82 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
+// ─── macOS 설치 명령어 컴포넌트 ─────────────────────────────────────────────
+function MacInstallCommand({ installShUrl, token }: { installShUrl: string; token: string }) {
+  const [copied, setCopied] = useState(false);
+  const cmd = `curl -fsSL "${installShUrl}" | bash -s -- --token=${token}`;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+        borderRadius: 10, padding: "8px 12px", overflow: "hidden",
+      }}>
+        <code style={{
+          flex: 1, fontSize: 11.5, color: "var(--text-primary)",
+          fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap",
+          userSelect: "all",
+        }}>{cmd}</code>
+        <button
+          onClick={() => { navigator.clipboard.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
+          style={{
+            flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 12px", borderRadius: 8,
+            background: copied ? "rgba(34,197,94,0.15)" : "var(--accent)",
+            color: copied ? "#4ade80" : "white",
+            fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          {copied ? <Check size={11} /> : <Download size={11} />}
+          {copied ? "복사됨" : "복사"}
+        </button>
+      </div>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+        터미널(Terminal.app)에 붙여넣고 실행하세요. Python 3.10+가 필요합니다.
+      </p>
+    </div>
+  );
+}
+
+// ─── 재시도 버튼 ────────────────────────────────────────────────────────────
+type PostCreateState = { online: boolean; token: string; configId: string; name: string; downloadUrl?: string; installShUrl?: string; downloadUrlError?: boolean };
+
+function RetryButton({ token, setPostCreate, mcpApi: api }: {
+  token: string;
+  setPostCreate: React.Dispatch<React.SetStateAction<PostCreateState | null>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mcpApi: any;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>다운로드 URL을 불러오지 못했습니다.</span>
+      <button
+        onClick={async () => {
+          try {
+            const dlRes = await api.getDownloadUrl(token);
+            setPostCreate((prev) => prev ? {
+              ...prev,
+              downloadUrl: dlRes.data.download_url,
+              installShUrl: dlRes.data.install_sh_url,
+              downloadUrlError: false,
+            } : prev);
+          } catch { /* 무시 */ }
+        }}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "6px 14px", borderRadius: 9,
+          background: "var(--accent)", color: "white",
+          fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+        }}
+      >
+        <RefreshCw size={11} />
+        재시도
+      </button>
+    </div>
+  );
+}
+
 // ─── 메인 모달 ───────────────────────────────────────────────────────────────
 export function McpSettingsModal({ teamId, onClose, onWorkerUpdate }: McpSettingsModalProps) {
   const [tab, setTab] = useState<Tab>("my");
@@ -183,8 +259,12 @@ function MyMcpTab() {
     configId: string;
     name: string;
     downloadUrl?: string;
+    installShUrl?: string;
     downloadUrlError?: boolean;
   } | null>(null);
+
+  // macOS 여부 감지 (클라이언트에서만)
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
   // 인라인 편집 상태
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -243,6 +323,7 @@ function MyMcpTab() {
             online: false, token,
             configId: mcp_config.id, name: mcp_config.name,
             downloadUrl: dlRes.data.download_url,
+            installShUrl: dlRes.data.install_sh_url,
           });
         } catch {
           setPostCreate({ online: false, token, configId: mcp_config.id, name: mcp_config.name, downloadUrlError: true });
@@ -338,52 +419,46 @@ function MyMcpTab() {
             ) : (
               <>
                 <p style={{ fontSize: 13.5, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
-                  {postCreate.name} — 설치 파일을 다운로드하세요
+                  {postCreate.name} — {isMac ? "터미널에서 설치하세요" : "설치 파일을 다운로드하세요"}
                 </p>
                 <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
-                  PC에 MCP 서버가 없습니다. 설치 파일을 실행하면 자동으로 연결됩니다.
+                  PC에 MCP 서버가 없습니다. {isMac ? "아래 명령어를 터미널에 붙여넣으면 자동으로 설치됩니다." : "설치 파일을 실행하면 자동으로 연결됩니다."}
                 </p>
-                {postCreate.downloadUrl ? (
-                  <a
-                    href={postCreate.downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 7,
-                      padding: "8px 18px", borderRadius: 10,
-                      background: "var(--accent)", color: "white",
-                      fontSize: 13, fontWeight: 600, textDecoration: "none",
-                      boxShadow: "0 2px 10px var(--accent-glow)",
-                    }}
-                  >
-                    <Download size={13} />
-                    SyncAI-MCP-Setup.exe 다운로드
-                  </a>
-                ) : postCreate.downloadUrlError ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      다운로드 URL을 불러오지 못했습니다.
-                    </span>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const dlRes = await mcpApi.getDownloadUrl(postCreate.token);
-                          setPostCreate((prev) => prev ? { ...prev, downloadUrl: dlRes.data.download_url, downloadUrlError: false } : prev);
-                        } catch { /* 무시 */ }
-                      }}
+                {isMac ? (
+                  /* ── macOS: curl 명령어 복사 ── */
+                  postCreate.installShUrl ? (
+                    <MacInstallCommand
+                      installShUrl={postCreate.installShUrl}
+                      token={postCreate.token}
+                    />
+                  ) : postCreate.downloadUrlError ? (
+                    <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
+                  ) : (
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>설치 URL 불러오는 중...</span>
+                  )
+                ) : (
+                  /* ── Windows: .exe 다운로드 ── */
+                  postCreate.downloadUrl ? (
+                    <a
+                      href={postCreate.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
                       style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        padding: "6px 14px", borderRadius: 9,
+                        display: "inline-flex", alignItems: "center", gap: 7,
+                        padding: "8px 18px", borderRadius: 10,
                         background: "var(--accent)", color: "white",
-                        fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+                        fontSize: 13, fontWeight: 600, textDecoration: "none",
+                        boxShadow: "0 2px 10px var(--accent-glow)",
                       }}
                     >
-                      <RefreshCw size={11} />
-                      재시도
-                    </button>
-                  </div>
-                ) : null}
+                      <Download size={13} />
+                      SyncAI-MCP-Setup.exe 다운로드
+                    </a>
+                  ) : postCreate.downloadUrlError ? (
+                    <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
+                  ) : null
+                )}
               </>
             )}
           </div>
