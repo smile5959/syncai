@@ -359,18 +359,38 @@ export default function RoomPage() {
             {/* Worker 슬롯 상태 표시 */}
             {workers.length > 0 && (
               idleCount > 0 ? (
-                <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-green-500/10 text-green-400 border-green-500/20">
-                  <span className="relative flex w-2 h-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
-                    <span className="relative inline-flex rounded-full w-2 h-2 bg-green-400" />
+                <span
+                  className="shrink-0 inline-flex items-center gap-2 px-3 py-1"
+                  style={{
+                    borderRadius: 999,
+                    background: "linear-gradient(135deg, rgba(74,222,128,0.12) 0%, rgba(34,197,94,0.07) 100%)",
+                    border: "1px solid rgba(74,222,128,0.25)",
+                    boxShadow: "0 0 10px rgba(74,222,128,0.1)",
+                    fontSize: 11.5, fontWeight: 600, color: "#4ade80",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  <span className="relative flex" style={{ width: 7, height: 7 }}>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-70" />
+                    <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 7, height: 7 }} />
                   </span>
                   슬롯 {idleCount}개 대기중
                 </span>
               ) : (
-                <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--ai-border)]">
-                  <span className="relative flex w-2 h-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-50" />
-                    <span className="relative inline-flex rounded-full w-2 h-2 bg-[var(--accent)]" />
+                <span
+                  className="shrink-0 inline-flex items-center gap-2 px-3 py-1"
+                  style={{
+                    borderRadius: 999,
+                    background: "linear-gradient(135deg, rgba(129,140,248,0.12) 0%, rgba(99,102,241,0.07) 100%)",
+                    border: "1px solid rgba(129,140,248,0.25)",
+                    boxShadow: "0 0 10px rgba(129,140,248,0.1)",
+                    fontSize: 11.5, fontWeight: 600, color: "var(--accent)",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  <span className="relative flex" style={{ width: 7, height: 7 }}>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-60" />
+                    <span className="relative inline-flex rounded-full bg-[var(--accent)]" style={{ width: 7, height: 7 }} />
                   </span>
                   작업중
                 </span>
