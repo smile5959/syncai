@@ -18,8 +18,8 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_room_access(room_id, current_user, db)
-    tasks = db.query(Task).filter(Task.room_id == room_id).order_by(Task.created_at.desc()).all()
+    room = require_room_access(room_id, current_user, db)
+    tasks = db.query(Task).filter(Task.room_id == room.id).order_by(Task.created_at.desc()).all()
     result = []
     for task in tasks:
         out = TaskOut.model_validate(task)

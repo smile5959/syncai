@@ -81,11 +81,11 @@ def require_team_owner(team_id: str, current_user: User, db: Session) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only team owner can perform this action")
 
 
-def require_room_access(room_id: str, current_user: User, db: Session) -> None:
+def require_room_access(room_id: str, current_user: User, db: Session):
     """
     현재 사용자가 해당 룸에 접근 권한이 있는지 확인.
     룸 멤버이거나, 해당 룸이 속한 팀의 멤버이면 허용.
-    UUID 또는 slug 모두 허용.
+    UUID 또는 slug 모두 허용. room 객체를 반환.
     """
     from app.models.chat_room import ChatRoom, RoomMember
     from app.models.team import TeamMember
@@ -111,3 +111,5 @@ def require_room_access(room_id: str, current_user: User, db: Session) -> None:
 
     if not is_room_member and not is_team_member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this room")
+
+    return room

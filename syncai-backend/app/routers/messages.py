@@ -731,11 +731,11 @@ def list_messages(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_room_access(room_id, current_user, db)
+    room = require_room_access(room_id, current_user, db)
     query = (
         db.query(Message)
         .options(joinedload(Message.user))
-        .filter(Message.room_id == room_id)
+        .filter(Message.room_id == room.id)
         .order_by(Message.created_at.desc())
     )
     if cursor:
@@ -754,13 +754,14 @@ async def send_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_room_access(room_id, current_user, db)
-    msg = Message(room_id=room_id, user_id=current_user.id, content=body.content, type="chat")
+    room = require_room_access(room_id, current_user, db)
+    actual_room_id = str(room.id)
+    msg = Message(room_id=room.id, user_id=current_user.id, content=body.content, type="chat")
     db.add(msg)
     db.commit()
     db.refresh(msg)
 
-    await broadcast(chat_connections, room_id, {
+    await broadcast(chat_connections, actual_room_id, {
         "type": "message",
         "data": {
             "id": str(msg.id),
@@ -787,10 +788,7 @@ async def ai_command(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_room_access(room_id, current_user, db)
-    room = db.query(ChatRoom).filter(ChatRoom.id == uuid.UUID(room_id)).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
+    room = require_room_access(room_id, current_user, db)
 
     team_id = str(room.team_id)
 
