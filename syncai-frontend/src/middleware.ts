@@ -11,7 +11,13 @@ const API_BASE =
  * refresh_token cookie to call backend /auth/refresh.
  * Returns Set-Cookie header array on success, null on failure.
  */
-async function tryRefresh(refreshToken: string): Promise<string[] | null> {
+interface RefreshResult {
+  cookies: string[] | null;
+  /** HTTP 상태코드. 네트워크 오류 등으로 응답 자체가 없으면 0. */
+  status: number;
+}
+
+async function tryRefresh(refreshToken: string): Promise<RefreshResult> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
@@ -21,7 +27,7 @@ async function tryRefresh(refreshToken: string): Promise<string[] | null> {
       },
       body: JSON.stringify({}),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { cookies: null, status: res.status };
 
     // getSetCookie() is supported in Next.js Edge Runtime (Next.js 13.4+)
     const getSetCookie = (
@@ -32,9 +38,10 @@ async function tryRefresh(refreshToken: string): Promise<string[] | null> {
         ? getSetCookie.call(res.headers)
         : ([res.headers.get("set-cookie")].filter(Boolean) as string[]);
 
-    return cookies.length > 0 ? cookies : null;
+    return { cookies: cookies.length > 0 ? cookies : null, status: res.status };
   } catch {
-    return null;
+    // 네트워크 오류 — status 0으로 구분
+    return { cookies: null, status: 0 };
   }
 }
 
@@ -54,15 +61,24 @@ export async function middleware(request: NextRequest) {
         // 토큰이 있어도 실제로 유효한지 리프레시로 검증
         const refreshToken = request.cookies.get("refresh_token");
         if (refreshToken?.value) {
-          const newCookies = await tryRefresh(refreshToken.value);
-          if (newCookies) {
+          const result = await tryRefresh(refreshToken.value);
+          if (result.cookies) {
             // 리프레시 성공 → 로그인된 사용자 → /rooms로
             const response = NextResponse.redirect(new URL("/rooms", request.url));
-            newCookies.forEach((c) => response.headers.append("Set-Cookie", c));
+            result.cookies.forEach((c) => response.headers.append("Set-Cookie", c));
             return response;
           }
+          if (result.status === 401) {
+            // 명확히 만료된 세션(401) → 쿠키 삭제 후 로그인 페이지 표시
+            const response = NextResponse.next();
+            response.cookies.delete("access_token");
+            response.cookies.delete("refresh_token");
+            return response;
+          }
+          // 네트워크 오류(status 0) 또는 기타 서버 오류 → 쿠키 건드리지 않고 로그인 페이지 표시
+          return NextResponse.next();
         }
-        // 토큰 있지만 리프레시 실패 → 만료된 세션 → 쿠키 지우고 로그인 페이지 표시
+        // refresh_token 없음 → 쿠키 삭제 후 로그인 페이지 표시
         const response = NextResponse.next();
         response.cookies.delete("access_token");
         response.cookies.delete("refresh_token");
@@ -87,15 +103,22 @@ export async function middleware(request: NextRequest) {
     // No access_token - try silent refresh with refresh_token
     const refreshToken = request.cookies.get("refresh_token");
     if (refreshToken?.value) {
-      const newCookies = await tryRefresh(refreshToken.value);
-      if (newCookies) {
+      const result = await tryRefresh(refreshToken.value);
+      if (result.cookies) {
         // Refresh succeeded - attach new cookies and continue
         const response = NextResponse.next();
-        newCookies.forEach((c) => response.headers.append("Set-Cookie", c));
+        result.cookies.forEach((c) => response.headers.append("Set-Cookie", c));
         return response;
       }
+      // 네트워크 오류(status 0)면 쿠키는 살려두고 로그인 페이지로 (재부팅 직후 방어)
+      if (result.status !== 0) {
+        // 401 등 명확한 실패만 redirect
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
     }
-    // No refresh_token or refresh failed - redirect to login
+    // No refresh_token or confirmed auth failure - redirect to login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
