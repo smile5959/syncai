@@ -71,6 +71,7 @@ export interface McpConfigWithTeam extends McpConfig {
 export interface ChatRoom {
   id: string;
   name: string;
+  slug?: string | null;
   team_id: string;
   created_at: string;
   last_message?: Message;

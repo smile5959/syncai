@@ -47,7 +47,7 @@ export default function RoomsPage() {
             {rooms.slice(0, 6).map((room) => (
               <button
                 key={room.id}
-                onClick={() => router.push(`/rooms/${room.id}`)}
+                onClick={() => router.push(`/rooms/${room.slug ?? room.id}`)}
                 className="flex items-center gap-4 px-6 py-5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] hover:border-[var(--accent-dim)] hover:bg-[var(--bg-elevated)] transition-all duration-150 text-left group"
               >
                 <div className="w-9 h-9 rounded-xl bg-[var(--accent-bg)] flex items-center justify-center shrink-0">

@@ -56,7 +56,7 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
       addRoom(res.data);
       setShowCreate(false);
       setNewName("");
-      router.push(`/rooms/${res.data.id}`);
+      router.push(`/rooms/${res.data.slug ?? res.data.id}`);
     } catch (e) {
       console.error(e);
     } finally {

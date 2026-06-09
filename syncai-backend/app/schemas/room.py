@@ -12,6 +12,7 @@ class RoomOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    slug: str | None
     team_id: uuid.UUID
     created_at: datetime
 

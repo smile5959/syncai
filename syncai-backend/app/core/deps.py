@@ -85,18 +85,23 @@ def require_room_access(room_id: str, current_user: User, db: Session) -> None:
     """
     현재 사용자가 해당 룸에 접근 권한이 있는지 확인.
     룸 멤버이거나, 해당 룸이 속한 팀의 멤버이면 허용.
+    UUID 또는 slug 모두 허용.
     """
     from app.models.chat_room import ChatRoom, RoomMember
     from app.models.team import TeamMember
-    room_uuid = _parse_uuid(room_id, "room_id")
 
-    room = db.query(ChatRoom).filter(ChatRoom.id == room_uuid).first()
+    # UUID 또는 slug로 방 조회
+    try:
+        room = db.query(ChatRoom).filter(ChatRoom.id == uuid.UUID(room_id)).first()
+    except (ValueError, AttributeError):
+        room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
+
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
 
     # 룸 직접 멤버이거나, 팀 멤버이면 허용
     is_room_member = db.query(RoomMember).filter(
-        RoomMember.room_id == room_uuid,
+        RoomMember.room_id == room.id,
         RoomMember.user_id == current_user.id,
     ).first()
     is_team_member = db.query(TeamMember).filter(

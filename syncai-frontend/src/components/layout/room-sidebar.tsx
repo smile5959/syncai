@@ -79,7 +79,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
       onRoomsChange?.(updated);
       if (currentId === room.id) {
         if (updated.length > 0) {
-          router.push(`/rooms/${updated[0].id}`);
+          router.push(`/rooms/${updated[0].slug ?? updated[0].id}`);
         } else {
           router.push("/rooms");
         }
@@ -192,7 +192,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                     </div>
                   ) : (
                     <Link
-                      href={`/rooms/${room.id}`}
+                      href={`/rooms/${room.slug ?? room.id}`}
                       className={cn(
                         "flex items-center gap-3 px-4 rounded-xl text-sm transition-all duration-150 group",
                         "min-h-[52px]",
