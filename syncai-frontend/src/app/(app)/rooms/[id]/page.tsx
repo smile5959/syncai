@@ -358,13 +358,23 @@ export default function RoomPage() {
             </h1>
             {/* Worker 슬롯 상태 표시 */}
             {workers.length > 0 && (
-              <Badge
-                variant={idleCount > 0 ? "green" : "default"}
-                dot
-                className="shrink-0"
-              >
-                {idleCount > 0 ? `슬롯 ${idleCount}개 대기중` : "모든 슬롯 사용중"}
-              </Badge>
+              idleCount > 0 ? (
+                <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-green-500/10 text-green-400 border-green-500/20">
+                  <span className="relative flex w-2 h-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full w-2 h-2 bg-green-400" />
+                  </span>
+                  슬롯 {idleCount}개 대기중
+                </span>
+              ) : (
+                <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--ai-border)]">
+                  <span className="relative flex w-2 h-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-50" />
+                    <span className="relative inline-flex rounded-full w-2 h-2 bg-[var(--accent)]" />
+                  </span>
+                  작업중
+                </span>
+              )
             )}
           </div>
 

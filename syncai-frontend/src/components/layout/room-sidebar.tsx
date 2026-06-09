@@ -137,15 +137,23 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
       </div>
 
       {/* Search */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center gap-2.5 bg-[var(--bg-base)] rounded-xl px-3.5 py-3 border border-[var(--border-subtle)] transition-colors focus-within:border-[var(--accent-dim)]">
-          <Search size={14} className="text-[var(--text-muted)] shrink-0" />
+      <div className="px-3 pt-3 pb-1.5">
+        <div className="flex items-center gap-3 bg-[var(--bg-base)] rounded-2xl px-4 py-3.5 border border-[var(--border-subtle)] transition-colors focus-within:border-[var(--accent-dim)] focus-within:shadow-[0_0_0_3px_var(--accent-glow)]">
+          <Search size={15} className="text-[var(--text-muted)] shrink-0" />
           <input
             placeholder="채팅방 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
+            className="flex-1 bg-transparent text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors shrink-0 text-base leading-none"
+            >
+              ×
+            </button>
+          )}
         </div>
       </div>
 
