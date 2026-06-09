@@ -81,7 +81,7 @@ export default function LoginPage() {
   const setTeam = useAuthStore((s) => s.setTeam);
   const { theme, toggle } = useTheme();
 
-  const registered = searchParams?.get("registered") === "true";
+  const [registered, setRegistered] = useState(false);
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -128,7 +128,11 @@ export default function LoginPage() {
 
       if (tab === "signup") {
         await auth.signup(email, password, name);
-        router.push("/login?registered=true");
+        setRegistered(true);
+        setTab("login");
+        setEmail("");
+        setPassword("");
+        setName("");
         return;
       }
       const res = await auth.login(email, password);
@@ -331,7 +335,7 @@ export default function LoginPage() {
             {(["login", "signup"] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => { setTab(t); setError(""); }}
+                onClick={() => { setTab(t); setError(""); setRegistered(false); }}
                 style={{
                   appearance: "none", border: 0, cursor: "pointer",
                   padding: "9px 12px", borderRadius: 9,
