@@ -557,22 +557,23 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             })
         messages.append({"role": "user", "content": content})
 
-        response = await client.chat.completions.create(
+        result_text = ""
+        stream = await client.chat.completions.create(
             model=chat_model,
             max_tokens=2048,
             messages=messages,
+            stream=True,
         )
-        result_text = response.choices[0].message.content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
-
-        # 스트리밍: 청크 단위로 채팅창에 전송
-        chunk_size = 6
-        import asyncio as _asyncio
-        for i in range(0, len(result_text), chunk_size):
-            await broadcast(chat_connections, room_id, {
-                "type": "message_chunk",
-                "data": {"task_id": task_id, "text": result_text[i:i+chunk_size]},
-            })
-            await _asyncio.sleep(0.02)
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                result_text += delta
+                await broadcast(chat_connections, room_id, {
+                    "type": "message_chunk",
+                    "data": {"task_id": task_id, "text": delta},
+                })
+        if not result_text:
+            result_text = "응답을 생성하지 못했습니다. 다시 시도해 주세요."
 
         now = datetime.now(timezone.utc)
         task.status = "completed"

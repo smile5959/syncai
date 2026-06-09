@@ -22,11 +22,21 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def startup_event():
     from app.database import SessionLocal
     from app.models.mcp_config import McpConfig
+    from app.models.task import Task
     db = SessionLocal()
     try:
         updated = db.query(McpConfig).filter(McpConfig.is_online == True).update({"is_online": False})
         db.commit()
         print(f"[startup] is_online 리셋: {updated}개")
+
+        # 서버 재시작 시 진행 중이던 태스크를 failed로 마킹 (영구 고착 방지)
+        stuck = db.query(Task).filter(Task.status.in_(["running", "pending"])).update(
+            {"status": "failed", "error": "서버 재시작으로 인해 작업이 중단되었습니다."},
+            synchronize_session=False,
+        )
+        db.commit()
+        if stuck:
+            print(f"[startup] 중단된 태스크 failed 처리: {stuck}개")
     finally:
         db.close()
     asyncio.create_task(ws.redis_subscriber())

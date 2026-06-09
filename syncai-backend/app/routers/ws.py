@@ -309,10 +309,20 @@ def _update_base_dir(mcp_token: str, base_dir: str) -> None:
         db.close()
 
 
+_sync_redis_pool: sync_redis.Redis | None = None
+
+
+def _get_sync_redis() -> sync_redis.Redis:
+    global _sync_redis_pool
+    if _sync_redis_pool is None:
+        _sync_redis_pool = sync_redis.from_url(settings.REDIS_URL, decode_responses=True)
+    return _sync_redis_pool
+
+
 def _publish_mcp_status(user_id: str, config_id: str, online: bool, base_dir: str | None = None) -> None:
     """MCP 연결/해제 이벤트를 Redis pub/sub으로 알림 → 프론트 WebSocket으로 실시간 전파."""
     try:
-        r = sync_redis.from_url(settings.REDIS_URL)
+        r = _get_sync_redis()
         payload: dict = {
             "type": "mcp_status",
             "config_id": config_id,
@@ -321,6 +331,6 @@ def _publish_mcp_status(user_id: str, config_id: str, online: bool, base_dir: st
         if base_dir is not None:
             payload["base_dir"] = base_dir
         r.publish(f"syncai:mcp:{user_id}", json.dumps(payload))
-        r.close()
     except Exception as e:
         log.warning("[mcp-agent] Redis publish 실패: %s", e)
+        _sync_redis_pool = None  # 재연결 유도
