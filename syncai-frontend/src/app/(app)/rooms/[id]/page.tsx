@@ -82,6 +82,7 @@ export default function RoomPage() {
   const setShowSidebar = useRoomsStore((s) => s.setShowSidebar);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatWsRef = useRef<ReturnType<typeof createChatWS> | null>(null);
   const me = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const currentTeam = useAuthStore((s) => s.team);
@@ -139,6 +140,7 @@ export default function RoomPage() {
     };
 
     const ws = createChatWS(id, handleReconnect);
+    chatWsRef.current = ws;
     const unsub = ws.on((event: WsChatEvent) => {
       if (event.type === "message") {
         setMsgs((prev) => {
@@ -177,7 +179,7 @@ export default function RoomPage() {
         });
       }
     });
-    return () => { unsub(); ws.close(); };
+    return () => { unsub(); ws.close(); chatWsRef.current = null; };
   }, [id]);
 
   // Worker 슬롯 폴링 — 5초마다 갱신
@@ -276,6 +278,7 @@ export default function RoomPage() {
         setMsgs((prev) => [...prev, errorMsg]);
       }
     } else {
+      // 낙관적 업데이트 — 즉시 표시
       const tempId = `temp-${Date.now()}`;
       const optimistic: Message = {
         id: tempId,
@@ -287,12 +290,17 @@ export default function RoomPage() {
         user: me ?? undefined,
       };
       setMsgs((prev) => [...prev, optimistic]);
-      // API 호출은 백그라운드 — promise 반환 전에 UI 이미 업데이트됨
-      messagesApi.send(id, content).then((res) => {
-        setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m));
-      }).catch(() => {
-        setMsgs((prev) => prev.filter((m) => m.id !== tempId));
-      });
+
+      // WS로 전송 (HTTP 오버헤드 없음) — WS 미연결 시 HTTP fallback
+      if (chatWsRef.current) {
+        chatWsRef.current.send({ type: "send_message", content });
+      } else {
+        messagesApi.send(id, content).then((res) => {
+          setMsgs((prev) => prev.map((m) => m.id === tempId ? res.data : m));
+        }).catch(() => {
+          setMsgs((prev) => prev.filter((m) => m.id !== tempId));
+        });
+      }
     }
   }, [id, me]);
 

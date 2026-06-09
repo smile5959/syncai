@@ -4,6 +4,8 @@ from app.core import mcp_broker
 import asyncio
 import json
 import logging
+import uuid as _uuid_mod
+from datetime import datetime, timezone
 import redis.asyncio as aioredis
 import redis as sync_redis
 from app.config import settings
@@ -122,17 +124,19 @@ async def ws_chat(websocket: WebSocket, room_id: str):
         await websocket.close(code=4001)
         return
 
-    # slug → UUID 정규화 (broadcast 키 통일)
+    # slug → UUID 정규화 (broadcast 키 통일) + 유저 정보 로드
     from app.database import SessionLocal
     from app.models.chat_room import ChatRoom
-    import uuid as _uuid
+    from app.models.user import User as _User
     db = SessionLocal()
     try:
         try:
-            room = db.query(ChatRoom).filter(ChatRoom.id == _uuid.UUID(room_id)).first()
+            room = db.query(ChatRoom).filter(ChatRoom.id == _uuid_mod.UUID(room_id)).first()
         except (ValueError, AttributeError):
             room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
         resolved_room_id = str(room.id) if room else room_id
+        user = db.query(_User).filter(_User.id == _uuid_mod.UUID(user_id)).first()
+        user_info = {"id": user_id, "name": user.name, "email": user.email} if user else {"id": user_id, "name": "알 수 없음", "email": ""}
     finally:
         db.close()
 
@@ -141,14 +145,53 @@ async def ws_chat(websocket: WebSocket, room_id: str):
     try:
         while True:
             data = await websocket.receive_json()
-            await broadcast(chat_connections, resolved_room_id, {
-                "type": "message",
-                "data": data,
-            })
+            msg_type = data.get("type")
+
+            if msg_type == "send_message":
+                content = (data.get("content") or "").strip()
+                if not content:
+                    continue
+                # UUID 미리 생성 → 즉시 broadcast → DB 저장은 백그라운드
+                msg_id = str(_uuid_mod.uuid4())
+                now = datetime.now(timezone.utc).isoformat()
+                await broadcast(chat_connections, resolved_room_id, {
+                    "type": "message",
+                    "data": {
+                        "id": msg_id,
+                        "room_id": resolved_room_id,
+                        "user_id": user_id,
+                        "content": content,
+                        "type": "chat",
+                        "created_at": now,
+                        "user": user_info,
+                    },
+                })
+                asyncio.create_task(_save_chat_message(resolved_room_id, user_id, content, msg_id))
     except WebSocketDisconnect:
         chat_connections[resolved_room_id].discard(websocket)
     except Exception:
         chat_connections[resolved_room_id].discard(websocket)
+
+
+async def _save_chat_message(room_id: str, user_id: str, content: str, msg_id: str):
+    """WS로 받은 채팅 메시지를 DB에 비동기 저장."""
+    from app.database import SessionLocal
+    from app.models.message import Message as _Message
+    db = SessionLocal()
+    try:
+        msg = _Message(
+            id=_uuid_mod.UUID(msg_id),
+            room_id=_uuid_mod.UUID(room_id),
+            user_id=_uuid_mod.UUID(user_id),
+            content=content,
+            type="chat",
+        )
+        db.add(msg)
+        db.commit()
+    except Exception as e:
+        log.warning("[_save_chat_message] DB 저장 실패: %s", e)
+    finally:
+        db.close()
 
 
 @router.websocket("/ws/rooms/{room_id}/tasks")
