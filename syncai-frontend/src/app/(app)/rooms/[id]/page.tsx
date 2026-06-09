@@ -118,9 +118,9 @@ export default function RoomPage() {
     mcpConfigsApi.listForTeam(teamId).then((r) => setTeamMcpConfigs(r.data)).catch(() => {});
   }, [teamId]);
 
-  // Auto scroll
+  // Auto scroll — smooth 제거, 즉시 스크롤
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
   }, [msgs]);
 
   // Chat WebSocket
