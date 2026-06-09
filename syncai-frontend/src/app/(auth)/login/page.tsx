@@ -81,6 +81,7 @@ export default function LoginPage() {
   const setTeam = useAuthStore((s) => s.setTeam);
   const { theme, toggle } = useTheme();
 
+  const registered = searchParams?.get("registered") === "true";
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -125,29 +126,21 @@ export default function LoginPage() {
         if (refreshToken) document.cookie = `refresh_token=${refreshToken}; ${opts}`;
       };
 
-      let loginTeams;
-      if (tab === "login") {
-        const res = await auth.login(email, password);
-        setUser(res.data.user);
-        setAuthCookies(res.data.token, res.data.refresh_token);
-        loginTeams = res.data.teams;
-      } else {
-        const res = await auth.signup(email, password, name);
-        setUser(res.data.user);
-        setAuthCookies(res.data.token, res.data.refresh_token);
-        loginTeams = res.data.teams;
+      if (tab === "signup") {
+        await auth.signup(email, password, name);
+        router.push("/login?registered=true");
+        return;
       }
+      const res = await auth.login(email, password);
+      setUser(res.data.user);
+      setAuthCookies(res.data.token, res.data.refresh_token);
       if (nextUrl) {
         router.push(nextUrl);
         return;
       }
-      const teams = loginTeams ?? (await usersApi.myTeams()).data.teams;
-      if (teams.length > 0) {
-        setTeam(teams[0]);
-        router.push("/rooms");
-      } else {
-        router.push("/onboarding");
-      }
+      const loginTeams = res.data.teams ?? (await usersApi.myTeams()).data.teams;
+      if (loginTeams.length > 0) setTeam(loginTeams[0]);
+      router.push("/rooms");
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })
@@ -425,6 +418,17 @@ export default function LoginPage() {
                 }}>
                   비밀번호 찾기
                 </a>
+              </div>
+            )}
+
+            {registered && tab === "login" && (
+              <div style={{
+                marginBottom: 14, padding: "9px 12px", borderRadius: 10,
+                background: "rgba(20, 184, 166, 0.08)",
+                border: "1px solid rgba(20, 184, 166, 0.25)",
+                fontSize: 12.5, color: "#14B8A6", textAlign: "center",
+              }}>
+                회원가입이 완료됐어요! 로그인해주세요 🎉
               </div>
             )}
 

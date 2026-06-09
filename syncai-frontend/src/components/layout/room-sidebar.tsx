@@ -7,6 +7,7 @@ import { Plus, Search, Hash, UserPlus, MoreHorizontal, Pencil, Trash2 } from "lu
 import { cn } from "@/lib/utils";
 import { rooms as roomsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { useRoomsStore } from "@/store/rooms";
 import type { ChatRoom } from "@/types";
 
 interface RoomSidebarProps {
@@ -21,6 +22,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
   const router = useRouter();
   const currentId = params?.id as string | undefined;
   const currentTeam = useAuthStore((s) => s.team);
+  const unreadCounts = useRoomsStore((s) => s.unreadCounts);
   const displayName = currentTeam?.name ?? "내 팀";
 
   const [search, setSearch] = useState("");
@@ -171,6 +173,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
             filteredRooms.map((room) => {
               const active = currentId === room.id || (!!room.slug && currentId === room.slug);
               const isRenaming = renamingId === room.id;
+              const unread = unreadCounts[room.id] ?? 0;
               const menuOpen = menuRoomId === room.id;
 
               return (
@@ -203,6 +206,18 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                     >
                       <Hash size={15} className={cn("shrink-0", active ? "text-[var(--accent)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]")} />
                       <span className="flex-1 truncate text-[14px] font-medium">{room.name}</span>
+
+                      {unread > 0 && !active && (
+                        <span style={{
+                          minWidth: 18, height: 18, borderRadius: 9,
+                          background: "var(--accent)",
+                          color: "white", fontSize: 10, fontWeight: 700,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          padding: "0 5px", flexShrink: 0,
+                        }}>
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      )}
 
                       <button
                         onClick={(e) => {
