@@ -50,43 +50,45 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
-// ─── macOS .command 파일 다운로드 컴포넌트 ──────────────────────────────────
-function MacInstallCommand({ token }: { token: string }) {
-  const downloadUrl = mcpConfigs.getInstallCommandUrl(token);
+// ─── macOS 설치 명령어 컴포넌트 ─────────────────────────────────────────────
+function MacInstallCommand({ installShUrl, token }: { installShUrl: string; token: string }) {
+  const [copied, setCopied] = useState(false);
+  const cmd = `curl -fsSL "${installShUrl}" | bash -s -- --token=${token}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <a
-        href={`${downloadUrl}&auth=1`}
-        download="syncai-mcp-install.command"
-        onClick={(e) => {
-          // axios 인터셉터 우회 — 직접 fetch로 인증 헤더 포함 다운로드
-          e.preventDefault();
-          fetch(downloadUrl, { credentials: "include" })
-            .then((r) => r.blob())
-            .then((blob) => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "syncai-mcp-install.command";
-              a.click();
-              URL.revokeObjectURL(url);
-            });
-        }}
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          padding: "10px 20px", borderRadius: 10,
-          background: "var(--accent)", color: "white",
-          fontSize: 13, fontWeight: 600, textDecoration: "none",
-          boxShadow: "0 2px 12px var(--accent-glow)", cursor: "pointer",
-          width: "fit-content",
-        }}
-      >
-        <Download size={14} />
-        설치 파일 다운로드 (.command)
-      </a>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
-        다운로드 후 더블클릭 → Terminal이 열리며 자동 설치됩니다. Python 3.10+가 필요합니다.
-      </p>
+      {/* 명령어 박스 */}
+      <div style={{
+        display: "flex", alignItems: "stretch", gap: 0,
+        background: "rgba(0,0,0,0.35)", border: "1px solid var(--border)",
+        borderRadius: 10, overflow: "hidden",
+      }}>
+        <code style={{
+          flex: 1, fontSize: 11.5, color: "#a5b4fc",
+          fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap",
+          padding: "10px 14px", userSelect: "all",
+        }}>{cmd}</code>
+        <button
+          onClick={() => { navigator.clipboard.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
+          style={{
+            flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "0 16px",
+            background: copied ? "rgba(34,197,94,0.2)" : "var(--accent)",
+            color: copied ? "#4ade80" : "white",
+            fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            transition: "all 0.15s",
+          }}
+        >
+          {copied ? <Check size={12} /> : <Download size={12} />}
+          {copied ? "복사됨!" : "복사"}
+        </button>
+      </div>
+      {/* 안내 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+          터미널 여는 법: <kbd style={{ fontSize: 10.5, padding: "1px 5px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>⌘ Space</kbd> → <span style={{ color: "var(--text-secondary)" }}>Terminal</span> 검색 후 위 명령어 붙여넣기
+        </p>
+      </div>
     </div>
   );
 }
@@ -425,11 +427,15 @@ function MyMcpTab() {
                   {postCreate.name} — {isMac ? "터미널에서 설치하세요" : "설치 파일을 다운로드하세요"}
                 </p>
                 <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
-                  PC에 MCP 서버가 없습니다. {isMac ? "설치 파일을 다운로드해서 더블클릭하면 자동으로 설치됩니다." : "설치 파일을 실행하면 자동으로 연결됩니다."}
+                  PC에 MCP 서버가 없습니다. {isMac ? "아래 명령어를 터미널에 붙여넣으면 자동으로 설치됩니다." : "설치 파일을 실행하면 자동으로 연결됩니다."}
                 </p>
                 {isMac ? (
-                  /* ── macOS: .command 파일 다운로드 ── */
-                  <MacInstallCommand token={postCreate.token} />
+                  /* ── macOS: curl 명령어 복사 ── */
+                  postCreate.installShUrl ? (
+                    <MacInstallCommand installShUrl={postCreate.installShUrl} token={postCreate.token} />
+                  ) : (
+                    <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
+                  )
                 ) : (
                   /* ── Windows: .exe 다운로드 ── */
                   postCreate.downloadUrl ? (
