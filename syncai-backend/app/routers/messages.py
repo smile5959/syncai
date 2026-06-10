@@ -451,7 +451,7 @@ async def _run_ai_task(
                 "user_id": None,
                 "content": result_text,
                 "type": "ai_res",
-                "created_at": ai_msg.created_at.isoformat(),
+                "created_at": ai_msg.created_at.isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
@@ -623,7 +623,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 "user_id": None,
                 "content": result_text,
                 "type": "ai_res",
-                "created_at": ai_msg.created_at.isoformat(),
+                "created_at": ai_msg.created_at.isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
@@ -807,7 +807,7 @@ async def send_message(
             "user_id": str(msg.user_id),
             "content": msg.content,
             "type": msg.type,
-            "created_at": msg.created_at.isoformat(),
+            "created_at": msg.created_at.isoformat() + "Z",
             "user": {
                 "id": str(current_user.id),
                 "name": current_user.name,
@@ -872,7 +872,7 @@ async def ai_command(
             "user_id": str(msg.user_id),
             "content": msg.content,
             "type": msg.type,
-            "created_at": msg.created_at.isoformat(),
+            "created_at": msg.created_at.isoformat() + "Z",
             "user": {
                 "id": str(current_user.id),
                 "name": current_user.name,
@@ -1066,7 +1066,7 @@ async def _send_ai_plan(
                 "user_id": None,
                 "content": plan_content,
                 "type": "ai_plan",
-                "created_at": plan_msg.created_at.isoformat(),
+                "created_at": plan_msg.created_at.isoformat() + "Z",
             },
         })
 
