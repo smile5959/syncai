@@ -66,11 +66,14 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
   // task 상태로 버튼/결과 표시 결정
   const taskStatus = tasks?.find((t) => t.id === plan?.task_id)?.status;
 
-  // 버튼: awaiting_confirm 확인됐을 때만, 또는 task 목록 없이 로컬 idle 상태
+  // 버튼: task가 awaiting_confirm 상태일 때만 표시
+  // tasks가 undefined(미로드)이면 일단 숨김, 로드 후 awaiting_confirm만 표시
   const showButtons =
     status !== "idle"  // 이미 로컬에서 클릭한 경우
       ? false
-      : taskStatus === "awaiting_confirm" || taskStatus == null;
+      : tasks === undefined
+      ? false  // 아직 로드 중 → 숨김 (깜빡임 방지)
+      : taskStatus === "awaiting_confirm";
 
   // 성공 표시: 로컬 confirmed 또는 running/completed
   const showSuccess =
