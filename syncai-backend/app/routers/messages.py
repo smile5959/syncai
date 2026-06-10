@@ -906,17 +906,22 @@ async def _send_ai_plan(
 
         # ── interrupted 작업 연관성 체크 ──────────────────────────────────────
         # 같은 room의 최근 interrupted 작업(최대 5개)과 새 지시 비교
-        interrupted_tasks_db = (
-            db.query(Task)
-            .filter(
-                Task.room_id == uuid.UUID(room_id),
-                Task.status == "interrupted",
-                Task.interrupted_context.isnot(None),
+        # (마이그레이션 미적용 환경 방어: 컬럼 없으면 스킵)
+        try:
+            interrupted_tasks_db = (
+                db.query(Task)
+                .filter(
+                    Task.room_id == uuid.UUID(room_id),
+                    Task.status == "interrupted",
+                    Task.interrupted_context.isnot(None),
+                )
+                .order_by(Task.created_at.desc())
+                .limit(5)
+                .all()
             )
-            .order_by(Task.created_at.desc())
-            .limit(5)
-            .all()
-        )
+        except Exception:
+            db.rollback()
+            interrupted_tasks_db = []
 
         merged_instruction = None
         related_task_id = None

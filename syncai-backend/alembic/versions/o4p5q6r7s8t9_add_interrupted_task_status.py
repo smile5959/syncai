@@ -16,17 +16,16 @@ depends_on = None
 
 # PostgreSQL ENUM ADD VALUE는 트랜잭션 밖에서 실행해야 함
 def upgrade():
-    # ENUM 값 추가 — 트랜잭션 밖에서 실행
+    # ENUM 값 추가 — AUTOCOMMIT으로 트랜잭션 밖에서 실행 (PostgreSQL 제약)
     connection = op.get_bind()
     connection.execution_options(isolation_level="AUTOCOMMIT")
     connection.execute(sa.text("ALTER TYPE taskstatustype ADD VALUE IF NOT EXISTS 'interrupted'"))
-    connection.execution_options(isolation_level="READ COMMITTED")
 
-    # interrupted_context 컬럼 추가
-    op.add_column(
-        'tasks',
-        sa.Column('interrupted_context', postgresql.JSON(astext_type=sa.Text()), nullable=True)
-    )
+    # interrupted_context 컬럼 추가 (이미 있으면 스킵)
+    connection.execute(sa.text("""
+        ALTER TABLE tasks
+        ADD COLUMN IF NOT EXISTS interrupted_context JSON
+    """))
 
 
 def downgrade():
