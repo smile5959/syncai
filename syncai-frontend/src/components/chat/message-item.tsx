@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Message, AiPlanPayload, AiTask } from "@/types";
 import { messages as messagesApi, mcpConfigs } from "@/lib/api";
@@ -214,44 +214,57 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
 // ─── Thinking Panel ──────────────────────────────────────────────────────────
 
 function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(isStreaming);
+
+  // 스트리밍 시작 시 자동 펼침
+  useEffect(() => { if (isStreaming) setOpen(true); }, [isStreaming]);
+
+  if (steps.length === 0 && !isStreaming) return null;
+
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 10 }}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          background: "rgba(99,102,241,0.08)",
-          border: "1px solid rgba(99,102,241,0.18)",
-          borderRadius: 8, padding: "3px 10px",
-          cursor: "pointer", fontSize: 11.5,
-          color: "var(--accent)", fontWeight: 500,
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: "none", border: "none",
+          cursor: "pointer", fontSize: 12,
+          color: isStreaming ? "var(--accent)" : "var(--text-muted)",
+          fontWeight: 500, padding: "2px 0",
+          transition: "color 0.15s",
         }}
       >
         {isStreaming
-          ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
-          : open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        {isStreaming ? "작업 중..." : `작업 내역 ${steps.length}개`}
+          ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
+          : open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        {isStreaming
+          ? (steps.length > 0 ? steps[steps.length - 1] : "작업 중...")
+          : `작업 내역 ${steps.length}단계`}
         <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
       </button>
-      {(open || isStreaming) && steps.length > 0 && (
+      {open && (
         <div style={{
-          marginTop: 6,
-          background: "rgba(99,102,241,0.04)",
-          border: "1px solid rgba(99,102,241,0.12)",
-          borderRadius: 8, padding: "8px 12px",
-          display: "flex", flexDirection: "column", gap: 4,
+          marginTop: 4, marginLeft: 2,
+          borderLeft: "2px solid rgba(99,102,241,0.25)",
+          paddingLeft: 12,
+          display: "flex", flexDirection: "column", gap: 5,
         }}>
           {steps.map((step, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--text-secondary)" }}>
-              <span style={{ color: "var(--accent)", fontSize: 10 }}>▸</span>
+            <div key={i} style={{
+              display: "flex", alignItems: "flex-start", gap: 7,
+              fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.4,
+            }}>
+              <span style={{
+                marginTop: 2, width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+                background: i === steps.length - 1 && isStreaming ? "var(--accent)" : "rgba(99,102,241,0.4)",
+              }} />
               {step}
             </div>
           ))}
           {isStreaming && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--text-muted)" }}>
-              <Loader2 size={10} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
-              생각 중...
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--text-muted)" }}>
+              <Loader2 size={10} style={{ animation: "spin 1s linear infinite", color: "var(--accent)", flexShrink: 0 }} />
+              처리 중...
             </div>
           )}
         </div>

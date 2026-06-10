@@ -72,6 +72,10 @@ export default function RoomPage() {
   const [activeProgress, setActiveProgress] = useState<TaskProgress | null>(null);
   const [streamingTaskId, setStreamingTaskId] = useState<string | null>(null);
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
+  // 완료된 메시지 ID → 작업 과정 steps 매핑 (접었다 폈다 유지용)
+  const [msgStepsMap, setMsgStepsMap] = useState<Record<string, string[]>>({});
+  const streamingTaskIdRef = useRef<string | null>(null);
+  const thinkingStepsRef = useRef<string[]>([]);
   const [showMcpSettings, setShowMcpSettings] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -174,8 +178,15 @@ export default function RoomPage() {
         });
         // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (slug→UUID 변환)
         clearUnread(getRoomUuid(id));
+        // ai_res 완료 시 steps를 메시지 ID에 매핑해서 보존
+        if (event.data.type === "ai_res" && streamingTaskIdRef.current && thinkingStepsRef.current.length > 0) {
+          const steps = [...thinkingStepsRef.current];
+          setMsgStepsMap((prev) => ({ ...prev, [event.data.id]: steps }));
+        }
         setStreamingTaskId(null);
+        streamingTaskIdRef.current = null;
         setThinkingSteps([]);
+        thinkingStepsRef.current = [];
         // ai_plan 메시지 도착 시 task 목록 즉시 갱신 (확인 버튼 표시용)
         if (event.data.type === "ai_plan") {
           tasksApi.list(id).then((r) => setTaskList(r.data.tasks)).catch(() => {});
@@ -221,11 +232,19 @@ export default function RoomPage() {
     const unsub = ws.on((event: WsTaskEvent) => {
       if (event.type === "task_progress") {
         setActiveProgress(event.data);
-        if (event.data.step) setThinkingSteps((prev) => [...prev, event.data.step!]);
+        if (event.data.step) {
+          setThinkingSteps((prev) => {
+            const next = [...prev, event.data.step!];
+            thinkingStepsRef.current = next;
+            return next;
+          });
+        }
       } else if (event.type === "task_started") {
         setActiveProgress({ task_id: event.data.task_id, progress: 0, message: "AI가 작업을 시작했어요..." });
         setStreamingTaskId(event.data.task_id);
+        streamingTaskIdRef.current = event.data.task_id;
         setThinkingSteps([]);
+        thinkingStepsRef.current = [];
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_completed") {
         setActiveProgress(null);
@@ -544,7 +563,7 @@ export default function RoomPage() {
                     roomId={id}
                     tasks={taskList}
                     isStreaming={msg.id === `streaming-${streamingTaskId}`}
-                    thinkingSteps={msg.id === `streaming-${streamingTaskId}` ? thinkingSteps : []}
+                    thinkingSteps={msg.id === `streaming-${streamingTaskId}` ? thinkingSteps : (msgStepsMap[msg.id] ?? [])}
                   />
                 );
               })}
