@@ -674,9 +674,11 @@ function MyMcpTab() {
                         📁 {c.base_dir}
                       </p>
                     )}
-                    {!c.base_dir && !online && !isFolderFallback && (
+                    {!c.base_dir && !isFolderFallback && (
                       <p style={{ fontSize: 11.5, color: "#fbbf24" }}>
-                        폴더 미설정 — MCP 서버 실행 후 경로 변경으로 설정하세요
+                        {online
+                          ? "⚠️ 폴더 미설정 — 경로 버튼을 눌러 폴더를 선택해주세요"
+                          : "폴더 미설정 — MCP 서버 실행 후 경로 변경으로 설정하세요"}
                       </p>
                     )}
                   </div>
