@@ -50,13 +50,11 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
-// ─── macOS 설치 명령어 컴포넌트 ─────────────────────────────────────────────
-function MacInstallCommand({ installShUrl, token }: { installShUrl: string; token: string }) {
+// ─── 설치 명령어 공통 UI ─────────────────────────────────────────────────────
+function InstallCommandBox({ cmd, hint }: { cmd: string; hint: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
-  const cmd = `curl -fsSL "${installShUrl}" | bash -s -- --token=${token}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* 명령어 박스 */}
       <div style={{
         display: "flex", alignItems: "stretch", gap: 0,
         background: "rgba(0,0,0,0.35)", border: "1px solid var(--border)",
@@ -83,18 +81,37 @@ function MacInstallCommand({ installShUrl, token }: { installShUrl: string; toke
           {copied ? "복사됨!" : "복사"}
         </button>
       </div>
-      {/* 안내 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
-          터미널 여는 법: <kbd style={{ fontSize: 10.5, padding: "1px 5px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>⌘ Space</kbd> → <span style={{ color: "var(--text-secondary)" }}>Terminal</span> 검색 후 위 명령어 붙여넣기
-        </p>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{hint}</p>
       </div>
     </div>
   );
 }
 
+// ─── macOS 설치 명령어 ────────────────────────────────────────────────────────
+function MacInstallCommand({ installShUrl, token }: { installShUrl: string; token: string }) {
+  const cmd = `curl -fsSL "${installShUrl}" | bash -s -- --token=${token}`;
+  return (
+    <InstallCommandBox
+      cmd={cmd}
+      hint={<>터미널 여는 법: <kbd style={{ fontSize: 10.5, padding: "1px 5px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>⌘ Space</kbd> → <span style={{ color: "var(--text-secondary)" }}>Terminal</span> 검색 후 위 명령어 붙여넣기</>}
+    />
+  );
+}
+
+// ─── Windows 설치 명령어 ─────────────────────────────────────────────────────
+function WindowsInstallCommand({ installPs1Url, token }: { installPs1Url: string; token: string }) {
+  const cmd = `powershell -ExecutionPolicy Bypass -Command "& {$(irm '${installPs1Url}')} -Token ${token}"`;
+  return (
+    <InstallCommandBox
+      cmd={cmd}
+      hint={<>PowerShell 여는 법: <kbd style={{ fontSize: 10.5, padding: "1px 5px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>Win+R</kbd> → <span style={{ color: "var(--text-secondary)" }}>powershell</span> 입력 후 위 명령어 붙여넣기</>}
+    />
+  );
+}
+
 // ─── 재시도 버튼 ────────────────────────────────────────────────────────────
-type PostCreateState = { online: boolean; token: string; configId: string; name: string; downloadUrl?: string; installShUrl?: string; downloadUrlError?: boolean };
+type PostCreateState = { online: boolean; token: string; configId: string; name: string; downloadUrl?: string; installShUrl?: string; installPs1Url?: string; downloadUrlError?: boolean };
 
 function RetryButton({ token, setPostCreate, mcpApi: api }: {
   token: string;
@@ -113,6 +130,7 @@ function RetryButton({ token, setPostCreate, mcpApi: api }: {
               ...prev,
               downloadUrl: dlRes.data.download_url,
               installShUrl: dlRes.data.install_sh_url,
+              installPs1Url: dlRes.data.install_ps1_url,
               downloadUrlError: false,
             } : prev);
           } catch { /* 무시 */ }
@@ -258,22 +276,14 @@ function MyMcpTab() {
   const [error, setError] = useState("");
 
   // 등록 후 상태
-  const [postCreate, setPostCreate] = useState<{
-    online: boolean;
-    token: string;
-    configId: string;
-    name: string;
-    downloadUrl?: string;
-    installShUrl?: string;
-    downloadUrlError?: boolean;
-  } | null>(null);
+  const [postCreate, setPostCreate] = useState<PostCreateState | null>(null);
 
   // macOS 여부 감지 (클라이언트에서만)
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
   // 설치 명령어 표시 상태
   const [showInstallId, setShowInstallId] = useState<string | null>(null);
-  const [installCmdData, setInstallCmdData] = useState<{ installShUrl: string; token: string } | null>(null);
+  const [installCmdData, setInstallCmdData] = useState<{ installShUrl?: string; installPs1Url?: string; token: string } | null>(null);
 
   async function handleShowInstall(c: McpConfig) {
     if (showInstallId === c.id) { setShowInstallId(null); return; }
@@ -281,7 +291,11 @@ function MyMcpTab() {
     setInstallCmdData(null);
     try {
       const res = await mcpApi.getDownloadUrl(c.mcp_token ?? "");
-      setInstallCmdData({ installShUrl: res.data.install_sh_url as string, token: (c.mcp_token ?? "") as string });
+      setInstallCmdData({
+        installShUrl:  res.data.install_sh_url  as string | undefined,
+        installPs1Url: res.data.install_ps1_url as string | undefined,
+        token: (c.mcp_token ?? "") as string,
+      });
     } catch {
       setInstallCmdData(null);
     }
@@ -346,6 +360,7 @@ function MyMcpTab() {
             configId: mcp_config.id, name: mcp_config.name,
             downloadUrl: dlRes.data.download_url,
             installShUrl: dlRes.data.install_sh_url,
+            installPs1Url: dlRes.data.install_ps1_url,
           });
         } catch {
           setPostCreate({ online: false, token, configId: mcp_config.id, name: mcp_config.name, downloadUrlError: true });
@@ -441,37 +456,22 @@ function MyMcpTab() {
             ) : (
               <>
                 <p style={{ fontSize: 13.5, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
-                  {postCreate.name} — {isMac ? "터미널에서 설치하세요" : "설치 파일을 다운로드하세요"}
+                  {postCreate.name} — {isMac ? "터미널에서 설치하세요" : "PowerShell에서 설치하세요"}
                 </p>
                 <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
-                  PC에 MCP 서버가 없습니다. {isMac ? "아래 명령어를 터미널에 붙여넣으면 자동으로 설치됩니다." : "설치 파일을 실행하면 자동으로 연결됩니다."}
+                  PC에 MCP 서버가 없습니다. {isMac ? "아래 명령어를 터미널에 붙여넣으면 자동으로 설치됩니다." : "아래 명령어를 PowerShell에 붙여넣으면 자동으로 설치됩니다."}
                 </p>
                 {isMac ? (
-                  /* ── macOS: curl 명령어 복사 ── */
+                  /* ── macOS: curl 명령어 ── */
                   postCreate.installShUrl ? (
                     <MacInstallCommand installShUrl={postCreate.installShUrl} token={postCreate.token} />
                   ) : (
                     <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
                   )
                 ) : (
-                  /* ── Windows: .exe 다운로드 ── */
-                  postCreate.downloadUrl ? (
-                    <a
-                      href={postCreate.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 7,
-                        padding: "8px 18px", borderRadius: 10,
-                        background: "var(--accent)", color: "white",
-                        fontSize: 13, fontWeight: 600, textDecoration: "none",
-                        boxShadow: "0 2px 10px var(--accent-glow)",
-                      }}
-                    >
-                      <Download size={13} />
-                      SyncAI-MCP-Setup.exe 다운로드
-                    </a>
+                  /* ── Windows: PowerShell 명령어 ── */
+                  postCreate.installPs1Url ? (
+                    <WindowsInstallCommand installPs1Url={postCreate.installPs1Url} token={postCreate.token} />
                   ) : postCreate.downloadUrlError ? (
                     <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
                   ) : null
@@ -768,10 +768,18 @@ function MyMcpTab() {
                     display: "flex", flexDirection: "column", gap: 8,
                   }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", margin: 0 }}>
-                      설치 명령어 — 터미널에서 실행하세요
+                      설치 명령어 — {isMac ? "터미널" : "PowerShell"}에서 실행하세요
                     </p>
                     {installCmdData ? (
-                      <MacInstallCommand installShUrl={installCmdData.installShUrl} token={installCmdData.token} />
+                      isMac ? (
+                        installCmdData.installShUrl
+                          ? <MacInstallCommand installShUrl={installCmdData.installShUrl} token={installCmdData.token} />
+                          : <p style={{ fontSize: 12, color: "var(--text-muted)" }}>URL을 불러올 수 없습니다.</p>
+                      ) : (
+                        installCmdData.installPs1Url
+                          ? <WindowsInstallCommand installPs1Url={installCmdData.installPs1Url} token={installCmdData.token} />
+                          : <p style={{ fontSize: 12, color: "var(--text-muted)" }}>URL을 불러올 수 없습니다.</p>
+                      )
                     ) : (
                       <p style={{ fontSize: 12, color: "var(--text-muted)" }}>불러오는 중...</p>
                     )}

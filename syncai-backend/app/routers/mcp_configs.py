@@ -64,7 +64,8 @@ def get_mcp_version():
     if github_repo and version != "0.0.0":
         base = f"https://github.com/{github_repo}/releases/download/mcp/v{version}"
         data["download_url"]     = f"{base}/code.zip"
-        data["install_sh_url"]   = f"{base}/install.sh"   # macOS 설치 스크립트
+        data["install_sh_url"]   = f"{base}/install.sh"    # macOS 설치 스크립트
+        data["install_ps1_url"]  = f"{base}/install.ps1"   # Windows 설치 스크립트
     return data
 
 
@@ -201,17 +202,20 @@ def download_installer(
     # macOS 설치 스크립트 URL (GitHub Releases에서 동적 생성)
     version     = _os.environ.get("MCP_CODE_VERSION", "0.0.0")
     github_repo = _os.environ.get("MCP_GITHUB_REPO", "").strip()
-    install_sh_url = None
+    install_sh_url  = None
+    install_ps1_url = None
     if github_repo and version != "0.0.0":
         base = f"https://github.com/{github_repo}/releases/download/mcp/v{version}"
-        install_sh_url = f"{base}/install.sh"
+        install_sh_url  = f"{base}/install.sh"
+        install_ps1_url = f"{base}/install.ps1"
 
     return {
-        "download_url": download_url,
-        "install_sh_url": install_sh_url,
-        "token": token,
-        "config_id": str(config.id),
-        "name": config.name,
+        "download_url":    download_url,
+        "install_sh_url":  install_sh_url,
+        "install_ps1_url": install_ps1_url,
+        "token":           token,
+        "config_id":       str(config.id),
+        "name":            config.name,
     }
 
 
