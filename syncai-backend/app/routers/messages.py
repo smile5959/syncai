@@ -303,11 +303,16 @@ async def _run_ai_task(
             users_in_ctx = db.query(_User).filter(_User.id.in_(user_ids)).all()
             user_name_map = {str(u.id): u.name for u in users_in_ctx}
 
+        def _clean_msg_content(content: str, msg_type: str) -> str:
+            if msg_type == "ai_cmd":
+                return re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
+            return content
+
         context = [
             {
                 "role": "assistant" if m.type == "ai_res" else "user",
                 "content": (
-                    f"[{user_name_map.get(str(m.user_id), '팀원')}] {m.content}"
+                    f"[{user_name_map.get(str(m.user_id), '팀원')}] {_clean_msg_content(m.content, m.type)}"
                     if m.type != "ai_res" and m.user_id
                     else m.content
                 ),
@@ -363,7 +368,8 @@ async def _run_ai_task(
                 "step": "요청 분석 중...",
             },
         })
-        task_plan = await supervisor.analyze(content, context, user_name=user_name)
+        clean_content = re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
+        task_plan = await supervisor.analyze(clean_content, context, user_name=user_name)
 
         worker_llm = WorkerLLM(
             worker_agent=worker_agent,
@@ -416,6 +422,11 @@ async def _run_ai_task(
             )
 
         diff = worker_agent.generate_diff()
+
+        # /ai @... 패턴이 결과에 포함되지 않도록 정제 (모델이 명령어를 흉내낼 때 방어)
+        result_text = re.sub(r'`/ai\s+@[^`\n]+`', '', result_text)
+        result_text = re.sub(r'^/ai\s+@\S+[^\n]*$', '', result_text, flags=re.MULTILINE)
+        result_text = result_text.strip() or "완료했습니다."
 
         # 모든 재시도 후에도 에러 응답이면 failed 처리
         is_error_result = result_text.startswith("[MCP 오류]") or result_text.startswith("⚠️")

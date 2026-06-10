@@ -235,7 +235,9 @@ class WorkerLLM:
                                     tool_calls_acc[idx]["function"]["arguments"] += tc_delta.function.arguments
 
             # 스트리밍 완료 후 처리
-            if finish_reason == "stop":
+            print(f"[WorkerLLM] iter={iteration} finish_reason={finish_reason} text_len={len(text_content)} tools={len(tool_calls_acc)}")
+
+            if finish_reason in ("stop", "length"):
                 return text_content or "응답을 생성하지 못했습니다. 다시 시도해 주세요."
 
             if finish_reason == "tool_calls" and tool_calls_acc:
