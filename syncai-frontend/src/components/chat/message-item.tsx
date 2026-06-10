@@ -81,7 +81,7 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
       ? false
       : isExpired
       ? false
-      : taskStatus === "awaiting_confirm" || taskStatus === undefined;
+      : taskStatus === "awaiting_confirm" || taskStatus === "pending" || taskStatus === undefined;
 
   // 성공 표시: 로컬 confirmed 또는 running/completed
   const showSuccess =

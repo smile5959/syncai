@@ -162,8 +162,8 @@ export default function RoomPage() {
           }
           return [...filtered, event.data];
         });
-        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화
-        if (id) clearUnread(id);
+        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (UUID로 클리어)
+        clearUnread(room?.id ?? id);
         setStreamingTaskId(null);
         setThinkingSteps([]);
       } else if (event.type === "message_chunk") {
