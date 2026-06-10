@@ -107,7 +107,7 @@ export interface MessagesPage {
 }
 
 // ─── Task ─────────────────────────────────────────────
-export type AiTaskStatus = "pending" | "awaiting_confirm" | "running" | "completed" | "failed" | "cancelled";
+export type AiTaskStatus = "pending" | "awaiting_confirm" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
 export interface AiTask {
   id: string;
