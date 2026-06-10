@@ -127,6 +127,15 @@ if [ ! -f "$CODE_DIR/server.py" ]; then
   exit 1
 fi
 
+# ── bootstrap.py를 APP_DIR에 복사 (자동 업데이트 진입점) ─────────────────────
+BOOTSTRAP_URL="https://raw.githubusercontent.com/smile5959/syncai/main/syncai-backend/mcp-server/bootstrap.py"
+if curl -fsSL "$BOOTSTRAP_URL" -o "$APP_DIR/bootstrap.py" 2>/dev/null; then
+  echo -e "${GREEN}✓ bootstrap.py 설치 완료${NC}"
+else
+  # 다운로드 실패 시 code_dir에서 복사
+  [ -f "$CODE_DIR/bootstrap.py" ] && cp "$CODE_DIR/bootstrap.py" "$APP_DIR/bootstrap.py"
+fi
+
 # ── Python 가상환경 + 의존성 설치 ────────────────────────────────────────────
 echo "Python 환경 설정 중..."
 if [ ! -d "$VENV_DIR" ]; then
@@ -174,7 +183,7 @@ cat > "$PLIST_PATH" <<PLIST
     <key>ProgramArguments</key>
     <array>
         <string>${VENV_PY}</string>
-        <string>${CODE_DIR}/server.py</string>
+        <string>${APP_DIR}/bootstrap.py</string>
     </array>
     <key>WorkingDirectory</key>
     <string>${APP_DIR}</string>
@@ -184,6 +193,8 @@ cat > "$PLIST_PATH" <<PLIST
         <string>${HOME}</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>SYNCAI_GITHUB_REPO</key>
+        <string>smile5959/syncai</string>
     </dict>
     <key>StandardOutPath</key>
     <string>${LOG_DIR}/server.log</string>
