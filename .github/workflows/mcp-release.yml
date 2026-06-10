@@ -49,6 +49,7 @@ jobs:
           files: |
             syncai-backend/mcp-server/code.zip
             syncai-backend/mcp-server/install.sh
+            syncai-backend/mcp-server/install.ps1
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
