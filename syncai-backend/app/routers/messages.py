@@ -312,13 +312,18 @@ async def _run_ai_task(
                 return re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
             return content
 
+        def _clean_ai_res(content: str) -> str:
+            content = re.sub(r'`/ai\s+@[^`]+`', '', content, flags=re.DOTALL)
+            content = re.sub(r'^/ai\s+@\S+[^\n]*$', '', content, flags=re.MULTILINE)
+            return content.strip()
+
         context = [
             {
                 "role": "assistant" if m.type == "ai_res" else "user",
                 "content": (
                     f"[{user_name_map.get(str(m.user_id), '팀원')}] {_clean_msg_content(m.content, m.type)}"
                     if m.type != "ai_res" and m.user_id
-                    else m.content
+                    else _clean_ai_res(m.content)
                 ),
             }
             for m in recent
@@ -430,7 +435,9 @@ async def _run_ai_task(
         # /ai @... 패턴이 결과에 포함되지 않도록 정제 (모델이 명령어를 흉내낼 때 방어)
         result_text = re.sub(r'`/ai\s+@[^`]+`', '', result_text, flags=re.DOTALL)
         result_text = re.sub(r'^/ai\s+@\S+[^\n]*$', '', result_text, flags=re.MULTILINE)
-        result_text = result_text.strip() or "완료했습니다."
+        result_text = result_text.strip()
+        if not result_text:
+            result_text = "완료했습니다." if worker_agent.file_changes else "작업이 수행되지 않았습니다. 다시 시도해 주세요."
 
         # 모든 재시도 후에도 에러 응답이면 failed 처리
         is_error_result = result_text.startswith("[MCP 오류]") or result_text.startswith("⚠️")
@@ -595,6 +602,10 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
         def _clean_ctx(c: str, t: str) -> str:
             if t == "ai_cmd":
                 return re.sub(r'^/ai\s+@\S+\s*', '', c, flags=re.IGNORECASE).strip()
+            if t == "ai_res":
+                c = re.sub(r'`/ai\s+@[^`]+`', '', c, flags=re.DOTALL)
+                c = re.sub(r'^/ai\s+@\S+[^\n]*$', '', c, flags=re.MULTILINE)
+                return c.strip()
             return c
 
         messages = [{"role": "system", "content": system_content}]
