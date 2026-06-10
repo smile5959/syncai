@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # CORS — 쉼표로 구분된 허용 출처 목록
     # 예: CORS_ORIGINS=http://localhost:3000,https://your-app.vercel.app
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
-    FRONTEND_URL: str = "https://syncai-frontend.vercel.app"
+    FRONTEND_URL: str = "https://syncai-frontend-seven.vercel.app"
     MCP_INSTALLER_URL: str = ""
 
     def get_cors_origins(self) -> List[str]:
