@@ -39,6 +39,19 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
   const currentRoomIdRef = useRef(currentRoomId);
   useEffect(() => { currentRoomIdRef.current = currentRoomId; }, [currentRoomId]);
 
+  // 탭 다시 활성화 시 현재 방 미읽 즉시 초기화
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentRoomIdRef.current) {
+        const cur = currentRoomIdRef.current;
+        const room = rooms.find((r) => r.id === cur || r.slug === cur);
+        clearUnread(room?.id ?? cur);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [rooms, clearUnread]);
+
   // 브라우저 알림 권한 요청
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
