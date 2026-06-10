@@ -16,7 +16,7 @@ export default function RoomsPage() {
 
   return (
     <main className="flex-1 flex flex-col overflow-y-auto bg-[var(--bg-base)]">
-      <div className="flex flex-col w-full max-w-xl mx-auto px-6 py-14">
+      <div className="flex flex-col w-full max-w-xl mx-auto px-6 py-14 min-h-full justify-center">
 
         {/* 헤더 */}
         <div className="mb-10">
