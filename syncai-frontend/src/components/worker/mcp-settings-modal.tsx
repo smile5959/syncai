@@ -309,6 +309,7 @@ function MyMcpTab() {
 
   // ── 새 MCP 등록 ──────────────────────────────────────────────────────────
   async function handleCreate() {
+    if (saving) return;  // 중복 실행 방지
     if (!newName.trim()) { setError("이름을 입력해주세요."); return; }
     setError("");
     setSaving(true);
@@ -926,7 +927,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
   useEffect(() => { if (teamId) load(); }, [teamId]);
 
   async function handleCreate() {
-    if (!newName.trim()) return;
+    if (saving || !newName.trim()) return;  // 중복 실행 방지
     setSaving(true);
     try {
       const res = await workersApi.create(teamId, newName.trim());
