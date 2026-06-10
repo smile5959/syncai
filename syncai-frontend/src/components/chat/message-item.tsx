@@ -131,21 +131,21 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
           className="border border-[var(--ai-border)] bg-[var(--ai-bubble)]"
           style={{ borderRadius: 12, padding: "12px 16px", maxWidth: 420 }}
         >
-          {plan.mcp_name && (
+          <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
             <div
               className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
-              style={{ borderRadius: 6, padding: "3px 8px", marginBottom: 8, fontSize: 11, fontWeight: 600 }}
+              style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
             >
               <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
-              {plan.mcp_name}의 PC 접근 필요
+              {plan.mcp_name ?? "PC"} 접근
             </div>
-          )}
+          </div>
 
           <p
             className="text-[var(--text-primary)] leading-relaxed"
-            style={{ fontSize: 13.5, marginBottom: isDone ? 0 : 12 }}
+            style={{ fontSize: 13.5, marginBottom: isDone ? 0 : 12, fontWeight: 500 }}
           >
-            {plan.confirmation_message}
+            {plan.task_title || plan.confirmation_message}
           </p>
 
           {showSuccess && (

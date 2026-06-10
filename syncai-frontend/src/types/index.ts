@@ -97,6 +97,7 @@ export interface AiPlanPayload {
   needs_mcp: boolean;
   mcp_name: string | null;
   mcp_config_id: string | null;
+  task_title?: string;
   confirmation_message: string;
   model?: string;
 }
