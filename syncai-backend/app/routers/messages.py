@@ -801,6 +801,7 @@ async def ai_command(
     current_user: User = Depends(get_current_user),
 ):
     room = require_room_access(room_id, current_user, db)
+    room_uuid = room.id  # slug가 올 수 있으므로 항상 room.id(UUID) 사용
 
     team_id = str(room.team_id)
 
@@ -817,12 +818,12 @@ async def ai_command(
             )
 
     # 2. 사용자 메시지 저장 + Task 생성 (awaiting_confirm 상태)
-    msg = Message(room_id=uuid.UUID(room_id), user_id=current_user.id, content=body.content, type="ai_cmd")
+    msg = Message(room_id=room_uuid, user_id=current_user.id, content=body.content, type="ai_cmd")
     db.add(msg)
     db.flush()
 
     task = Task(
-        room_id=uuid.UUID(room_id),
+        room_id=room_uuid,
         worker_id=None,
         message_id=msg.id,
         triggered_by=current_user.id,
@@ -832,7 +833,8 @@ async def ai_command(
     db.commit()
     db.refresh(task)
 
-    await broadcast(chat_connections, room_id, {
+    room_id_str = str(room_uuid)  # broadcast 및 하위 함수에 UUID 문자열 전달
+    await broadcast(chat_connections, room_id_str, {
         "type": "message",
         "data": {
             "id": str(msg.id),
@@ -851,7 +853,7 @@ async def ai_command(
 
     # 3. 백그라운드에서 AI 계획 분석 → ai_plan 메시지 전송
     asyncio.create_task(
-        _send_ai_plan(str(task.id), body.content, room_id, team_id, mention_name, current_user)
+        _send_ai_plan(str(task.id), body.content, room_id_str, team_id, mention_name, current_user)
     )
 
     return JSONResponse({"task_id": str(task.id)})
@@ -1049,11 +1051,12 @@ async def ai_confirm(
     current_user: User = Depends(get_current_user),
 ):
     """사용자가 AI 작업 계획에 동의하거나 거부한다."""
-    require_room_access(room_id, current_user, db)
+    room = require_room_access(room_id, current_user, db)
+    room_id_str = str(room.id)  # slug가 올 수 있으므로 항상 UUID 문자열 사용
 
     task = db.query(Task).filter(
         Task.id == body.task_id,
-        Task.room_id == uuid.UUID(room_id),
+        Task.room_id == room.id,
     ).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -1063,14 +1066,13 @@ async def ai_confirm(
     if not body.confirmed:
         task.status = "cancelled"
         db.commit()
-        await broadcast(task_connections, room_id, {
+        await broadcast(task_connections, room_id_str, {
             "type": "task_cancelled",
             "data": {"task_id": str(body.task_id)},
         })
         return JSONResponse({"status": "cancelled"})
 
     # 동의 → 실행 시작
-    room = db.query(ChatRoom).filter(ChatRoom.id == uuid.UUID(room_id)).first()
     team_id = str(room.team_id)
 
     mcp_config = None
@@ -1095,12 +1097,12 @@ async def ai_confirm(
 
         if idle_exists:
             asyncio.create_task(
-                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id, team_id, current_user.name)
+                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id_str, team_id, current_user.name)
             )
         else:
             q = _get_queue(team_id)
-            await q.put((str(task.id), content, str(mcp_config.id), room_id, current_user.name))
-            await broadcast(task_connections, room_id, {
+            await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name))
+            await broadcast(task_connections, room_id_str, {
                 "type": "task_queued",
                 "data": {
                     "task_id": str(task.id),
@@ -1109,7 +1111,7 @@ async def ai_confirm(
             })
     else:
         asyncio.create_task(
-            _run_chat_only(str(task.id), content, room_id, current_user.name, team_id)
+            _run_chat_only(str(task.id), content, room_id_str, current_user.name, team_id)
         )
 
     return JSONResponse({"status": "confirmed", "task_id": str(task.id)})
