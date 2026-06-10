@@ -28,6 +28,19 @@ ANALYZE_SYSTEM_PROMPT = (
     "- 간결하고 명확하게 작성하세요"
 )
 
+CHECK_INTERRUPTED_SYSTEM_PROMPT = (
+    "당신은 SyncAI의 작업 연관성 분석기입니다.\n"
+    "중단된 이전 작업 목록과 새 사용자 요청을 비교해, 관련 있는 중단 작업이 있는지 판단하세요.\n\n"
+    "반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):\n"
+    "{\"related_index\": 0, \"merged_instruction\": \"통합 작업 지시\"}\n\n"
+    "- related_index: 관련 있는 중단 작업의 인덱스(0부터). 관련 없으면 -1\n"
+    "- merged_instruction: related_index >= 0일 때, 중단 작업의 미완성 부분 + 새 요청을 합친 통합 지시문 (한국어)\n"
+    "  예) 중단 작업: 'Header.tsx 버튼 색상 변경 중 중단' + 새 요청: '버튼 텍스트도 바꿔줘'\n"
+    "  → merged_instruction: 'Header.tsx 버튼 색상을 변경하고(이전에 중단된 작업 완료), 버튼 텍스트도 수정해줘'\n"
+    "- related_index가 -1이면 merged_instruction은 null\n"
+    "판단 기준: 같은 파일/기능/목적을 다루면 관련 있음. 완전히 다른 주제면 -1"
+)
+
 VALIDATE_SYSTEM_PROMPT = (
     "당신은 SyncAI의 작업 검증기입니다. Worker가 수행한 결과를 검토해 "
     "작업이 성공적으로 완료됐는지 판단하세요.\n\n"
@@ -99,6 +112,52 @@ class SupervisorAgent:
         except Exception as e:
             print(f"[SupervisorAgent.analyze] 분석 실패: {e}")
             return command
+
+    async def check_interrupted(
+        self,
+        new_instruction: str,
+        interrupted_tasks: list[dict],
+    ) -> dict:
+        """
+        새 지시와 중단된 작업 목록을 비교해 관련 있는 작업이 있으면 통합 지시문을 반환한다.
+
+        interrupted_tasks: [{"index": int, "original_instruction": str, "progress_summary": str}, ...]
+        반환: {"related_index": int, "merged_instruction": str | None}
+          - related_index == -1: 관련 없음 → 새 지시 그대로 진행
+          - related_index >= 0: 해당 중단 작업과 통합
+        """
+        if not interrupted_tasks:
+            return {"related_index": -1, "merged_instruction": None}
+
+        base_url, api_key = await _get_client()
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+        tasks_str = "\n".join(
+            f"[{t['index']}] 원래 지시: {t['original_instruction']}\n    진행 요약: {t['progress_summary']}"
+            for t in interrupted_tasks
+        )
+        user_content = f"[중단된 작업 목록]\n{tasks_str}\n\n[새 요청]\n{new_instruction}"
+
+        try:
+            response = await client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                max_tokens=300,
+                messages=[
+                    {"role": "system", "content": CHECK_INTERRUPTED_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            raw = (response.choices[0].message.content or "{}").strip()
+            raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            data = json.loads(raw)
+            related_index = int(data.get("related_index", -1))
+            merged = data.get("merged_instruction") or None
+            if related_index < 0:
+                return {"related_index": -1, "merged_instruction": None}
+            return {"related_index": related_index, "merged_instruction": merged}
+        except Exception as e:
+            print(f"[SupervisorAgent.check_interrupted] 분석 실패: {e}")
+            return {"related_index": -1, "merged_instruction": None}
 
     async def validate(
         self,

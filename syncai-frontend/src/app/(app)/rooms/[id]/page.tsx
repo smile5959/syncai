@@ -237,6 +237,13 @@ export default function RoomPage() {
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
+      } else if (event.type === "task_interrupted") {
+        setActiveProgress(null);
+        setStreamingTaskId(null);
+        setThinkingSteps([]);
+        setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
+        tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
+        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_cancelled") {
         setActiveProgress(null);
         setStreamingTaskId(null);

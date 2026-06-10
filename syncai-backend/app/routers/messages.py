@@ -461,8 +461,14 @@ async def _run_ai_task(
     except Exception as e:
         print(f"[_run_ai_task] 오류: {e}")
         if task:
-            task.status = "failed"
+            # 예상치 못한 예외(네트워크 오류, 타임아웃 등) → interrupted로 마킹 (재개 가능)
+            task.status = "interrupted"
             task.error = str(e)
+            task.interrupted_context = {
+                "original_instruction": content,
+                "progress_summary": f"작업 실행 중 오류로 중단: {str(e)[:200]}",
+                "mcp_config_id": mcp_config_id,
+            }
             db.commit()
         error_msg = _format_error_for_chat(str(e))
         await broadcast(chat_connections, room_id, {
@@ -477,7 +483,7 @@ async def _run_ai_task(
             },
         })
         await broadcast(task_connections, room_id, {
-            "type": "task_failed",
+            "type": "task_interrupted",
             "data": {"task_id": task_id, "error": str(e)},
         })
     finally:
@@ -623,8 +629,13 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
     except Exception as e:
         print(f"[_run_chat_only] 오류: {e}")
         if task:
-            task.status = "failed"
+            task.status = "interrupted"
             task.error = str(e)
+            task.interrupted_context = {
+                "original_instruction": content,
+                "progress_summary": f"채팅 응답 중 오류로 중단: {str(e)[:200]}",
+                "mcp_config_id": None,
+            }
             db.commit()
         error_msg = _format_error_for_chat(str(e))
         await broadcast(chat_connections, room_id, {
@@ -639,7 +650,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             },
         })
         await broadcast(task_connections, room_id, {
-            "type": "task_failed",
+            "type": "task_interrupted",
             "data": {"task_id": task_id, "error": str(e)},
         })
     finally:
@@ -893,24 +904,63 @@ async def _send_ai_plan(
 
         available_mcps = _get_public_mcp_list(db, team_id)
 
+        # ── interrupted 작업 연관성 체크 ──────────────────────────────────────
+        # 같은 room의 최근 interrupted 작업(최대 5개)과 새 지시 비교
+        interrupted_tasks_db = (
+            db.query(Task)
+            .filter(
+                Task.room_id == uuid.UUID(room_id),
+                Task.status == "interrupted",
+                Task.interrupted_context.isnot(None),
+            )
+            .order_by(Task.created_at.desc())
+            .limit(5)
+            .all()
+        )
+
+        merged_instruction = None
+        related_task_id = None
+        if interrupted_tasks_db:
+            from app.agents.supervisor import SupervisorAgent
+            supervisor_check = SupervisorAgent()
+            interrupted_list = [
+                {
+                    "index": i,
+                    "original_instruction": t.interrupted_context.get("original_instruction", ""),
+                    "progress_summary": t.interrupted_context.get("progress_summary", ""),
+                }
+                for i, t in enumerate(interrupted_tasks_db)
+            ]
+            check_result = await supervisor_check.check_interrupted(content, interrupted_list)
+            idx = check_result["related_index"]
+            if idx >= 0 and check_result["merged_instruction"]:
+                merged_instruction = check_result["merged_instruction"]
+                related_task_id = str(interrupted_tasks_db[idx].id)
+                # 연관 중단 작업을 cancelled로 마킹 (통합 재개 처리)
+                interrupted_tasks_db[idx].status = "cancelled"
+                db.commit()
+
+        # 통합 지시문이 있으면 content 교체
+        effective_content = merged_instruction if merged_instruction else content
+
         # MCP가 없고 멘션도 없으면 planning 스킵 → 바로 chat-only 실행 (1-hop)
         if not available_mcps and not mention_name:
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_chat_only(task_id, content, room_id, current_user.name, team_id)
+                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id)
             )
             return
 
         # AI 플래닝 (MCP 있을 때만)
-        plan = await _plan_ai_task(content, context, available_mcps, mention_name)
+        plan = await _plan_ai_task(effective_content, context, available_mcps, mention_name)
 
         # 순수 대화 요청이면 동의 없이 바로 chat-only 실행
         if not plan["needs_mcp"]:
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_chat_only(task_id, content, room_id, current_user.name, team_id)
+                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id)
             )
             return
 
@@ -924,19 +974,30 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_ai_task(task_id, content, str(proposed_mcp.id), room_id, team_id, current_user.name)
+                _run_ai_task(task_id, effective_content, str(proposed_mcp.id), room_id, team_id, current_user.name)
             )
             return
 
         task.status = "awaiting_confirm"
+        # 통합 지시문이 있으면 confirm 시 복원할 수 있도록 저장
+        if merged_instruction:
+            task.interrupted_context = {
+                "merged_instruction": merged_instruction,
+                "related_task_id": related_task_id,
+            }
         db.commit()
+
+        # confirmation_message에 "이전 작업 이어서" 힌트 추가
+        confirmation_message = plan["confirmation_message"]
+        if merged_instruction:
+            confirmation_message = f"[이전 중단 작업 포함] {confirmation_message}"
 
         plan_content = _json.dumps({
             "task_id": task_id,
             "needs_mcp": plan["needs_mcp"],
             "mcp_name": plan["mcp_name"],
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
-            "confirmation_message": plan["confirmation_message"],
+            "confirmation_message": confirmation_message,
         }, ensure_ascii=False)
 
         plan_msg = Message(
@@ -1013,6 +1074,9 @@ async def ai_confirm(
 
     original_msg = db.query(Message).filter(Message.id == task.message_id).first()
     content = original_msg.content if original_msg else ""
+    # interrupted 작업과 통합된 경우 merged_instruction 우선 사용
+    if task.interrupted_context and task.interrupted_context.get("merged_instruction"):
+        content = task.interrupted_context["merged_instruction"]
 
     task.status = "pending"
     db.commit()

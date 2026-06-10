@@ -14,6 +14,7 @@ class TaskStatusType(str, enum.Enum):
     failed = "failed"
     cancelled = "cancelled"  # 사용자가 동의 거부
     reverted = "reverted"
+    interrupted = "interrupted"  # 실행 중 예외/네트워크 오류로 비정상 중단 (재개 가능)
 
 
 class Task(Base):
@@ -34,6 +35,9 @@ class Task(Base):
     mcp_config_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("mcp_configs.id", ondelete="SET NULL"), nullable=True
     )
+    # interrupted 상태일 때 어디까지 진행했는지 저장
+    # {"original_instruction": str, "progress_summary": str, "mcp_config_id": str | null}
+    interrupted_context: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

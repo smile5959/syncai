@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { formatTime } from "@/lib/utils";
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronRight,
-  Loader2, Zap, Square, Clock, BotMessageSquare,
+  Loader2, Zap, Square, Clock, BotMessageSquare, AlertTriangle,
 } from "lucide-react";
 import { tasks as tasksApi } from "@/lib/api";
 import type { AiTask, Worker, Message } from "@/types";
@@ -115,7 +115,7 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
 
   // 작업 목록 (표시할 작업들)
   const allSorted = useMemo(() => [...tasks]
-    .filter((t) => t.result_diff || t.error || t.status === "running" || t.status === "failed" || t.status === "completed")
+    .filter((t) => t.result_diff || t.error || t.status === "running" || t.status === "failed" || t.status === "completed" || t.status === "interrupted")
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 50),
     [tasks]
@@ -126,13 +126,14 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
     running: allSorted.filter((t) => t.status === "running").length,
     completed: allSorted.filter((t) => t.status === "completed").length,
     failed: allSorted.filter((t) => t.status === "failed").length,
+    interrupted: allSorted.filter((t) => t.status === "interrupted").length,
   }), [allSorted]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return allSorted;
     if (filter === "running") return allSorted.filter((t) => t.status === "running");
     if (filter === "completed") return allSorted.filter((t) => t.status === "completed");
-    if (filter === "failed") return allSorted.filter((t) => t.status === "failed");
+    if (filter === "failed") return allSorted.filter((t) => t.status === "failed" || t.status === "interrupted");
     return allSorted;
   }, [allSorted, filter]);
 
@@ -140,7 +141,7 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
     { key: "all", label: "전체", count: allSorted.length },
     { key: "running", label: "진행중", count: stats.running },
     { key: "completed", label: "완료", count: stats.completed },
-    { key: "failed", label: "실패", count: stats.failed },
+    { key: "failed", label: "실패/중단", count: stats.failed + stats.interrupted },
   ];
 
   return (
@@ -415,7 +416,7 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
   const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
   const isExpandable = hasDiff || hasFailed;
 
-  type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled";
+  type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled" | "interrupted";
 
   const STATUS_CONFIG: Record<StatusKey, {
     icon: React.ReactNode;
@@ -459,6 +460,12 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
       label: "취소", labelColor: "var(--text-faint)",
       cardBorder: "var(--border)",
       bgAccent: "transparent",
+    },
+    interrupted: {
+      icon: <AlertTriangle size={13} />,
+      label: "중단됨", labelColor: "#f59e0b",
+      cardBorder: "rgba(245,158,11,0.25)",
+      bgAccent: "rgba(245,158,11,0.04)",
     },
   };
 
