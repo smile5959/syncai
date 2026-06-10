@@ -1,6 +1,6 @@
 """
 Supervisor 에이전트
-DEFAULT_MODEL(gemma:free) 고정.
+DEFAULT_MODEL(llama-3.1-8b:free) 고정.
 역할:
   1. analyze()  — 작업 계획 생성 (Worker에게 전달할 지시)
   2. validate() — Worker 결과 검증 + 재시도 판단
@@ -10,7 +10,7 @@ import json
 from openai import AsyncOpenAI
 from app.config import settings
 
-DEFAULT_MODEL = "google/gemma-4-31b-it:free"
+DEFAULT_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
