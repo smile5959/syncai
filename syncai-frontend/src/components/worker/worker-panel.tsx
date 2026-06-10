@@ -414,7 +414,7 @@ interface TaskCardProps {
 function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, expanded, onToggle, onCancel, cancelling }: TaskCardProps) {
   const hasDiff = !!task.result_diff;
   const hasFailed = task.status === "failed" && (!!fullError || !!errorSummary);
-  const isExpandable = hasDiff || hasFailed;
+  const isExpandable = true;
 
   type StatusKey = "completed" | "failed" | "running" | "pending" | "awaiting_confirm" | "cancelled" | "interrupted";
 
@@ -480,11 +480,11 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
     }}>
       {/* 메인 행 */}
       <div
-        role={isExpandable ? "button" : undefined}
-        onClick={isExpandable ? onToggle : undefined}
+        role="button"
+        onClick={onToggle}
         style={{
           display: "flex", alignItems: "center", gap: 8, padding: "9px 10px",
-          cursor: isExpandable ? "pointer" : "default",
+          cursor: "pointer",
           background: cfg.bgAccent,
         }}
       >
@@ -495,8 +495,8 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
 
         {/* 내용 */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* 타이틀 — 줄바꿈 허용 */}
-          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.45, wordBreak: "keep-all", overflowWrap: "break-word", display: "block" }}>
+          {/* 타이틀 — 한 줄 말줄임, 클릭으로 확장 */}
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.45, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {command}
           </span>
 
@@ -556,6 +556,12 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
       {/* 확장 영역 */}
       {expanded && (
         <div style={{ borderTop: `1px solid ${cfg.cardBorder}` }}>
+          {/* 전체 지시 내용 */}
+          <div style={{ padding: "8px 12px", background: "rgba(0,0,0,0.08)" }}>
+            <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
+              {command}
+            </p>
+          </div>
           {hasFailed && (
             <div style={{ padding: "10px 12px", background: "var(--status-error-bg)" }}>
               <p style={{ fontSize: 11, color: "var(--status-error)", fontWeight: 600, marginBottom: 4 }}>오류 내용</p>

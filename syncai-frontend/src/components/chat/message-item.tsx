@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Message, AiPlanPayload, AiTask } from "@/types";
 import { messages as messagesApi, mcpConfigs } from "@/lib/api";
-import { Bot, Zap, Check, X, Loader2, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { Bot, Zap, Check, X, Loader2, ShieldCheck, ChevronDown, ChevronRight, Shield } from "lucide-react";
 
 interface MessageItemProps {
   message: Message;
@@ -160,31 +160,25 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
           )}
 
           {showButtons && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => handleConfirm(true)}
-                  disabled={status === "loading"}
-                  className="flex items-center gap-1.5 bg-[var(--accent)] text-white font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13 }}
-                >
-                  {status === "loading" ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Check size={13} />
-                  )}
-                  진행할게요
-                </button>
-                <button
-                  onClick={() => handleConfirm(false)}
-                  disabled={status === "loading"}
-                  className="flex items-center gap-1.5 text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors disabled:opacity-50"
-                  style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, background: "transparent" }}
-                >
-                  <X size={13} />
-                  취소
-                </button>
-              </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <button
+                onClick={() => handleConfirm(false)}
+                disabled={status === "loading"}
+                className="flex items-center gap-1 text-[var(--text-muted)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors disabled:opacity-50"
+                style={{ borderRadius: 7, padding: "5px 11px", fontSize: 12, background: "transparent", flex: 1, justifyContent: "center" }}
+              >
+                <X size={11} />
+                거부
+              </button>
+              <button
+                onClick={() => handleConfirm(true)}
+                disabled={status === "loading"}
+                className="flex items-center gap-1 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
+                style={{ borderRadius: 7, padding: "5px 11px", fontSize: 12, background: "transparent", flex: 1, justifyContent: "center" }}
+              >
+                {status === "loading" ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                한번만 허용
+              </button>
               {plan.mcp_config_id && !autoApproved && (
                 <button
                   onClick={async () => {
@@ -193,15 +187,16 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
                     setAutoApproved(true);
                     handleConfirm(true);
                   }}
-                  className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
-                  style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 0" }}
+                  disabled={status === "loading"}
+                  className="flex items-center gap-1 bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ borderRadius: 7, padding: "5px 11px", fontSize: 12, flex: 1, justifyContent: "center" }}
                 >
-                  <ShieldCheck size={12} />
-                  이 PC는 항상 허용
+                  <Shield size={11} />
+                  항상 허용
                 </button>
               )}
               {autoApproved && (
-                <p style={{ fontSize: 12, color: "var(--accent)" }}>✓ 이제 이 PC는 자동으로 허용됩니다</p>
+                <p style={{ fontSize: 12, color: "var(--accent)", alignSelf: "center" }}>✓ 자동 허용됨</p>
               )}
             </div>
           )}
@@ -213,13 +208,27 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
 
 // ─── Thinking Panel ──────────────────────────────────────────────────────────
 
+function shortenStep(step: string): string {
+  // "파일 읽는 중: /long/path/file.txt" → "파일 읽는 중: file.txt"
+  return step.replace(/(:\s*)(\/[^\s]+)/g, (_, prefix, path) => {
+    const parts = path.split("/");
+    return prefix + parts[parts.length - 1];
+  });
+}
+
 function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: boolean }) {
   const [open, setOpen] = useState(isStreaming);
 
-  // 스트리밍 시작 시 자동 펼침
   useEffect(() => { if (isStreaming) setOpen(true); }, [isStreaming]);
 
-  if (steps.length === 0 && !isStreaming) return null;
+  // 연속 중복 제거 + 경로 간소화
+  const dedupedSteps = steps
+    .filter((s, i) => s !== steps[i - 1])
+    .map(shortenStep);
+
+  if (dedupedSteps.length === 0 && !isStreaming) return null;
+
+  const lastStep = dedupedSteps.length > 0 ? dedupedSteps[dedupedSteps.length - 1] : "작업 중...";
 
   return (
     <div style={{ marginBottom: 10 }}>
@@ -237,9 +246,7 @@ function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: b
         {isStreaming
           ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
           : open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        {isStreaming
-          ? (steps.length > 0 ? steps[steps.length - 1] : "작업 중...")
-          : `작업 내역 ${steps.length}단계`}
+        {isStreaming ? lastStep : `작업 내역 ${dedupedSteps.length}단계`}
         <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
       </button>
       {open && (
@@ -247,23 +254,23 @@ function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: b
           marginTop: 4, marginLeft: 2,
           borderLeft: "2px solid rgba(99,102,241,0.25)",
           paddingLeft: 12,
-          display: "flex", flexDirection: "column", gap: 5,
+          display: "flex", flexDirection: "column", gap: 4,
         }}>
-          {steps.map((step, i) => (
+          {dedupedSteps.map((step, i) => (
             <div key={i} style={{
-              display: "flex", alignItems: "flex-start", gap: 7,
-              fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.4,
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4,
             }}>
               <span style={{
-                marginTop: 2, width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-                background: i === steps.length - 1 && isStreaming ? "var(--accent)" : "rgba(99,102,241,0.4)",
+                width: 4, height: 4, borderRadius: "50%", flexShrink: 0,
+                background: i === dedupedSteps.length - 1 && isStreaming ? "var(--accent)" : "rgba(99,102,241,0.4)",
               }} />
               {step}
             </div>
           ))}
           {isStreaming && (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--text-muted)" }}>
-              <Loader2 size={10} style={{ animation: "spin 1s linear infinite", color: "var(--accent)", flexShrink: 0 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)" }}>
+              <Loader2 size={9} style={{ animation: "spin 1s linear infinite", color: "var(--accent)", flexShrink: 0 }} />
               처리 중...
             </div>
           )}
