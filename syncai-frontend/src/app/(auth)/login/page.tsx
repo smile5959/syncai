@@ -79,6 +79,7 @@ export default function LoginPage() {
   const nextUrl = searchParams?.get("next") ?? "";
   const setUser = useAuthStore((s) => s.setUser);
   const setTeam = useAuthStore((s) => s.setTeam);
+  const logoutStore = useAuthStore((s) => s.logout);
   const { theme, toggle } = useTheme();
 
   const [registered, setRegistered] = useState(false);
@@ -136,6 +137,8 @@ export default function LoginPage() {
         return;
       }
       const res = await auth.login(email, password);
+      // 이전 유저 데이터(팀 등) 초기화 후 새 유저 세팅
+      logoutStore();
       setUser(res.data.user);
       setAuthCookies(res.data.token, res.data.refresh_token);
       if (nextUrl) {
