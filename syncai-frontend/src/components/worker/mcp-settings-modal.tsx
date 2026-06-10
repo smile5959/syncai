@@ -271,6 +271,22 @@ function MyMcpTab() {
   // macOS 여부 감지 (클라이언트에서만)
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
+  // 설치 명령어 표시 상태
+  const [showInstallId, setShowInstallId] = useState<string | null>(null);
+  const [installCmdData, setInstallCmdData] = useState<{ installShUrl: string; token: string } | null>(null);
+
+  async function handleShowInstall(c: McpConfig) {
+    if (showInstallId === c.id) { setShowInstallId(null); return; }
+    setShowInstallId(c.id);
+    setInstallCmdData(null);
+    try {
+      const res = await mcpApi.getDownloadUrl(c.mcp_token ?? "");
+      setInstallCmdData({ installShUrl: res.data.install_sh_url, token: c.mcp_token ?? "" });
+    } catch {
+      setInstallCmdData(null);
+    }
+  }
+
   // 인라인 편집 상태
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -584,6 +600,7 @@ function MyMcpTab() {
             const online = c.is_online;
             const isRenaming = renamingId === c.id;
             const isFolderFallback = folderFallbackId === c.id;
+            const isShowingInstall = showInstallId === c.id;
 
             return (
               <div key={c.id} style={{
@@ -666,6 +683,25 @@ function MyMcpTab() {
 
                   {/* 액션 버튼 */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    {/* 설치 명령어 (오프라인 전용) */}
+                    {!online && (
+                      <button
+                        onClick={() => handleShowInstall(c)}
+                        title="설치 명령어 보기"
+                        style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          padding: "6px 11px", borderRadius: 9,
+                          border: `1px solid ${isShowingInstall ? "var(--accent)" : "var(--border)"}`,
+                          background: isShowingInstall ? "var(--accent-bg)" : "var(--bg-surface)",
+                          cursor: "pointer", fontSize: 12,
+                          color: isShowingInstall ? "var(--accent)" : "var(--text-secondary)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Download size={11} />
+                        설치
+                      </button>
+                    )}
                     {/* 경로 변경 */}
                     <button
                       onClick={() => handleFolderPick(c)}
@@ -722,6 +758,23 @@ function MyMcpTab() {
                     </button>
                   </div>
                 </div>
+
+                {/* 설치 명령어 패널 */}
+                {isShowingInstall && (
+                  <div style={{
+                    borderTop: "1px solid var(--border-subtle)", paddingTop: 12,
+                    display: "flex", flexDirection: "column", gap: 8,
+                  }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", margin: 0 }}>
+                      설치 명령어 — 터미널에서 실행하세요
+                    </p>
+                    {installCmdData ? (
+                      <MacInstallCommand installShUrl={installCmdData.installShUrl} token={installCmdData.token} />
+                    ) : (
+                      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>불러오는 중...</p>
+                    )}
+                  </div>
+                )}
 
                 {/* 경로 직접 입력 fallback (MCP 서버 오프라인 시) */}
                 {isFolderFallback && (
