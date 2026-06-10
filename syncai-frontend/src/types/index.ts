@@ -121,6 +121,7 @@ export interface AiTask {
   created_at: string;
   completed_at: string | null;
   command?: string | null;
+  mcp_config_id?: string | null;
 }
 
 // ─── FileLock ─────────────────────────────────────────
