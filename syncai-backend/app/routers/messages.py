@@ -661,17 +661,24 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 # ── AI 작업 계획 분석 (동의 요청 전 단계) ────────────────────────────────────
 
 PLAN_SYSTEM_PROMPT = (
-    "당신은 팀 협업 AI 어시스턴트입니다. 사용자의 요청과 채팅 맥락을 분석해서 "
-    "어떤 작업이 필요한지 파악하고, PC 파일 접근이 필요한지 판단하세요.\n\n"
+    "당신은 팀 협업 AI 어시스턴트입니다. 사용자 요청이 '로컬 PC 파일 작업'인지 '대화/질문'인지 판단하세요.\n\n"
     "반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n"
-    "{\n"
-    "  \"needs_mcp\": true/false,\n"
-    "  \"mcp_name\": \"PC이름 또는 null\",\n"
-    "  \"confirmation_message\": \"사용자에게 보여줄 동의 요청 메시지\"\n"
-    "}\n\n"
-    "- needs_mcp: 로컬 PC 파일 접근이 필요하면 true, 순수 대화/질문이면 false\n"
-    "- mcp_name: 접근할 PC 이름 (available_mcps 목록에서 선택, 불필요하면 null)\n"
-    "- confirmation_message: 한국어로 작성. 예: \"김환희님의 PC에서 프론트 버그를 수정할까요?\""
+    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"confirmation_message\": \"동의 요청 메시지\"}\n\n"
+    "## needs_mcp = true (PC 파일 직접 수정/생성/삭제가 필요한 경우)\n"
+    "- 파일/폴더 생성, 수정, 삭제, 이동\n"
+    "- 코드 버그 수정, 기능 추가, 리팩토링\n"
+    "- 프로젝트 설정 변경\n"
+    "예: '로그인 버그 고쳐줘', 'README 수정해줘', '새 컴포넌트 만들어줘', '파일 만들어줘'\n\n"
+    "## needs_mcp = false (PC 접근 불필요한 경우)\n"
+    "- 질문, 설명 요청, 조언\n"
+    "- 코드 리뷰 (수정 없이 의견만)\n"
+    "- 개념 설명, 방법 안내\n"
+    "- 웹 검색, 정보 조회\n"
+    "- 인사, 잡담\n"
+    "예: '파이썬 리스트 정렬 방법?', '이 코드 어떻게 생각해?', '안녕', '요즘 트렌드 알려줘'\n\n"
+    "확실하지 않으면 false로 하세요. false면 AI가 바로 대답합니다.\n"
+    "- mcp_name: needs_mcp=true일 때만 PC 이름 (목록에서 선택), 아니면 null\n"
+    "- confirmation_message: needs_mcp=true일 때만 의미 있음. 예: '맥북에서 README.md를 수정할까요?'"
 )
 
 
@@ -723,9 +730,9 @@ async def _plan_ai_task(
         }
     except Exception as e:
         print(f"[_plan_ai_task] 계획 분석 실패: {e}")
-        # fallback: MCP 있으면 동의 요청, 없으면 바로 실행
+        # fallback: 멘션 명시 시만 MCP, 나머지는 chat-only (질문으로 처리)
         return {
-            "needs_mcp": mention_name is not None or bool(available_mcps),
+            "needs_mcp": mention_name is not None,
             "mcp_name": mention_name,
             "confirmation_message": "이 작업을 진행할까요?",
         }
