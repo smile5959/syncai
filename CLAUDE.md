@@ -83,11 +83,14 @@ slug/UUID 모두 처리. 반환값으로 `room.id` 써야 DB 쿼리 정상 작�
 - 미읽 뱃지 + 브라우저 알림 (layout 레벨 WS)
 - 팀 삭제 시 mcp_config_teams FK 버그 수정
 - 회원가입 → 로그인 탭 전환 (URL 라우팅 → state)
+- Supervisor 모델 교체: gemma-4-31b:free(유료 전환) → meta-llama/llama-3.1-8b-instruct:free
+- Worker 컨텍스트 오염 수정: /ai @... 패턴 regex 정제, max_tokens 400→4096
+- 확인 버튼 UI: 거부/한번만허용/항상허용 3버튼 (파일 접근 권한 확인 방식)
 
 ### 다음 할 것
-1. 프론트 "내 PC 연결하기" 버튼 개선 (mcp-settings-modal.tsx)
-2. OpenRouter 크레딧 충전 후 max_tokens 원복 (supervisor.py, worker_llm.py)
-3. MCP 토큰 만료 정책
+1. Windows MCP 실제 테스트 (PowerShell 설치 후 온라인 확인)
+2. MCP 토큰 만료 정책
+3. 디버그 로그 제거 (messages.py MCP not-found print 삭제)
 
 ## 주요 파일 빠른 참조
 | 기능 | 파일 |
