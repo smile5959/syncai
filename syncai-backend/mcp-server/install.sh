@@ -64,10 +64,21 @@ if [ -z "$TOKEN" ]; then
 fi
 
 # ── Python 3.10+ 확인 ─────────────────────────────────────────────────────────
+# Homebrew PATH가 없을 수 있으므로 절대경로도 포함
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 PYTHON=""
-for py in python3.13 python3.12 python3.11 python3.10 python3; do
-  if command -v "$py" &>/dev/null; then
-    VER=$("$py" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+for py in \
+  /opt/homebrew/bin/python3.14 \
+  /opt/homebrew/bin/python3.13 \
+  /opt/homebrew/bin/python3.12 \
+  /opt/homebrew/bin/python3.11 \
+  /opt/homebrew/bin/python3.10 \
+  /opt/homebrew/bin/python3 \
+  /usr/local/bin/python3 \
+  python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
+  if [ -x "$py" ] || command -v "$py" &>/dev/null; then
+    VER=$("$py" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null) || continue
     MAJ=$(echo "$VER" | cut -d. -f1)
     MIN=$(echo "$VER" | cut -d. -f2)
     if [ "$MAJ" -ge 3 ] && [ "$MIN" -ge 10 ]; then
