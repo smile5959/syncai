@@ -81,6 +81,13 @@ export default function RoomPage() {
   const showSidebar = useRoomsStore((s) => s.showSidebar);
   const setShowSidebar = useRoomsStore((s) => s.setShowSidebar);
   const clearUnread = useRoomsStore((s) => s.clearUnread);
+  const storeRooms = useRoomsStore((s) => s.rooms);
+
+  // slug → UUID 변환 헬퍼 (store rooms 기반, room 상태 로드 전에도 동작)
+  const getRoomUuid = (slugOrId: string) => {
+    const found = storeRooms.find((r) => r.id === slugOrId || r.slug === slugOrId);
+    return found?.id ?? slugOrId;
+  };
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatWsRef = useRef<ReturnType<typeof createChatWS> | null>(null);
@@ -112,6 +119,9 @@ export default function RoomPage() {
     roomsApi.get(id).then((r) => setRoom(r.data));
     messagesApi.list(id).then((r) => setMsgs(r.data.messages.reverse()));
     tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
+    // 방 진입 시 즉시 미읽 클리어 (slug→UUID)
+    clearUnread(getRoomUuid(id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Workers + MCP Configs 로드 (teamId 준비되면)
@@ -162,8 +172,8 @@ export default function RoomPage() {
           }
           return [...filtered, event.data];
         });
-        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (UUID로 클리어)
-        clearUnread(room?.id ?? id);
+        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (slug→UUID 변환)
+        clearUnread(getRoomUuid(id));
         setStreamingTaskId(null);
         setThinkingSteps([]);
         // ai_plan 메시지 도착 시 task 목록 즉시 갱신 (확인 버튼 표시용)
