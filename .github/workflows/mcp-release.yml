@@ -40,12 +40,14 @@ jobs:
             ws_client.py \
             tunnel.py
 
-      - name: Upload code.zip to GitHub Release
+      - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mcp/v${{ steps.ver.outputs.VERSION }}
           name: MCP Installer v${{ steps.ver.outputs.VERSION }}
-          files: syncai-backend/mcp-server/code.zip
+          files: |
+            syncai-backend/mcp-server/code.zip
+            syncai-backend/mcp-server/install.sh
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
