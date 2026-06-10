@@ -431,10 +431,8 @@ function MyMcpTab() {
                       installShUrl={postCreate.installShUrl}
                       token={postCreate.token}
                     />
-                  ) : postCreate.downloadUrlError ? (
-                    <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
                   ) : (
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>설치 URL 불러오는 중...</span>
+                    <RetryButton token={postCreate.token} setPostCreate={setPostCreate} mcpApi={mcpApi} />
                   )
                 ) : (
                   /* ── Windows: .exe 다운로드 ── */

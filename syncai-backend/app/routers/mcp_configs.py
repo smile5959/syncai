@@ -62,10 +62,9 @@ def get_mcp_version():
     github_repo  = _os.environ.get("MCP_GITHUB_REPO", "").strip()
     data: dict   = {"version": version}
     if github_repo and version != "0.0.0":
-        data["download_url"] = (
-            f"https://github.com/{github_repo}"
-            f"/releases/download/mcp/v{version}/code.zip"
-        )
+        base = f"https://github.com/{github_repo}/releases/download/mcp/v{version}"
+        data["download_url"]     = f"{base}/code.zip"
+        data["install_sh_url"]   = f"{base}/install.sh"   # macOS 설치 스크립트
     return data
 
 
@@ -199,8 +198,17 @@ def download_installer(
         raise HTTPException(status_code=503, detail="인스톨러 URL이 설정되지 않았습니다. 관리자에게 문의하세요.")
     download_url = settings.MCP_INSTALLER_URL
 
+    # macOS 설치 스크립트 URL (GitHub Releases에서 동적 생성)
+    version     = _os.environ.get("MCP_CODE_VERSION", "0.0.0")
+    github_repo = _os.environ.get("MCP_GITHUB_REPO", "").strip()
+    install_sh_url = None
+    if github_repo and version != "0.0.0":
+        base = f"https://github.com/{github_repo}/releases/download/mcp/v{version}"
+        install_sh_url = f"{base}/install.sh"
+
     return {
         "download_url": download_url,
+        "install_sh_url": install_sh_url,
         "token": token,
         "config_id": str(config.id),
         "name": config.name,
