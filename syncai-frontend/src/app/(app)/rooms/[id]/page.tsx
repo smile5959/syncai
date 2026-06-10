@@ -265,27 +265,10 @@ export default function RoomPage() {
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_completed") {
         setActiveProgress(null);
-        setStreamingTaskId(null);
-        setThinkingSteps([]);
-        setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
+        // streaming 메시지와 streamingTaskId는 건드리지 않음
+        // → ai_res 메시지가 chat WS로 도착하면 자연스럽게 교체됨 (race condition 방지)
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
-        if (event.data.result_diff) {
-          const diffSummary = parseDiffSummary(event.data.result_diff);
-          if (diffSummary) {
-            const completeMsg: Message = {
-              id: `complete-${event.data.task_id}`,
-              room_id: id,
-              user_id: null,
-              content: `✅ 작업 완료\n${diffSummary}`,
-              type: "ai_res",
-              created_at: event.data.completed_at,
-            };
-            setMsgs((prev) =>
-              prev.some((m) => m.id === completeMsg.id) ? prev : [...prev, completeMsg]
-            );
-          }
-        }
       } else if (event.type === "task_failed") {
         setActiveProgress(null);
         setStreamingTaskId(null);

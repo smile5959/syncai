@@ -533,6 +533,12 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
         task.status = "running"
         db.commit()
 
+        # chat-only도 task_started 전송 → 프론트에서 streaming 메시지 즉시 생성
+        await broadcast(task_connections, room_id, {
+            "type": "task_started",
+            "data": {"task_id": task_id, "worker_id": None},
+        })
+
         # worker 모델 결정: team_id가 있으면 첫 번째 worker 모델 사용
         chat_model = DEFAULT_MODEL
         if team_id:
