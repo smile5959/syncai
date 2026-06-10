@@ -495,17 +495,13 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
 
         {/* 내용 */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {command}
-            </span>
-            <span style={{ fontSize: 10, color: "var(--text-faint)", flexShrink: 0 }}>
-              {formatTime(task.completed_at ?? task.created_at)}
-            </span>
-          </div>
+          {/* 타이틀 — 줄바꿈 허용 */}
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.45, wordBreak: "keep-all", overflowWrap: "break-word", display: "block" }}>
+            {command}
+          </span>
 
           {/* 태그 행 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
             {mcpName && (
               <span style={{
                 fontSize: 10, padding: "1px 5px", borderRadius: 4, fontWeight: 500,
@@ -523,11 +519,9 @@ function TaskCard({ task, command, mcpName, errorSummary, fullError, duration, e
             ) : hasDiff ? (
               <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· 파일 변경됨</span>
             ) : null}
-            {duration && (
-              <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: "auto" }}>
-                {duration}
-              </span>
-            )}
+            <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: "auto" }}>
+              {duration ? `${duration} ·` : ""} {formatTime(task.completed_at ?? task.created_at)}
+            </span>
           </div>
         </div>
 
