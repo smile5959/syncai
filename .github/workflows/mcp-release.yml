@@ -38,7 +38,8 @@ jobs:
             config.py \
             tools.py \
             ws_client.py \
-            tunnel.py
+            tunnel.py \
+            requirements.txt
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
