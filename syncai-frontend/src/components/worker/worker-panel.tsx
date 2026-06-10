@@ -57,25 +57,24 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
 
   function getCommand(task: AiTask): string {
     const payload = getAiPlanPayload(task);
-    if (payload?.confirmation_message) {
-      const title = (payload.confirmation_message as string)
-        .replace(/\?$|？$/, "")
-        .replace(/할까요$|하시겠어요$|진행할까요$/, "")
-        .replace(/^.+?님의\s+PC에\s+/, "")
-        .replace(/^.+?의\s+PC에\s+/, "")
-        .trim();
-      return title.length > 32 ? title.slice(0, 32) + "…" : title || "AI 작업";
+
+    // 1순위: AI가 생성한 task_title (가장 센스 있는 요약)
+    if (payload?.task_title && (payload.task_title as string).trim().length > 2) {
+      const t = (payload.task_title as string).trim();
+      return t.length > 32 ? t.slice(0, 32) + "…" : t;
     }
-    const raw = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
-    let c = raw.replace(/^\/ai\s*/i, "").trim() || "AI 작업";
-    c = c
+
+    // 2순위: 원본 명령어에서 정제
+    const rawCmd = task.command ?? msgs.find((m) => m.id === task.message_id)?.content ?? "";
+    const c = rawCmd
+      .replace(/^\/ai\s*/i, "")
+      .replace(/@\S+\s*/g, "")
       .replace(/해\s*줘\s*$|해\s*주세요\s*$|부탁해\s*$|해\s*봐\s*$|해\s*줄래\s*$|해\s*줘요\s*$/i, "")
       .replace(/해\s*$/, "")
       .replace(/\s*(좀|한번|한 번|제발|바로|빨리)\s*/g, " ")
       .replace(/\s+/g, " ")
-      .trim();
-    if (!c) c = "AI 작업";
-    return c.length > 30 ? c.slice(0, 30) + "…" : c;
+      .trim() || "AI 작업";
+    return c.length > 32 ? c.slice(0, 32) + "…" : c;
   }
 
   function getMcpName(task: AiTask): string | null {

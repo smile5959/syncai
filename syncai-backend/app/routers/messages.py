@@ -682,7 +682,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 PLAN_SYSTEM_PROMPT = (
     "당신은 팀 협업 AI 어시스턴트입니다. 사용자 요청이 '로컬 PC 파일 작업'인지 '대화/질문'인지 판단하세요.\n\n"
     "반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n"
-    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"confirmation_message\": \"동의 요청 메시지\"}\n\n"
+    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"task_title\": \"동사+목적어 형식 짧은 제목\", \"confirmation_message\": \"동의 요청 메시지\"}\n\n"
     "## needs_mcp = true (PC 파일 직접 수정/생성/삭제가 필요한 경우)\n"
     "- 파일/폴더 생성, 수정, 삭제, 이동\n"
     "- 코드 버그 수정, 기능 추가, 리팩토링\n"
@@ -697,6 +697,7 @@ PLAN_SYSTEM_PROMPT = (
     "예: '파이썬 리스트 정렬 방법?', '이 코드 어떻게 생각해?', '안녕', '요즘 트렌드 알려줘'\n\n"
     "확실하지 않으면 false로 하세요. false면 AI가 바로 대답합니다.\n"
     "- mcp_name: needs_mcp=true일 때만 PC 이름 (목록에서 선택), 아니면 null\n"
+    "- task_title: 작업 내용을 15자 이내로 요약 (동사+목적어). 예: 'README.md 수정', '로그인 버그 수정', 'index.html 생성'\n"
     "- confirmation_message: needs_mcp=true일 때만 의미 있음. 예: '맥북에서 README.md를 수정할까요?'"
 )
 
@@ -745,14 +746,15 @@ async def _plan_ai_task(
         return {
             "needs_mcp": bool(plan.get("needs_mcp", False)),
             "mcp_name": plan.get("mcp_name"),
+            "task_title": plan.get("task_title", "").strip(),
             "confirmation_message": plan.get("confirmation_message", "이 작업을 진행할까요?"),
         }
     except Exception as e:
         print(f"[_plan_ai_task] 계획 분석 실패: {e}")
-        # fallback: 멘션 명시 시만 MCP, 나머지는 chat-only (질문으로 처리)
         return {
             "needs_mcp": mention_name is not None,
             "mcp_name": mention_name,
+            "task_title": "",
             "confirmation_message": "이 작업을 진행할까요?",
         }
 
@@ -1045,6 +1047,7 @@ async def _send_ai_plan(
             "needs_mcp": plan["needs_mcp"],
             "mcp_name": plan["mcp_name"],
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
+            "task_title": plan.get("task_title", ""),
             "confirmation_message": confirmation_message,
         }, ensure_ascii=False)
 
