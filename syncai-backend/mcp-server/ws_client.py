@@ -64,19 +64,48 @@ def _remove_env_base_dir() -> None:
 # ─── 폴더 선택 다이얼로그 ────────────────────────────────────────────────────
 
 def _pick_folder_sync(title: str = "접근 허용 폴더 선택") -> str | None:
-    """tkinter 폴더 선택 다이얼로그 (동기). run_in_executor로 호출해야 함."""
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes("-topmost", True)
-        path = filedialog.askdirectory(title=title)
-        root.destroy()
-        return path or None
-    except Exception as e:
-        log.warning("폴더 선택 다이얼로그 오류: %s", e)
-        return None
+    """
+    OS 네이티브 폴더 선택 다이얼로그 (동기). run_in_executor로 호출해야 함.
+    macOS: osascript (백그라운드 서비스에서도 동작)
+    Windows: tkinter
+    """
+    import platform
+    system = platform.system()
+
+    if system == "Darwin":
+        # macOS: osascript로 Finder 폴더 선택 (launchd 서비스에서도 GUI 가능)
+        try:
+            import subprocess
+            script = (
+                'tell application "Finder"\n'
+                '  activate\n'
+                f'  set theFolder to choose folder with prompt "{title}"\n'
+                '  return POSIX path of theFolder\n'
+                'end tell'
+            )
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=120,
+            )
+            path = result.stdout.strip()
+            return path if path else None
+        except Exception as e:
+            log.warning("폴더 선택 다이얼로그 오류 (osascript): %s", e)
+            return None
+    else:
+        # Windows/Linux: tkinter
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes("-topmost", True)
+            path = filedialog.askdirectory(title=title)
+            root.destroy()
+            return path or None
+        except Exception as e:
+            log.warning("폴더 선택 다이얼로그 오류 (tkinter): %s", e)
+            return None
 
 
 async def _pick_folder_async(title: str = "접근 허용 폴더 선택") -> str | None:
