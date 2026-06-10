@@ -19,6 +19,10 @@ param(
     [string]$BaseDir = ""
 )
 
+# UTF-8 인코딩 설정 (한글 깨짐 방지)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $ErrorActionPreference = "Stop"
 
 $BACKEND_URL = "https://syncai-backend.fly.dev"
@@ -60,12 +64,27 @@ foreach ($candidate in @("python", "python3", "py")) {
 }
 
 if (-not $PYTHON) {
-    Write-Fail "Python 3.10 이상이 필요합니다."
-    Write-Host ""
-    Write-Host "다음 방법으로 설치해주세요:"
-    Write-Host "  winget install Python.Python.3.12"
-    Write-Host "  또는 https://www.python.org/downloads/"
-    exit 1
+    Write-Warn "Python 3.10 이상이 없습니다. 자동 설치 시도 중..."
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
+        # PATH 갱신
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        foreach ($candidate in @("python", "py")) {
+            try {
+                $ver = & $candidate -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
+                if ($ver -match "^(\d+)\.(\d+)") {
+                    $maj = [int]$Matches[1]; $min = [int]$Matches[2]
+                    if ($maj -ge 3 -and $min -ge 10) { $PYTHON = $candidate; break }
+                }
+            } catch {}
+        }
+    }
+    if (-not $PYTHON) {
+        Write-Fail "Python 설치 실패. 아래 주소에서 직접 설치 후 다시 실행해주세요:"
+        Write-Host "  https://www.python.org/downloads/"
+        exit 1
+    }
+    Write-Step "Python 설치 완료"
 }
 
 $verStr = & $PYTHON -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
