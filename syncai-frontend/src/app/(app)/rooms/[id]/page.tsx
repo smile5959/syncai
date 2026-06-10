@@ -85,6 +85,7 @@ export default function RoomPage() {
   const showSidebar = useRoomsStore((s) => s.showSidebar);
   const setShowSidebar = useRoomsStore((s) => s.setShowSidebar);
   const clearUnread = useRoomsStore((s) => s.clearUnread);
+  const setCurrentRoomUuid = useRoomsStore((s) => s.setCurrentRoomUuid);
   const storeRooms = useRoomsStore((s) => s.rooms);
 
   // slug → UUID 변환 헬퍼 (store rooms 기반, room 상태 로드 전에도 동작)
@@ -120,11 +121,16 @@ export default function RoomPage() {
   // Load room + messages + tasks
   useEffect(() => {
     if (!id) return;
-    roomsApi.get(id).then((r) => setRoom(r.data));
+    roomsApi.get(id).then((r) => {
+      setRoom(r.data);
+      // room UUID를 store에 저장 → layout WS isCurrentRoom 판단에 사용
+      setCurrentRoomUuid(r.data.id);
+      clearUnread(r.data.id);
+    });
     messagesApi.list(id).then((r) => setMsgs(r.data.messages.reverse()));
     tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
-    // 방 진입 시 즉시 미읽 클리어 (slug→UUID)
-    clearUnread(getRoomUuid(id));
+    // 방 나갈 때 초기화
+    return () => setCurrentRoomUuid(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

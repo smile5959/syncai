@@ -41,6 +41,15 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
   useEffect(() => { currentRoomIdRef.current = currentRoomId; }, [currentRoomId]);
   useEffect(() => { roomsRef.current = rooms; }, [rooms]);
 
+  // page.tsx가 room 로드 완료 후 저장한 UUID — 가장 신뢰할 수 있는 현재 방 판단 기준
+  const currentRoomUuidRef = useRef<string | null>(null);
+  useEffect(() => {
+    return useRoomsStore.subscribe(
+      (s) => s.currentRoomUuid,
+      (uuid) => { currentRoomUuidRef.current = uuid; },
+    );
+  }, []);
+
   // 탭 다시 활성화 시 현재 방 미읽 즉시 초기화
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -120,12 +129,15 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
         if (msg.user_id === me?.id) return;
         // AI 응답도 알림 (user_id === null)
 
-        // 현재 보고 있는 방이면 무시 (ref로 최신값 참조)
-        const cur = currentRoomIdRef.current;
-        // slug/UUID 둘 다 처리: cur로 찾은 방의 UUID가 이 방 UUID와 같으면 현재 방
-        const currentRoom = roomsRef.current.find((r) => r.id === cur || r.slug === cur);
-        const isCurrentRoom = currentRoom ? currentRoom.id === room.id : cur === room.id || cur === room.slug;
-        if (isCurrentRoom && !document.hidden) return;
+        // 현재 보고 있는 방이면 무시
+        // 1순위: page.tsx가 room 로드 후 저장한 UUID (가장 정확)
+        // 2순위: URL slug/UUID → rooms 목록으로 변환
+        const resolvedUuid = currentRoomUuidRef.current ?? (() => {
+          const cur = currentRoomIdRef.current;
+          const found = roomsRef.current.find((r) => r.id === cur || r.slug === cur);
+          return found?.id ?? cur;
+        })();
+        if (resolvedUuid === room.id && !document.hidden) return;
 
         // 미읽 카운트 증가
         incrementUnread(room.id);

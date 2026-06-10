@@ -7,6 +7,7 @@ interface RoomsState {
   showCreate: boolean;
   showInvite: boolean;
   unreadCounts: Record<string, number>;
+  currentRoomUuid: string | null;   // 현재 보고 있는 방의 UUID (slug 변환 완료)
   setRooms: (rooms: ChatRoom[]) => void;
   addRoom: (room: ChatRoom) => void;
   updateRoom: (id: string, updates: Partial<ChatRoom>) => void;
@@ -14,6 +15,7 @@ interface RoomsState {
   setShowSidebar: (v: boolean | ((prev: boolean) => boolean)) => void;
   setShowCreate: (v: boolean) => void;
   setShowInvite: (v: boolean) => void;
+  setCurrentRoomUuid: (uuid: string | null) => void;
   incrementUnread: (roomId: string) => void;
   clearUnread: (roomId: string) => void;
 }
@@ -24,6 +26,7 @@ export const useRoomsStore = create<RoomsState>((set) => ({
   showCreate: false,
   showInvite: false,
   unreadCounts: {},
+  currentRoomUuid: null,
 
   setRooms: (rooms) => set({ rooms }),
 
@@ -44,6 +47,7 @@ export const useRoomsStore = create<RoomsState>((set) => ({
 
   setShowCreate: (v) => set({ showCreate: v }),
   setShowInvite: (v) => set({ showInvite: v }),
+  setCurrentRoomUuid: (uuid) => set({ currentRoomUuid: uuid }),
 
   incrementUnread: (roomId) =>
     set((s) => ({
