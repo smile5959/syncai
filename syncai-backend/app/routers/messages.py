@@ -53,6 +53,10 @@ CHAT_ONLY_SYSTEM_PROMPT = (
     "파일 읽기·수정·목록 조회 등 로컬 작업 요청이 오면 반드시 이렇게 답하세요:\n"
     "\"현재 MCP가 연결되어 있지 않아 파일에 접근할 수 없어요. "
     "설정 > 내 MCP에서 MCP를 등록하고 설치 명령어를 실행해주세요.\"\n\n"
+    "## 절대 금지\n"
+    "- 응답에 '/ai @...' 명령어 포함 금지\n"
+    "- @멘션 형식 포함 금지\n"
+    "- 명령어나 지시문을 만들어서 응답에 넣지 마세요\n\n"
     "## 가능한 작업\n"
     "대화·질문·코드 작성·코드 리뷰·설명 등은 모두 가능합니다.\n"
     "항상 한국어로 답하세요. 인사말·자기소개 없이 바로 답변하세요."
@@ -424,7 +428,7 @@ async def _run_ai_task(
         diff = worker_agent.generate_diff()
 
         # /ai @... 패턴이 결과에 포함되지 않도록 정제 (모델이 명령어를 흉내낼 때 방어)
-        result_text = re.sub(r'`/ai\s+@[^`\n]+`', '', result_text)
+        result_text = re.sub(r'`/ai\s+@[^`]+`', '', result_text, flags=re.DOTALL)
         result_text = re.sub(r'^/ai\s+@\S+[^\n]*$', '', result_text, flags=re.MULTILINE)
         result_text = result_text.strip() or "완료했습니다."
 
@@ -588,17 +592,23 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 f"사용자가 자신의 이름을 물어보면 '{user_name}'이라고 알려주세요."
             )
 
+        def _clean_ctx(c: str, t: str) -> str:
+            if t == "ai_cmd":
+                return re.sub(r'^/ai\s+@\S+\s*', '', c, flags=re.IGNORECASE).strip()
+            return c
+
         messages = [{"role": "system", "content": system_content}]
         for m in recent:
             messages.append({
                 "role": "assistant" if m.type == "ai_res" else "user",
                 "content": (
-                    f"[{user_name_map.get(str(m.user_id), '팀원')}] {m.content}"
+                    f"[{user_name_map.get(str(m.user_id), '팀원')}] {_clean_ctx(m.content, m.type)}"
                     if m.type != "ai_res" and m.user_id
                     else m.content
                 ),
             })
-        messages.append({"role": "user", "content": content})
+        clean_user_content = re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
+        messages.append({"role": "user", "content": clean_user_content})
 
         result_text = ""
         stream = await client.chat.completions.create(
@@ -617,6 +627,11 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 })
         if not result_text:
             result_text = "응답을 생성하지 못했습니다. 다시 시도해 주세요."
+
+        # /ai @... 패턴 정제
+        result_text = re.sub(r'`/ai\s+@[^`]+`', '', result_text, flags=re.DOTALL)
+        result_text = re.sub(r'^/ai\s+@\S+[^\n]*$', '', result_text, flags=re.MULTILINE)
+        result_text = result_text.strip() or "완료했습니다."
 
         now = datetime.now(timezone.utc)
         task.status = "completed"
