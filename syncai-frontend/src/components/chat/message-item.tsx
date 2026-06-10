@@ -71,15 +71,17 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
     ? Date.now() - new Date(message.created_at).getTime() > 5 * 60 * 1000
     : false;
 
-  // 버튼: task가 awaiting_confirm 상태이고 만료 안 됐을 때만 표시
+  // 버튼 표시 조건:
+  // - 로컬에서 이미 클릭한 경우 → 숨김
+  // - 5분 이상 된 ai_plan → 만료, 숨김 (이전 세션 확인창 방지)
+  // - awaiting_confirm 상태 → 표시
+  // - task가 목록에 없음(새로 생성된 직후) → 표시 (taskList 갱신 전)
   const showButtons =
-    status !== "idle"  // 이미 로컬에서 클릭한 경우
+    status !== "idle"
       ? false
       : isExpired
-      ? false  // 5분 경과 → 버튼 숨김
-      : tasks === undefined
-      ? false  // 아직 로드 중 → 숨김 (깜빡임 방지)
-      : taskStatus === "awaiting_confirm";
+      ? false
+      : taskStatus === "awaiting_confirm" || taskStatus === undefined;
 
   // 성공 표시: 로컬 confirmed 또는 running/completed
   const showSuccess =
