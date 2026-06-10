@@ -35,6 +35,10 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // currentRoomId를 ref로 유지 — WS 클로저에서 항상 최신값 참조
+  const currentRoomIdRef = useRef(currentRoomId);
+  useEffect(() => { currentRoomIdRef.current = currentRoomId; }, [currentRoomId]);
+
   // 브라우저 알림 권한 요청
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
@@ -101,9 +105,9 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
         if (msg.user_id === me?.id) return;
         // AI 응답도 알림 (user_id === null)
 
-        // 현재 보고 있는 방이면 무시
-        const isCurrentRoom =
-          currentRoomId === room.id || currentRoomId === room.slug;
+        // 현재 보고 있는 방이면 무시 (ref로 최신 currentRoomId 참조)
+        const cur = currentRoomIdRef.current;
+        const isCurrentRoom = cur === room.id || cur === room.slug;
         if (isCurrentRoom && !document.hidden) return;
 
         // 미읽 카운트 증가
