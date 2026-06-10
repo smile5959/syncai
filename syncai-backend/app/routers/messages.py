@@ -58,6 +58,22 @@ CHAT_ONLY_SYSTEM_PROMPT = (
     "항상 한국어로 답하세요. 인사말·자기소개 없이 바로 답변하세요."
 )
 
+# ── Chat-only 시스템 프롬프트 (MCP 연결됐지만 파일 작업 불필요한 경우) ──────────
+def _make_chat_with_mcp_prompt(mcp_names: list[str]) -> str:
+    names_str = ", ".join(f"@{n}" for n in mcp_names) if mcp_names else ""
+    return (
+        "당신은 SyncAI입니다. 개발 팀의 AI 어시스턴트입니다.\n\n"
+        "## 현재 상태: MCP 연결됨\n"
+        f"현재 연결된 MCP(로컬 PC): {names_str or '있음'}.\n"
+        "파일 작업이 필요한 요청에는 '/ai @PC이름 지시사항' 형식으로 요청하라고 안내하세요.\n\n"
+        "## 이 응답에서 할 일\n"
+        "지금 이 질문은 파일 접근이 필요 없는 대화/질문이므로 바로 답변합니다.\n"
+        "MCP가 연결되어 있다는 사실을 언급할 필요는 없습니다. 그냥 질문에 답하세요.\n\n"
+        "## 가능한 작업\n"
+        "대화·질문·코드 작성·코드 리뷰·설명·웹 정보(학습 데이터 기반) 등 모두 가능합니다.\n"
+        "항상 한국어로 답하세요. 인사말·자기소개 없이 바로 답변하세요."
+    )
+
 # ── 팀별 대기 큐 (asyncio.Queue) ──────────────────────────────────────────────
 # 큐 항목: (task_id, content, mcp_config_id, room_id, team_id)
 _team_queues: dict[str, asyncio.Queue] = {}
@@ -495,7 +511,7 @@ async def _run_ai_task(
 
 # ── Chat-only AI (MCP 없는 순수 대화 모드) ────────────────────────────────────
 
-async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = "", team_id: str = ""):
+async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = "", team_id: str = "", available_mcp_names: list[str] | None = None):
     from app.agents.supervisor import _get_client, DEFAULT_MODEL
     from app.services.room_service import get_recent_messages
     from openai import AsyncOpenAI
@@ -544,7 +560,10 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             users_in_ctx = db.query(_User).filter(_User.id.in_(user_ids)).all()
             user_name_map = {str(u.id): u.name for u in users_in_ctx}
 
-        system_content = CHAT_ONLY_SYSTEM_PROMPT
+        if available_mcp_names:
+            system_content = _make_chat_with_mcp_prompt(available_mcp_names)
+        else:
+            system_content = CHAT_ONLY_SYSTEM_PROMPT
         if user_name:
             system_content += (
                 f"\n\n지금 이 메시지를 보낸 사용자의 이름은 '{user_name}'입니다. "
@@ -983,8 +1002,9 @@ async def _send_ai_plan(
         if not plan["needs_mcp"]:
             task.status = "pending"
             db.commit()
+            mcp_name_list = [m["name"] for m in available_mcps] if available_mcps else []
             asyncio.create_task(
-                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id)
+                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id, mcp_name_list)
             )
             return
 
