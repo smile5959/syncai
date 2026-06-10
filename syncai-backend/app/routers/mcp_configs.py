@@ -9,7 +9,7 @@ import json
 import logging
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 import httpx
@@ -213,6 +213,57 @@ def download_installer(
         "config_id": str(config.id),
         "name": config.name,
     }
+
+
+@router.get("/mcp-configs/install-command")
+def download_install_command(
+    token: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    macOS용 .command 파일 반환.
+    더블클릭하면 Terminal이 열리며 MCP 서버를 자동 설치/실행.
+    """
+    config = db.query(McpConfig).filter(
+        McpConfig.mcp_token == token,
+        McpConfig.owner_user_id == current_user.id,
+    ).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="해당 토큰의 MCP Config를 찾을 수 없습니다.")
+
+    version     = _os.environ.get("MCP_CODE_VERSION", "0.0.0")
+    github_repo = _os.environ.get("MCP_GITHUB_REPO", "").strip()
+
+    if not github_repo or version == "0.0.0":
+        raise HTTPException(status_code=503, detail="설치 스크립트 URL이 준비되지 않았습니다.")
+
+    base = f"https://github.com/{github_repo}/releases/download/mcp/v{version}"
+    install_sh_url = f"{base}/install.sh"
+
+    # .command 파일 내용 (더블클릭 시 Terminal에서 실행됨)
+    script = f"""#!/bin/bash
+# SyncAI MCP 설치 스크립트
+# 이 파일을 더블클릭하면 자동으로 설치됩니다.
+
+echo ""
+echo "SyncAI MCP 설치를 시작합니다..."
+echo ""
+
+curl -fsSL "{install_sh_url}" | bash -s -- --token={token}
+
+echo ""
+echo "창을 닫아도 됩니다."
+read -p "아무 키나 누르면 창이 닫힙니다..." -n1
+"""
+
+    return Response(
+        content=script,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="syncai-mcp-install.command"',
+        },
+    )
 
 
 @router.put("/mcp-configs/{config_id}", response_model=McpConfigOut)

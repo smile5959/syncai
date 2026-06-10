@@ -154,6 +154,9 @@ export const mcpConfigs = {
     http.get<{ download_url: string; install_sh_url?: string; token: string; config_id: string; name: string }>(
       `/mcp-configs/download`, { params: { token } }
     ),
+  /** macOS .command 파일 다운로드 URL */
+  getInstallCommandUrl: (token: string) =>
+    `${http.defaults.baseURL ?? ""}/mcp-configs/install-command?token=${encodeURIComponent(token)}`,
 };
 
 // ─── Rooms ────────────────────────────────────────────
