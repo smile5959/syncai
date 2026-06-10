@@ -35,9 +35,11 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // currentRoomId를 ref로 유지 — WS 클로저에서 항상 최신값 참조
+  // currentRoomId와 rooms를 ref로 유지 — WS 클로저에서 항상 최신값 참조
   const currentRoomIdRef = useRef(currentRoomId);
+  const roomsRef = useRef(rooms);
   useEffect(() => { currentRoomIdRef.current = currentRoomId; }, [currentRoomId]);
+  useEffect(() => { roomsRef.current = rooms; }, [rooms]);
 
   // 탭 다시 활성화 시 현재 방 미읽 즉시 초기화
   useEffect(() => {
@@ -118,9 +120,11 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
         if (msg.user_id === me?.id) return;
         // AI 응답도 알림 (user_id === null)
 
-        // 현재 보고 있는 방이면 무시 (ref로 최신 currentRoomId 참조)
+        // 현재 보고 있는 방이면 무시 (ref로 최신값 참조)
         const cur = currentRoomIdRef.current;
-        const isCurrentRoom = cur === room.id || cur === room.slug;
+        // slug/UUID 둘 다 처리: cur로 찾은 방의 UUID가 이 방 UUID와 같으면 현재 방
+        const currentRoom = roomsRef.current.find((r) => r.id === cur || r.slug === cur);
+        const isCurrentRoom = currentRoom ? currentRoom.id === room.id : cur === room.id || cur === room.slug;
         if (isCurrentRoom && !document.hidden) return;
 
         // 미읽 카운트 증가
