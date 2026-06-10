@@ -912,6 +912,15 @@ async def _send_ai_plan(
         ]
 
         available_mcps = _get_public_mcp_list(db, team_id)
+        # 팀 공유 없어도 본인 소유 MCP 포함 (폴백)
+        if current_user:
+            existing_names = {m["name"] for m in available_mcps}
+            owner_mcps = db.query(McpConfig).filter(
+                McpConfig.owner_user_id == current_user.id
+            ).all()
+            for c in owner_mcps:
+                if c.name not in existing_names:
+                    available_mcps.append({"name": c.name, "base_dir": c.base_dir or ""})
 
         # ── interrupted 작업 연관성 체크 ──────────────────────────────────────
         # 같은 room의 최근 interrupted 작업(최대 5개)과 새 지시 비교

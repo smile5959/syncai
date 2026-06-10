@@ -80,6 +80,7 @@ export default function RoomPage() {
   // 사이드바 토글은 store에서 공유
   const showSidebar = useRoomsStore((s) => s.showSidebar);
   const setShowSidebar = useRoomsStore((s) => s.setShowSidebar);
+  const clearUnread = useRoomsStore((s) => s.clearUnread);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatWsRef = useRef<ReturnType<typeof createChatWS> | null>(null);
@@ -161,6 +162,8 @@ export default function RoomPage() {
           }
           return [...filtered, event.data];
         });
+        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화
+        if (id) clearUnread(id);
         setStreamingTaskId(null);
         setThinkingSteps([]);
       } else if (event.type === "message_chunk") {
