@@ -281,7 +281,7 @@ function MyMcpTab() {
     setInstallCmdData(null);
     try {
       const res = await mcpApi.getDownloadUrl(c.mcp_token ?? "");
-      setInstallCmdData({ installShUrl: res.data.install_sh_url, token: c.mcp_token ?? "" });
+      setInstallCmdData({ installShUrl: res.data.install_sh_url as string, token: (c.mcp_token ?? "") as string });
     } catch {
       setInstallCmdData(null);
     }
