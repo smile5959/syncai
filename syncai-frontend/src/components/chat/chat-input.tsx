@@ -80,7 +80,7 @@ export function ChatInput({ onSend, disabled, mcpAvailable, mcpConnected, availa
       if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); applyMention(mentionOptions[mentionIndex]); return; }
       if (e.key === "Escape") { setMentionQuery(null); return; }
     }
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); handleSend(); }
   }
 
   function autoResize() {

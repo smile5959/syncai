@@ -14,8 +14,12 @@ def get_recent_messages(
     exclude_id: str | None = None,
 ) -> list[Message]:
     """슬라이딩 윈도우 — /ai 커맨드 시 컨텍스트로 넘길 최근 N개 메시지
-    chat / ai_cmd / ai_res 전부 포함. exclude_id는 현재 명령 중복 방지용."""
-    query = db.query(Message).filter(Message.room_id == uuid.UUID(room_id))
+    chat / ai_cmd / ai_res 포함. ai_plan은 task_id JSON이라 혼란 유발 → 제외.
+    exclude_id는 현재 명령 중복 방지용."""
+    query = db.query(Message).filter(
+        Message.room_id == uuid.UUID(room_id),
+        Message.type != "ai_plan",
+    )
     if exclude_id:
         query = query.filter(Message.id != uuid.UUID(exclude_id))
     return query.order_by(Message.created_at.desc()).limit(limit).all()
