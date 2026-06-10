@@ -166,6 +166,10 @@ export default function RoomPage() {
         clearUnread(room?.id ?? id);
         setStreamingTaskId(null);
         setThinkingSteps([]);
+        // ai_plan 메시지 도착 시 task 목록 즉시 갱신 (확인 버튼 표시용)
+        if (event.data.type === "ai_plan") {
+          tasksApi.list(id).then((r) => setTaskList(r.data.tasks)).catch(() => {});
+        }
       } else if (event.type === "message_chunk") {
         const streamId = `streaming-${event.data.task_id}`;
         setMsgs((prev) => {
