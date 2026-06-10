@@ -382,7 +382,7 @@ export function MessageItem({ message, showAvatar = true, isMe = false, roomId =
             </span>
             <span className="text-[var(--text-muted)]" style={{ fontSize: 11 }}>{formatTime(message.created_at)}</span>
           </div>
-          {thinkingSteps.length > 0 && (
+          {(thinkingSteps.length > 0 || isStreaming) && (
             <ThinkingPanel steps={thinkingSteps} isStreaming={isStreaming} />
           )}
           <div className="border-l-2 border-[var(--ai-border)]" style={{ paddingLeft: 14 }}>

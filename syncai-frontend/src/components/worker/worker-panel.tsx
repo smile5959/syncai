@@ -115,9 +115,8 @@ export function WorkerPanel({ workers, tasks, msgs = [], activeProgress, onCance
 
   // 작업 목록 (표시할 작업들)
   const allSorted = useMemo(() => [...tasks]
-    // MCP 파일 작업만 표시 (chat-only 제외)
-    .filter((t) => t.mcp_config_id)
-    .filter((t) => t.result_diff || t.error || t.status === "running" || t.status === "failed" || t.status === "completed" || t.status === "interrupted")
+    // chat-only(결과없고 완료된 것) 제외 — running/failed/interrupted는 항상 표시
+    .filter((t) => t.status === "running" || t.status === "failed" || t.status === "interrupted" || t.result_diff || t.mcp_config_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 50),
     [tasks]

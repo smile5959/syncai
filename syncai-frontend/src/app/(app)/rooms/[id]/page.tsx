@@ -176,8 +176,12 @@ export default function RoomPage() {
           }
           return [...filtered, event.data];
         });
-        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (slug→UUID 변환)
-        clearUnread(getRoomUuid(id));
+        // 방 안에 있을 때 메시지 수신 → 미읽 즉시 초기화 (항상 최신 rooms로 UUID 변환)
+        {
+          const latestRooms = useRoomsStore.getState().rooms;
+          const found = latestRooms.find((r) => r.id === id || r.slug === id);
+          useRoomsStore.getState().clearUnread(found?.id ?? id);
+        }
         // ai_res 완료 시 steps를 메시지 ID에 매핑해서 보존
         if (event.data.type === "ai_res" && streamingTaskIdRef.current && thinkingStepsRef.current.length > 0) {
           const steps = [...thinkingStepsRef.current];
@@ -245,6 +249,19 @@ export default function RoomPage() {
         streamingTaskIdRef.current = event.data.task_id;
         setThinkingSteps([]);
         thinkingStepsRef.current = [];
+        // task_started 즉시 빈 스트리밍 메시지 생성 → ThinkingPanel 실시간 표시
+        const streamId = `streaming-${event.data.task_id}`;
+        setMsgs((prev) => {
+          if (prev.some((m) => m.id === streamId)) return prev;
+          return [...prev, {
+            id: streamId,
+            room_id: id,
+            user_id: null,
+            content: "",
+            type: "ai_res" as const,
+            created_at: new Date().toISOString(),
+          }];
+        });
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_completed") {
         setActiveProgress(null);
