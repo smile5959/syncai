@@ -101,7 +101,7 @@ function MacInstallCommand({ installShUrl, token }: { installShUrl: string; toke
 
 // ─── Windows 설치 명령어 ─────────────────────────────────────────────────────
 function WindowsInstallCommand({ installPs1Url, token }: { installPs1Url: string; token: string }) {
-  const cmd = `powershell -ExecutionPolicy Bypass -Command "& {$(irm '${installPs1Url}')} -Token ${token}"`;
+  const cmd = `powershell -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${installPs1Url}'))) -Token ${token}"`;
   return (
     <InstallCommandBox
       cmd={cmd}
