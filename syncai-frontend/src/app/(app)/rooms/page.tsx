@@ -15,8 +15,8 @@ export default function RoomsPage() {
   const firstName = user?.name?.split(" ")[0] ?? "팀원";
 
   return (
-    <main className="flex-1 flex flex-col overflow-y-auto bg-[var(--bg-base)]">
-      <div className="flex flex-col w-full max-w-xl mx-auto px-6 py-14 min-h-full justify-center">
+    <main className="flex-1 flex items-center justify-center overflow-y-auto bg-[var(--bg-base)]">
+      <div className="flex flex-col w-full max-w-xl px-6">
 
         {/* 헤더 */}
         <div className="mb-10">
