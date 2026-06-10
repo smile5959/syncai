@@ -45,8 +45,7 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
   const currentRoomUuidRef = useRef<string | null>(null);
   useEffect(() => {
     return useRoomsStore.subscribe(
-      (s) => s.currentRoomUuid,
-      (uuid) => { currentRoomUuidRef.current = uuid; },
+      (s) => { currentRoomUuidRef.current = s.currentRoomUuid; },
     );
   }, []);
 
