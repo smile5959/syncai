@@ -188,7 +188,7 @@ class WorkerLLM:
             # 스트리밍 요청
             stream = await client.chat.completions.create(
                 model=model,
-                max_tokens=400,
+                max_tokens=4096,
                 tools=MCP_TOOLS,
                 messages=messages,
                 stream=True,

@@ -101,7 +101,7 @@ class SupervisorAgent:
         try:
             response = await client.chat.completions.create(
                 model=DEFAULT_MODEL,
-                max_tokens=400,
+                max_tokens=1000,
                 messages=messages,
             )
             raw = (response.choices[0].message.content or "{}").strip()
@@ -141,7 +141,7 @@ class SupervisorAgent:
         try:
             response = await client.chat.completions.create(
                 model=DEFAULT_MODEL,
-                max_tokens=300,
+                max_tokens=600,
                 messages=[
                     {"role": "system", "content": CHECK_INTERRUPTED_SYSTEM_PROMPT},
                     {"role": "user", "content": user_content},
@@ -196,7 +196,7 @@ class SupervisorAgent:
         try:
             response = await client.chat.completions.create(
                 model=DEFAULT_MODEL,
-                max_tokens=256,
+                max_tokens=512,
                 messages=[
                     {"role": "system", "content": VALIDATE_SYSTEM_PROMPT},
                     {"role": "user", "content": user_content},
