@@ -994,7 +994,8 @@ async def _send_ai_plan(
                     available_mcps.append({"name": c.name, "base_dir": c.base_dir or ""})
 
         # worker 모델 가져오기 (planning에도 동일 모델 사용)
-        worker_model = DEFAULT_MODEL
+        from app.agents.supervisor import DEFAULT_MODEL as _DEFAULT_MODEL
+        worker_model = _DEFAULT_MODEL
         any_worker = (
             db.query(Worker)
             .filter(Worker.team_id == uuid.UUID(team_id))
