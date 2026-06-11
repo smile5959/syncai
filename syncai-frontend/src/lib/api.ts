@@ -18,8 +18,9 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
 
 // ── Tauri 감지 + 토큰 저장 헬퍼 ───────────────────────────────────────────────
 function isTauri(): boolean {
-  return typeof navigator !== "undefined" &&
-    navigator.userAgent.includes("SyncAI-Desktop");
+  if (typeof window === "undefined") return false;
+  // Tauri v2는 __TAURI_INTERNALS__ 전역 객체를 자동으로 주입함
+  return "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
 }
 
 const TOKEN_KEY = "syncai_access_token";
@@ -66,12 +67,20 @@ http.interceptors.request.use((config) => {
 // 401 시 토큰 갱신
 let _refreshing: Promise<void> | null = null;
 
-async function _logoutAndRedirect() {
+export async function logoutUser() {
   clearTokens();
   try {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    // 정적 export 환경: 백엔드 직접 호출
+    await axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true });
   } catch { /* 무시 */ }
+  // 클라이언트 접근 가능한 쿠키 직접 삭제
+  document.cookie = "access_token=; Path=/; Max-Age=0; SameSite=Lax";
+  document.cookie = "refresh_token=; Path=/; Max-Age=0; SameSite=Lax";
   window.location.href = "/login";
+}
+
+async function _logoutAndRedirect() {
+  await logoutUser();
 }
 
 http.interceptors.response.use(

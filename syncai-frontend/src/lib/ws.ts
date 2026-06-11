@@ -1,4 +1,5 @@
 import type { WsChatEvent, WsTaskEvent } from "@/types";
+import { logoutUser } from "@/lib/api";
 
 const WS_BASE =
   process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws";
@@ -36,12 +37,7 @@ async function tryRefreshToken(maxAttempts = 3): Promise<boolean> {
 }
 
 async function clearAuthAndRedirect() {
-  // /api/auth/logout: Next.js 프록시 라우트.
-  // fly.io 쿠키(백엔드) + vercel 쿠키(미들웨어가 심은 것) 동시 삭제.
-  try {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-  } catch { /* 무시 */ }
-  window.location.href = "/login";
+  await logoutUser();
 }
 
 export class SyncWS<T> {

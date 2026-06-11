@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, WebviewWindowBuilder,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -9,13 +9,17 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // 개발 모드에서 DevTools 활성화
+            // 정적 export된 파일을 로드 — WKWebView 크로스오리진 문제 없음
+            let _window = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
+                .title("SyncAI")
+                .inner_size(1440.0, 900.0)
+                .min_inner_size(900.0, 600.0)
+                .resizable(true)
+                .build()?;
+
             #[cfg(debug_assertions)]
-            {
-                if let Some(window) = app.get_webview_window("main") {
-                    window.open_devtools();
-                }
-            }
+            window.open_devtools();
+
             // 시스템 트레이 설정
             let show = MenuItem::with_id(app, "show", "SyncAI 열기", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
@@ -26,9 +30,9 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
                         }
                     }
                     "quit" => app.exit(0),
@@ -42,9 +46,9 @@ pub fn run() {
                     } = event
                     {
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
                         }
                     }
                 })

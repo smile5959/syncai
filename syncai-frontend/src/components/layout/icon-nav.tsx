@@ -7,7 +7,7 @@ import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Plus, Pencil, Trash2, Log
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 import { InvitationBell } from "@/components/team/invitation-bell";
-import { users as usersApi, teams as teamsApi } from "@/lib/api";
+import { users as usersApi, teams as teamsApi, logoutUser } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { Team } from "@/types";
@@ -332,15 +332,8 @@ export function IconNav() {
   }
 
   async function handleLogout() {
-    // /api/auth/logout: Next.js 프록시 라우트.
-    // fly.io 쿠키(백엔드) + vercel 쿠키(미들웨어가 심은 것) 동시 삭제.
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    } catch {
-      // 쿠키 만료 등으로 이미 로그아웃된 상태여도 진행
-    }
-    logout(); // Zustand 상태 + localStorage 초기화
-    router.push("/login");
+    logout();
+    await logoutUser();
   }
 
   return (
