@@ -17,7 +17,7 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
-import { users as usersApi } from "@/lib/api";
+import { users as usersApi, clearTokens } from "@/lib/api";
 
 const TABS = [
   { id: "profile", label: "프로필", icon: UserIcon },
@@ -211,6 +211,7 @@ export default function SettingsPage() {
   }, [me, setUser]);
 
   async function handleLogout() {
+    clearTokens();
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch { /* ignore */ }

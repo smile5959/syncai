@@ -16,17 +16,58 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
 
+// ── Tauri 감지 + 토큰 저장 헬퍼 ───────────────────────────────────────────────
+function isTauri(): boolean {
+  return typeof navigator !== "undefined" &&
+    navigator.userAgent.includes("SyncAI-Desktop");
+}
+
+const TOKEN_KEY = "syncai_access_token";
+const REFRESH_KEY = "syncai_refresh_token";
+
+export function saveTokens(access: string, refresh?: string) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, access);
+  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
+}
+
+export function clearTokens() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+function getAccessToken(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function getRefreshToken(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const http = axios.create({
   baseURL: BASE,
   withCredentials: true,
+});
+
+// Tauri 모드: 모든 요청에 Authorization: Bearer 헤더 추가
+http.interceptors.request.use((config) => {
+  if (isTauri()) {
+    const token = getAccessToken();
+    if (token) config.headers["Authorization"] = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // 401 시 토큰 갱신
 let _refreshing: Promise<void> | null = null;
 
 async function _logoutAndRedirect() {
-  // /api/auth/logout: Next.js 프록시 라우트.
-  // fly.io 쿠키(백엔드) + vercel 쿠키(미들웨어가 심은 것) 동시 삭제.
+  clearTokens();
   try {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
   } catch { /* 무시 */ }
@@ -41,9 +82,20 @@ http.interceptors.response.use(
     if (err.response?.status === 401 && !err.config._retry && !isSkip) {
       err.config._retry = true;
       if (!_refreshing) {
+        const refreshToken = isTauri() ? getRefreshToken() : undefined;
         _refreshing = axios
-          .post(`${BASE}/auth/refresh`, {}, { withCredentials: true })
-          .then(() => { _refreshing = null; })
+          .post(
+            `${BASE}/auth/refresh`,
+            refreshToken ? { refresh_token: refreshToken } : {},
+            { withCredentials: true }
+          )
+          .then((res) => {
+            // Tauri: 새 토큰 localStorage에 저장
+            if (isTauri() && res.data?.token) {
+              saveTokens(res.data.token, res.data.refresh_token);
+            }
+            _refreshing = null;
+          })
           .catch(() => {
             _refreshing = null;
             return Promise.reject(new Error("refresh_failed"));

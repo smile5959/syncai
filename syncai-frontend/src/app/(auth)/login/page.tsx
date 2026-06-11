@@ -6,7 +6,7 @@ import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
   Code2, MessageSquare, Sparkles, Sun, Moon,
 } from "lucide-react";
-import { auth, users as usersApi } from "@/lib/api";
+import { auth, users as usersApi, saveTokens } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 
@@ -148,6 +148,7 @@ export default function LoginPage() {
       logoutStore();
       setUser(res.data.user);
       setAuthCookies(res.data.token, res.data.refresh_token);
+      saveTokens(res.data.token, res.data.refresh_token);
       if (nextUrl) {
         router.push(nextUrl);
         return;
