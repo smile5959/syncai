@@ -9,15 +9,36 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // 정적 export된 파일을 로드 — WKWebView 크로스오리진 문제 없음
-            let _window = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
+            // static export는 rooms/__placeholder__/ 만 pre-build됨.
+            // 실제 room 경로 네비게이션 시 Next.js가 /rooms/<id>/__next.*.txt 를 fetch하는데
+            // 해당 파일이 없어 실패. fetch를 가로채서 __placeholder__ 경로로 리다이렉트.
+            let spa_script = r#"(function() {
+  var origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    try {
+      var url = input instanceof Request ? input.url : String(input);
+      if (url.startsWith('tauri://') || (url.startsWith('/') && !url.startsWith('//'))) {
+        var newUrl = url.replace(
+          /(\/rooms\/)([^\/]+)(\/(?:__next|index)[^?#]*)/,
+          function(match, prefix, id, suffix) {
+            return id !== '__placeholder__' ? prefix + '__placeholder__' + suffix : match;
+          }
+        );
+        if (newUrl !== url) { return origFetch(newUrl, init); }
+      }
+    } catch(e) {}
+    return origFetch(input, init);
+  };
+})();"#;
+
+            let window = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
                 .title("SyncAI")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0)
                 .resizable(true)
+                .initialization_script(spa_script)
                 .build()?;
 
-            #[cfg(debug_assertions)]
             window.open_devtools();
 
             // 시스템 트레이 설정

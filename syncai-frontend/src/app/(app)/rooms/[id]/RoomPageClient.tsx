@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { usePathname } from "next/navigation";
+
+// Tauri static export: usePathname()이 RSC payload context를 읽어 __placeholder__를 반환함.
+// window.location.pathname은 history.pushState 이후 즉시 업데이트되므로 항상 정확한 URL을 반환.
+function getRealRoomId(): string {
+  if (typeof window === "undefined") return "";
+  const seg = window.location.pathname.split("/").filter(Boolean);
+  const id = seg.at(-1) ?? "";
+  return id === "rooms" || id === "" ? "" : id;
+}
 import { Hash, Settings2, Users, PanelRightOpen, PanelRightClose, Menu } from "lucide-react";
 import { MessageItem } from "@/components/chat/message-item";
 import { ChatInput } from "@/components/chat/chat-input";
@@ -61,7 +70,10 @@ function parseDiffSummary(diff: string): string {
 }
 
 export default function RoomPage() {
-  const { id } = useParams<{ id: string }>();
+  // usePathname()/useParams() 모두 RSC payload context를 읽어 __placeholder__ 반환.
+  // window.location은 pushState 직후 업데이트되므로 항상 실제 URL을 가짐.
+  const pathname = usePathname(); // 네비게이션 시 리렌더 트리거용으로만 사용
+  const id = getRealRoomId();
 
   // Data
   const [room, setRoom] = useState<ChatRoom | null>(null);

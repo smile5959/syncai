@@ -94,7 +94,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const secs = secondsUntilExpiry();
         if (secs < 300) {
           const ok = await silentRefresh();
-          if (!ok && !user) {
+          if (!ok) {
+            // refresh 실패 = 세션 만료 → 무조건 로그아웃
             logout();
             router.replace("/login");
             return;
@@ -103,15 +104,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         scheduleRefresh();
       }
 
-      // 유저 정보 확인
-      if (!user) {
-        usersApi.me()
-          .then((res) => setUser(res.data))
-          .catch(() => {
-            logout();
-            router.replace("/login");
-          });
-      }
+      // 유저 정보 확인 (persist store에 있어도 항상 검증)
+      usersApi.me()
+        .then((res) => setUser(res.data))
+        .catch(() => {
+          logout();
+          router.replace("/login");
+        });
     };
 
     init();

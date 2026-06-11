@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { RoomSidebar } from "@/components/layout/room-sidebar";
 import { InviteModal } from "@/components/team/invite-modal";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,12 @@ import type { WsChatEvent } from "@/types";
 
 export default function RoomsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const params = useParams();
-  const currentRoomId = params?.id as string | undefined;
+  const pathname = usePathname(); // 네비게이션 시 리렌더 트리거용
+  // usePathname/useParams 모두 RSC context에서 읽어 __placeholder__ 반환 가능.
+  // window.location은 pushState 직후 업데이트되므로 항상 정확함.
+  const currentRoomId = typeof window !== "undefined"
+    ? (() => { const s = window.location.pathname.split("/").filter(Boolean).at(-1); return s === "rooms" ? undefined : s; })()
+    : undefined;
   const currentTeam = useAuthStore((s) => s.team);
   const me = useAuthStore((s) => s.user);
 

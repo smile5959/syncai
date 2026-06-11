@@ -78,6 +78,7 @@ export class SyncWS<T> {
   private url: string;
   private onReconnect?: () => void;
   private isFirstConnect = true;
+  private reconnectAttempts = 0;
 
   constructor(url: string, onReconnect?: () => void) {
     this.url = url;
@@ -89,6 +90,7 @@ export class SyncWS<T> {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
+      this.reconnectAttempts = 0;
       if (!this.isFirstConnect && this.onReconnect) {
         this.onReconnect();
       }
@@ -111,6 +113,7 @@ export class SyncWS<T> {
         // Auth failure - retry refresh up to 3 times before logout
         tryRefreshToken(3).then((ok) => {
           if (ok) {
+            this.reconnectAttempts = 0;
             this.connect();
           } else {
             clearAuthAndRedirect();
@@ -119,8 +122,10 @@ export class SyncWS<T> {
         return;
       }
 
-      // Other errors (network drop etc.) - reconnect after 3s
-      this.reconnectTimer = setTimeout(() => this.connect(), 3000);
+      // Exponential backoff: 3s, 6s, 12s, 24s, max 30s
+      this.reconnectAttempts++;
+      const delay = Math.min(3000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+      this.reconnectTimer = setTimeout(() => this.connect(), delay);
     };
 
     this.ws.onerror = () => {
