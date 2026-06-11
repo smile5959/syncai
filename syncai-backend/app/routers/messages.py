@@ -981,12 +981,11 @@ async def _send_ai_plan(
         ]
 
         available_mcps = _get_public_mcp_list(db, team_id)
-        # 팀 공유 없어도 본인 소유 온라인 MCP 포함 (폴백)
+        # 팀 공유 없어도 본인 소유 MCP 포함 (오프라인도 포함 — 실행 시점에 온라인 여부 재확인)
         if current_user:
             existing_names = {m["name"] for m in available_mcps}
             owner_mcps = db.query(McpConfig).filter(
                 McpConfig.owner_user_id == current_user.id,
-                McpConfig.is_online.is_(True),
             ).all()
             for c in owner_mcps:
                 if c.name not in existing_names:
