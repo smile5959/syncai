@@ -89,6 +89,12 @@ export default function LoginPage() {
     if (user) router.replace("/rooms");
   }, [user]);
 
+  // 로그인 버튼 누르기 전에 백엔드를 미리 깨워둠 (Fly.io cold start 방지)
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+    fetch(base.replace(/\/v1$/, "") + "/health").catch(() => {});
+  }, []);
+
   const [registered, setRegistered] = useState(false);
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");

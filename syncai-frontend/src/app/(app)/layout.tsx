@@ -8,6 +8,7 @@ import { users as usersApi, saveTokens } from "@/lib/api";
 import axios from "axios";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+const HEALTH_URL = BASE.replace(/\/v1$/, "") + "/health";
 
 function isTauri(): boolean {
   if (typeof window === "undefined") return false;
@@ -64,6 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, setUser, logout } = useAuthStore();
   const checked = useRef(false);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepAliveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /** 만료 5분 전에 자동 refresh 예약 */
   function scheduleRefresh() {
@@ -87,6 +89,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (checked.current) return;
     checked.current = true;
+
+    // Fly.io suspend 방지: 앱 시작 시 즉시 ping + 4분마다 keep-alive
+    fetch(HEALTH_URL).catch(() => {});
+    keepAliveTimer.current = setInterval(() => {
+      fetch(HEALTH_URL).catch(() => {});
+    }, 4 * 60 * 1000);
 
     const init = async () => {
       // Tauri: access_token이 만료됐거나 5분 이내면 즉시 refresh
@@ -117,6 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return () => {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      if (keepAliveTimer.current) clearInterval(keepAliveTimer.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
