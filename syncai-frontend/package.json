@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:tauri": "TAURI=1 next build",
+    "build:tauri": "bash scripts/tauri-build.sh",
     "start": "next start",
     "lint": "eslint"
   },
