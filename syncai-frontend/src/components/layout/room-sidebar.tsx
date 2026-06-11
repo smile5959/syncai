@@ -158,14 +158,11 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
       </div>
 
       {/* Rooms */}
-      <div className="flex-1 overflow-y-auto py-2">
-        <div className="flex items-center gap-2 px-4 py-2">
-          <div style={{ width: 3, height: 14, borderRadius: 2, background: "var(--accent)", opacity: 0.7, flexShrink: 0 }} />
-          <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest truncate">
-            {displayName} 채팅방
-          </p>
-        </div>
-        <div className="px-3">
+      <div className="flex-1 overflow-y-auto pt-3 pb-2">
+        <p className="px-4 mb-1 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">
+          채널
+        </p>
+        <div className="px-2">
           {filteredRooms.length === 0 ? (
             <div className="px-3 py-8 text-center">
               <p className="text-[13px] text-[var(--text-muted)]">
@@ -185,10 +182,10 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
               const menuOpen = menuRoomId === room.id;
 
               return (
-                <div key={room.id} className="relative mb-1">
+                <div key={room.id} className="relative mb-0.5">
                   {isRenaming ? (
-                    <div className="flex items-center gap-2 px-4 min-h-[52px] rounded-xl bg-[var(--accent-bg)]">
-                      <Hash size={15} className="shrink-0 text-[var(--accent)]" />
+                    <div className="flex items-center gap-2 px-3 h-9 rounded-lg bg-[var(--accent-bg)] border border-[var(--accent-dim)]">
+                      <Hash size={13} className="shrink-0 text-[var(--accent)]" />
                       <input
                         ref={renameRef}
                         value={renameValue}
@@ -198,31 +195,30 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                           if (e.key === "Enter") submitRename(room);
                           if (e.key === "Escape") setRenamingId(null);
                         }}
-                        className="flex-1 bg-transparent text-[14px] font-medium text-[var(--text-primary)] outline-none"
+                        className="flex-1 bg-transparent text-[13px] font-medium text-[var(--text-primary)] outline-none"
                       />
                     </div>
                   ) : (
                     <Link
                       href={`/rooms/${room.slug ?? room.id}`}
                       className={cn(
-                        "flex items-center gap-3 px-4 rounded-xl text-sm transition-all duration-150 group",
-                        "min-h-[52px]",
+                        "flex items-center gap-2.5 px-3 h-9 rounded-lg text-[13px] transition-all duration-100 group relative",
                         active
-                          ? "bg-[var(--accent-bg)] text-[var(--text-primary)]"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                          ? "bg-[var(--gradient-accent-soft)] text-[var(--text-primary)] font-medium"
+                          : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                       )}
                     >
-                      <Hash size={15} className={cn("shrink-0", active ? "text-[var(--accent)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]")} />
-                      <span className="flex-1 truncate text-[14px] font-medium">{room.name}</span>
+                      {active && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[var(--accent)]" />
+                      )}
+                      <Hash size={13} className={cn(
+                        "shrink-0 transition-colors",
+                        active ? "text-[var(--accent)]" : "group-hover:text-[var(--text-muted)]"
+                      )} />
+                      <span className="flex-1 truncate">{room.name}</span>
 
                       {unread > 0 && !active && (
-                        <span style={{
-                          minWidth: 18, height: 18, borderRadius: 9,
-                          background: "var(--accent)",
-                          color: "white", fontSize: 10, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          padding: "0 5px", flexShrink: 0,
-                        }}>
+                        <span className="shrink-0 min-w-[18px] h-[18px] rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center px-1">
                           {unread > 99 ? "99+" : unread}
                         </span>
                       )}
@@ -234,13 +230,12 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                           setMenuRoomId(menuOpen ? null : room.id);
                         }}
                         className={cn(
-                          "w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all",
-                          menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          "w-6 h-6 flex items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-soft)] transition-all shrink-0",
+                          menuOpen ? "opacity-100 bg-[var(--bg-soft)]" : "opacity-0 group-hover:opacity-100"
                         )}
                       >
-                        <MoreHorizontal size={13} />
+                        <MoreHorizontal size={14} />
                       </button>
-
                     </Link>
                   )}
 
@@ -249,22 +244,23 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                       <div className="fixed inset-0 z-20" onClick={() => setMenuRoomId(null)} />
                       <div
                         ref={menuRef}
-                        className="absolute right-3 top-8 z-30 w-40 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden menu-enter"
+                        className="absolute right-2 top-10 z-30 w-40 bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl overflow-hidden menu-enter"
+                        style={{ boxShadow: "var(--shadow-lg)" }}
                       >
                         <div className="p-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); startRename(room); }}
-                            className="w-full flex items-center gap-2.5 px-2.5 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
                           >
                             <Pencil size={13} className="text-[var(--text-muted)] shrink-0" />
                             이름 변경
                           </button>
                         </div>
-                        <div className="border-t border-[var(--border)] mx-0" />
+                        <div className="h-px bg-[var(--border)]" />
                         <div className="p-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteRoom(room); }}
-                            className="w-full flex items-center gap-2.5 px-2.5 py-2 text-[13px] text-red-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                           >
                             <Trash2 size={13} className="shrink-0" />
                             삭제
