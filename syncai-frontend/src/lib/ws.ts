@@ -1,11 +1,23 @@
 import type { WsChatEvent, WsTaskEvent } from "@/types";
-import { logoutUser } from "@/lib/api";
+import { logoutUser, saveTokens } from "@/lib/api";
 
 const WS_BASE =
   process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+
+/** Tauri 환경에서 WS URL에 ?token= 쿼리 파라미터 추가 */
+function withToken(url: string): string {
+  if (typeof window === "undefined") return url;
+  if (!("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) return url;
+  const token = typeof localStorage !== "undefined"
+    ? localStorage.getItem("syncai_access_token")
+    : null;
+  if (!token) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}token=${token}`;
+}
 
 type Handler<T> = (event: T) => void;
 
@@ -15,18 +27,36 @@ type Handler<T> = (event: T) => void;
  * Returns true on success, false if all attempts fail.
  */
 async function tryRefreshToken(maxAttempts = 3): Promise<boolean> {
+  const REFRESH_KEY = "syncai_refresh_token";
+  const TOKEN_KEY = "syncai_access_token";
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
       await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
     }
     try {
+      // Tauri 환경: localStorage refresh_token을 body에 포함
+      const storedRefresh =
+        typeof localStorage !== "undefined" ? localStorage.getItem(REFRESH_KEY) : null;
+      const body = storedRefresh ? { refresh_token: storedRefresh } : {};
       const res = await fetch(`${API_BASE}/auth/refresh`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
-      if (res.ok) return true;
+      if (res.ok) {
+        // 새 토큰 받으면 localStorage에도 저장
+        try {
+          const data = await res.json();
+          if (data?.token) {
+            saveTokens(data.token, data.refresh_token);
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem(TOKEN_KEY, data.token);
+            }
+          }
+        } catch { /* 무시 */ }
+        return true;
+      }
       // 401/403 means refresh_token itself is expired - no point retrying
       if (res.status === 401 || res.status === 403) return false;
     } catch {
@@ -123,13 +153,13 @@ export class SyncWS<T> {
 }
 
 export function createChatWS(roomId: string, onReconnect?: () => void) {
-  return new SyncWS<WsChatEvent>(`${WS_BASE}/rooms/${roomId}/chat`, onReconnect);
+  return new SyncWS<WsChatEvent>(withToken(`${WS_BASE}/rooms/${roomId}/chat`), onReconnect);
 }
 
 export function createTaskWS(roomId: string) {
-  return new SyncWS<WsTaskEvent>(`${WS_BASE}/rooms/${roomId}/tasks`);
+  return new SyncWS<WsTaskEvent>(withToken(`${WS_BASE}/rooms/${roomId}/tasks`));
 }
 
 export function createMcpWS(onReconnect?: () => void) {
-  return new SyncWS<{ type: string; config_id: string }>(`${WS_BASE}/mcp`, onReconnect);
+  return new SyncWS<{ type: string; config_id: string }>(withToken(`${WS_BASE}/mcp`), onReconnect);
 }
