@@ -50,6 +50,7 @@ def update_team(team_id: str, body: TeamUpdate, db: Session = Depends(get_db), c
 
 @router.delete("/{team_id}", status_code=204)
 def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    import traceback
     from app.models.chat_room import ChatRoom, RoomMember
     from app.models.message import Message
     from app.models.task import Task
@@ -62,32 +63,37 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
     if not team:
         raise HTTPException(status_code=404, detail="Team not found or not authorized")
 
-    # Worker IDs 미리 수집 — FileLock FK 정리용
-    worker_ids = [w.id for w in db.query(Worker.id).filter(Worker.team_id == team_id).all()]
+    try:
+        # Worker IDs 미리 수집 — FileLock FK 정리용
+        worker_ids = [w.id for w in db.query(Worker.id).filter(Worker.team_id == team_id).all()]
 
-    # 채팅방 관련 데이터 cascade
-    room_ids = [r.id for r in db.query(ChatRoom.id).filter(ChatRoom.team_id == team_id).all()]
-    if room_ids:
-        task_ids = [t.id for t in db.query(Task.id).filter(Task.room_id.in_(room_ids)).all()]
-        if task_ids:
-            db.query(FileLock).filter(FileLock.task_id.in_(task_ids)).delete(synchronize_session=False)
-        db.query(Task).filter(Task.room_id.in_(room_ids)).delete(synchronize_session=False)
-        db.query(Message).filter(Message.room_id.in_(room_ids)).delete(synchronize_session=False)
-        db.query(RoomMember).filter(RoomMember.room_id.in_(room_ids)).delete(synchronize_session=False)
-        db.query(ChatRoom).filter(ChatRoom.id.in_(room_ids)).delete(synchronize_session=False)
+        # 채팅방 관련 데이터 cascade
+        room_ids = [r.id for r in db.query(ChatRoom.id).filter(ChatRoom.team_id == team_id).all()]
+        if room_ids:
+            task_ids = [t.id for t in db.query(Task.id).filter(Task.room_id.in_(room_ids)).all()]
+            if task_ids:
+                db.query(FileLock).filter(FileLock.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(Task).filter(Task.room_id.in_(room_ids)).delete(synchronize_session=False)
+            db.query(Message).filter(Message.room_id.in_(room_ids)).delete(synchronize_session=False)
+            db.query(RoomMember).filter(RoomMember.room_id.in_(room_ids)).delete(synchronize_session=False)
+            db.query(ChatRoom).filter(ChatRoom.id.in_(room_ids)).delete(synchronize_session=False)
 
-    # Worker FK 완전 정리: task_id 기반으로 잡히지 않은 FileLock + 잔여 Task.worker_id 해제
-    if worker_ids:
-        db.query(FileLock).filter(FileLock.worker_id.in_(worker_ids)).delete(synchronize_session=False)
-        db.query(Task).filter(Task.worker_id.in_(worker_ids)).update({"worker_id": None}, synchronize_session=False)
+        # Worker FK 완전 정리: task_id 기반으로 잡히지 않은 FileLock + 잔여 Task.worker_id 해제
+        if worker_ids:
+            db.query(FileLock).filter(FileLock.worker_id.in_(worker_ids)).delete(synchronize_session=False)
+            db.query(Task).filter(Task.worker_id.in_(worker_ids)).update({"worker_id": None}, synchronize_session=False)
 
-    # MCP 연결, Worker, 초대 내역, 팀원 삭제
-    db.query(McpConfigTeam).filter(McpConfigTeam.team_id == team_id).delete(synchronize_session=False)
-    db.query(Worker).filter(Worker.team_id == team_id).delete(synchronize_session=False)
-    db.query(TeamInvitation).filter(TeamInvitation.team_id == team_id).delete(synchronize_session=False)
-    db.query(TeamMember).filter(TeamMember.team_id == team_id).delete(synchronize_session=False)
-    db.delete(team)
-    db.commit()
+        # MCP 연결, Worker, 초대 내역, 팀원 삭제
+        db.query(McpConfigTeam).filter(McpConfigTeam.team_id == team_id).delete(synchronize_session=False)
+        db.query(Worker).filter(Worker.team_id == team_id).delete(synchronize_session=False)
+        db.query(TeamInvitation).filter(TeamInvitation.team_id == team_id).delete(synchronize_session=False)
+        db.query(TeamMember).filter(TeamMember.team_id == team_id).delete(synchronize_session=False)
+        db.delete(team)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[delete_team] ERROR team_id={team_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{team_id}/members", response_model=list[MemberOut])
