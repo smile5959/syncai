@@ -20,9 +20,12 @@ interface RoomSidebarProps {
 export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: RoomSidebarProps) {
   const params = useParams();
   const router = useRouter();
-  const currentId = params?.id as string | undefined;
   const currentTeam = useAuthStore((s) => s.team);
   const unreadCounts = useRoomsStore((s) => s.unreadCounts);
+  // Tauri static export: useParams()는 항상 __placeholder__ 반환 → store의 UUID 우선 사용
+  const currentRoomUuid = useRoomsStore((s) => s.currentRoomUuid);
+  const paramsId = params?.id as string | undefined;
+  const currentId = currentRoomUuid ?? paramsId;
   const displayName = currentTeam?.name ?? "내 팀";
 
   const [search, setSearch] = useState("");
@@ -164,13 +167,20 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
         </p>
         <div className="px-2">
           {filteredRooms.length === 0 ? (
-            <div className="px-3 py-8 text-center">
-              <p className="text-[13px] text-[var(--text-muted)]">
+            <div className="px-2 py-5 flex flex-col items-center gap-3">
+              <p className="text-[12px] text-[var(--text-muted)] text-center">
                 {search ? "검색 결과가 없어요" : "채팅방이 없어요"}
               </p>
               {!search && (
-                <button onClick={onNewRoom} className="text-[13px] text-[var(--accent)] hover:underline mt-2 block mx-auto">
-                  + 새 채팅방 만들기
+                <button
+                  onClick={onNewRoom}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12.5px] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "pointer" }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent-dim)")}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                >
+                  <Plus size={12} />
+                  새 채팅방 만들기
                 </button>
               )}
             </div>

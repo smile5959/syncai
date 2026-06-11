@@ -38,46 +38,58 @@ export default function RoomsPage() {
         </div>
 
         {rooms.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            {/* 메인 CTA */}
+          <div className="flex flex-col items-center gap-7">
+            {/* 아이콘 */}
+            <div
+              style={{
+                width: 52, height: 52, borderRadius: 16,
+                background: "var(--accent-bg)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Zap size={22} style={{ color: "var(--accent)" }} />
+            </div>
+
+            {/* 텍스트 */}
+            <div className="text-center">
+              <p style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8, letterSpacing: "-0.01em" }}>
+                첫 채팅방을 만들어보세요
+              </p>
+              <p style={{ fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.7 }}>
+                팀원과 대화하고, AI로 코드를 바로 수정할 수 있어요
+              </p>
+            </div>
+
+            {/* CTA */}
             <button
               onClick={() => setShowCreate(true)}
-              className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all duration-200 overflow-hidden"
+              className="flex items-center gap-2 transition-opacity hover:opacity-80 active:scale-[0.98]"
+              style={{
+                padding: "10px 24px",
+                borderRadius: 12,
+                background: "var(--accent)",
+                color: "white",
+                fontSize: 13.5, fontWeight: 600,
+                border: "none", cursor: "pointer",
+                letterSpacing: "-0.01em",
+              }}
             >
-              {/* 호버 글로우 */}
-              <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent)] to-transparent opacity-0 group-hover:opacity-[0.04] transition-opacity duration-300" />
-
-              <div className="w-14 h-14 rounded-2xl bg-[var(--accent)] flex items-center justify-center shadow-[0_0_32px_var(--accent-glow)]">
-                <Zap size={24} className="text-white" fill="white" />
-              </div>
-              <div className="text-center">
-                <p className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
-                  첫 채팅방 만들기
-                </p>
-                <p className="text-[12.5px] text-[var(--text-muted)]">
-                  팀원과 대화하고 AI로 코드를 바로 수정하세요
-                </p>
-              </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold shadow-[0_2px_16px_var(--accent-glow)] group-hover:shadow-[0_4px_24px_var(--accent-glow)] transition-shadow">
-                <Plus size={14} />
-                채팅방 만들기
-              </div>
+              <Plus size={15} />
+              채팅방 만들기
             </button>
 
-            {/* 기능 힌트 2개 */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* 기능 힌트 */}
+            <div
+              className="flex items-center gap-6 mt-1"
+              style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 20, width: "100%" }}
+            >
               {[
-                { icon: <Bot size={15} />, title: "AI 코드 수정", desc: "/ai 명령으로 파일을 바로 수정" },
-                { icon: <Cpu size={15} />, title: "MCP 연결", desc: "내 PC를 AI에 직접 연결" },
+                { icon: <Bot size={13} />, text: "/ai 명령으로 코드 수정" },
+                { icon: <Cpu size={13} />, text: "MCP로 내 PC 직접 연결" },
               ].map((f, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
-                  <div className="w-7 h-7 rounded-lg bg-[var(--accent-bg)] flex items-center justify-center text-[var(--accent)] shrink-0 mt-0.5">
-                    {f.icon}
-                  </div>
-                  <div>
-                    <p className="text-[12.5px] font-semibold text-[var(--text-primary)]">{f.title}</p>
-                    <p className="text-[11.5px] text-[var(--text-muted)] mt-0.5 leading-relaxed">{f.desc}</p>
-                  </div>
+                <div key={i} className="flex items-center gap-2 flex-1 justify-center">
+                  <span style={{ color: "var(--text-muted)", display: "flex" }}>{f.icon}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{f.text}</span>
                 </div>
               ))}
             </div>

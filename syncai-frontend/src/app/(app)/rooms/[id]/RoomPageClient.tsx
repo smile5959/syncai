@@ -133,6 +133,15 @@ export default function RoomPage() {
   // Load room + messages + tasks
   useEffect(() => {
     if (!id) return;
+    // 방 전환 즉시 이전 상태 초기화 → 체감 딜레이 제거
+    setRoom(null);
+    setMsgs([]);
+    setTaskList([]);
+    setActiveProgress(null);
+    setStreamingTaskId(null);
+    streamingTaskIdRef.current = null;
+    setThinkingSteps([]);
+    thinkingStepsRef.current = [];
     roomsApi.get(id).then((r) => {
       setRoom(r.data);
       // room UUID를 store에 저장 → layout WS isCurrentRoom 판단에 사용

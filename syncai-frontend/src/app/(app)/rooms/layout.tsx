@@ -104,17 +104,35 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
 
   // 모든 방 WS 연결 — 미읽 카운트 + 브라우저 알림
   const wsRefs = useRef<Map<string, ReturnType<typeof createChatWS>>>(new Map());
-  const wsTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // room.id → 대기 중인 timer (per-room 추적으로 삭제된 방 timer 정확히 취소)
+  const wsTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // me를 ref로 유지 — WS handler 클로저에서 항상 최신값 참조
+  const meRef = useRef(me);
+  useEffect(() => { meRef.current = me; }, [me]);
+
+  // 언마운트 시에만 전체 WS 정리 (rooms 변경마다 전체 재생성 방지)
+  useEffect(() => {
+    return () => {
+      wsTimers.current.forEach(clearTimeout);
+      wsTimers.current.clear();
+      wsRefs.current.forEach((ws) => ws.close());
+      wsRefs.current.clear();
+    };
+  }, []);
+
+  // rooms 변경 시 델타만 처리: 삭제된 방 WS 닫기 + 새 방 WS 추가만
   useEffect(() => {
     if (rooms.length === 0) return;
 
     const existingIds = new Set(wsRefs.current.keys());
     const newIds = new Set(rooms.map((r) => r.id));
 
-    // 삭제된 방 WS 닫기
+    // 삭제된 방: pending timer + WS 모두 정리
     existingIds.forEach((id) => {
       if (!newIds.has(id)) {
+        const t = wsTimers.current.get(id);
+        if (t) { clearTimeout(t); wsTimers.current.delete(id); }
         wsRefs.current.get(id)?.close();
         wsRefs.current.delete(id);
       }
@@ -122,16 +140,17 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
 
     // 새 방 WS 생성 — 3초 지연 (현재 방 WS가 먼저 백엔드를 깨울 시간 확보)
     rooms.forEach((room, idx) => {
-      if (wsRefs.current.has(room.id)) return;
+      if (wsRefs.current.has(room.id) || wsTimers.current.has(room.id)) return;
 
       const timer = setTimeout(() => {
+        wsTimers.current.delete(room.id);
         if (wsRefs.current.has(room.id)) return;
         const ws = createChatWS(room.id);
         ws.on((event: WsChatEvent) => {
           if (event.type !== "message") return;
           const msg = event.data;
 
-          if (msg.user_id === me?.id) return;
+          if (msg.user_id === meRef.current?.id) return;
 
           const resolvedUuid = currentRoomUuidRef.current ?? (() => {
             const cur = currentRoomIdRef.current;
@@ -165,18 +184,10 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
 
         wsRefs.current.set(room.id, ws);
       }, 3000 + idx * 300);
-      wsTimers.current.push(timer);
+      wsTimers.current.set(room.id, timer);
     });
-
-    return () => {
-      wsTimers.current.forEach(clearTimeout);
-      wsTimers.current = [];
-      wsRefs.current.forEach((ws) => ws.close());
-      wsRefs.current.clear();
-    };
-  // rooms가 바뀔 때마다 재구성
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rooms.map((r) => r.id).join(","), me?.id]);
+  }, [rooms.map((r) => r.id).join(",")]);
 
   async function createRoom() {
     if (!newName.trim() || !currentTeam) return;
