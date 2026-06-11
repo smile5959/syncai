@@ -56,13 +56,14 @@ async def start_and_detect(port: int) -> None:
         )
         return
 
-    # 1. 로컬 cloudflared.exe 우선 탐색, 없으면 시스템 PATH 사용
+    # 1. 로컬 cloudflared 바이너리 우선 탐색, 없으면 시스템 PATH 사용
     # PyInstaller 번들 시 _APP_DIR = 설치 디렉토리 (server.exe와 같은 위치)
     import config as _cfg
-    local_exe = _cfg._APP_DIR / "cloudflared.exe"
+    _cf_name = "cloudflared.exe" if sys.platform == "win32" else "cloudflared"
+    local_exe = _cfg._APP_DIR / _cf_name
     if local_exe.exists():
         cmd_exe = str(local_exe)
-        log.info("로컬 cloudflared.exe 사용: %s", cmd_exe)
+        log.info("로컬 cloudflared 사용: %s", cmd_exe)
     else:
         cmd_exe = "cloudflared"
 
