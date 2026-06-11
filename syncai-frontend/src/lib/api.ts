@@ -70,12 +70,14 @@ let _refreshing: Promise<void> | null = null;
 export async function logoutUser() {
   clearTokens();
   try {
-    // 정적 export 환경: 백엔드 직접 호출
-    await axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true });
+    if (isTauri()) {
+      // Tauri: 쿠키 없음, 백엔드 직접 호출
+      await axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true });
+    } else {
+      // 웹: Next.js API 라우트 경유 → vercel.app + fly.dev 쿠키 동시 삭제
+      await axios.post("/api/auth/logout", {}, { withCredentials: true });
+    }
   } catch { /* 무시 */ }
-  // 클라이언트 접근 가능한 쿠키 직접 삭제
-  document.cookie = "access_token=; Path=/; Max-Age=0; SameSite=Lax";
-  document.cookie = "refresh_token=; Path=/; Max-Age=0; SameSite=Lax";
   window.location.href = "/login";
 }
 
