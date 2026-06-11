@@ -189,6 +189,8 @@ export function IconNav() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [updating, setUpdating] = useState(false);
 
+  const [deleteConfirmTeam, setDeleteConfirmTeam] = useState<Team | null>(null);
+
   // 호버 메뉴
   const [menuTeamId, setMenuTeamId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -292,7 +294,13 @@ export function IconNav() {
 
   async function handleDelete(team: Team) {
     setMenuTeamId(null);
-    if (!confirm(`"${team.name}" 팀을 삭제할까요? 모든 채팅방과 데이터가 삭제됩니다.`)) return;
+    setDeleteConfirmTeam(team);
+  }
+
+  async function confirmDelete() {
+    const team = deleteConfirmTeam;
+    if (!team) return;
+    setDeleteConfirmTeam(null);
     try {
       await teamsApi.delete(team.id);
       const updated = teams.filter((t) => t.id !== team.id);
@@ -566,6 +574,23 @@ export function IconNav() {
           onSubmit={handleUpdate}
           onClose={() => setEditingTeam(null)}
         />
+      )}
+
+      {/* 팀 삭제 확인 모달 */}
+      {deleteConfirmTeam && (
+        <>
+          <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setDeleteConfirmTeam(null)} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 51, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: "24px", width: 320, boxShadow: "var(--shadow-lg)" }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>팀 삭제</p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+              <strong>&quot;{deleteConfirmTeam.name}&quot;</strong> 팀을 삭제할까요?<br />모든 채팅방과 데이터가 삭제됩니다.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setDeleteConfirmTeam(null)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "none", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer" }}>취소</button>
+              <button onClick={confirmDelete} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>삭제</button>
+            </div>
+          </div>
+        </>
       )}
     </>
   );
