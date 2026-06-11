@@ -83,14 +83,16 @@ slug/UUID 모두 처리. 반환값으로 `room.id` 써야 DB 쿼리 정상 작�
 - 미읽 뱃지 + 브라우저 알림 (layout 레벨 WS)
 - 팀 삭제 시 mcp_config_teams FK 버그 수정
 - 회원가입 → 로그인 탭 전환 (URL 라우팅 → state)
-- Supervisor 모델 교체: gemma-4-31b:free(유료 전환) → meta-llama/llama-3.1-8b-instruct:free
+- Supervisor/planning → worker 모델 주입: OpenRouter :free 모델 전반 유료화 대응
+- @멘션 없이도 파일 작업 가능: 오프라인 MCP도 planning 포함, 실행 시 온라인 재확인
 - Worker 컨텍스트 오염 수정: /ai @... 패턴 regex 정제, max_tokens 400→4096
 - 확인 버튼 UI: 거부/한번만허용/항상허용 3버튼 (파일 접근 권한 확인 방식)
 
 ### 다음 할 것
-1. Windows MCP 실제 테스트 (PowerShell 설치 후 온라인 확인)
-2. MCP 토큰 만료 정책
-3. 디버그 로그 제거 (messages.py MCP not-found print 삭제)
+1. MCP 재등록 (로컬 토큰 불일치 403 해결)
+2. Windows MCP 실제 테스트 (PowerShell 설치 후 온라인 확인)
+3. MCP 토큰 만료 정책
+4. 디버그 로그 제거 (messages.py MCP not-found print 삭제)
 
 ## 주요 파일 빠른 참조
 | 기능 | 파일 |
