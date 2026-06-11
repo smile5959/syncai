@@ -305,8 +305,9 @@ export function IconNav() {
           router.push("/onboarding");
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      alert(`삭제 실패: ${msg ?? "오류가 발생했어요."}`);
     }
   }
 

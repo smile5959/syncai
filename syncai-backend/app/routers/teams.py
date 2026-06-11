@@ -62,6 +62,9 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
     if not team:
         raise HTTPException(status_code=404, detail="Team not found or not authorized")
 
+    # Worker IDs 미리 수집 — FileLock FK 정리용
+    worker_ids = [w.id for w in db.query(Worker.id).filter(Worker.team_id == team_id).all()]
+
     # 채팅방 관련 데이터 cascade
     room_ids = [r.id for r in db.query(ChatRoom.id).filter(ChatRoom.team_id == team_id).all()]
     if room_ids:
@@ -72,6 +75,11 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
         db.query(Message).filter(Message.room_id.in_(room_ids)).delete(synchronize_session=False)
         db.query(RoomMember).filter(RoomMember.room_id.in_(room_ids)).delete(synchronize_session=False)
         db.query(ChatRoom).filter(ChatRoom.id.in_(room_ids)).delete(synchronize_session=False)
+
+    # Worker FK 완전 정리: task_id 기반으로 잡히지 않은 FileLock + 잔여 Task.worker_id 해제
+    if worker_ids:
+        db.query(FileLock).filter(FileLock.worker_id.in_(worker_ids)).delete(synchronize_session=False)
+        db.query(Task).filter(Task.worker_id.in_(worker_ids)).update({"worker_id": None}, synchronize_session=False)
 
     # MCP 연결, Worker, 초대 내역, 팀원 삭제
     db.query(McpConfigTeam).filter(McpConfigTeam.team_id == team_id).delete(synchronize_session=False)
