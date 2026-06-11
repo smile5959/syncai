@@ -1,8 +1,5 @@
 import RoomPageWrapper from "./RoomPageWrapper";
 
-// 모든 동적 params를 온디맨드 렌더링 허용 (명시적으로 true 설정)
-export const dynamicParams = true;
-
 export function generateStaticParams() {
   // Tauri static export: __placeholder__ 사전 빌드 필요
   // Vercel: 빈 배열 반환 → 모든 params 온디맨드 렌더링 (동적 라우트처럼 동작)
