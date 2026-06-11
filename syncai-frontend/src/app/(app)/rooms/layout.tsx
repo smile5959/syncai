@@ -104,6 +104,7 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
 
   // 모든 방 WS 연결 — 미읽 카운트 + 브라우저 알림
   const wsRefs = useRef<Map<string, ReturnType<typeof createChatWS>>>(new Map());
+  const wsTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     if (rooms.length === 0) return;
@@ -119,58 +120,57 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
       }
     });
 
-    // 새 방 WS 생성
-    rooms.forEach((room) => {
+    // 새 방 WS 생성 — 3초 지연 (현재 방 WS가 먼저 백엔드를 깨울 시간 확보)
+    rooms.forEach((room, idx) => {
       if (wsRefs.current.has(room.id)) return;
 
-      const ws = createChatWS(room.id);
-      ws.on((event: WsChatEvent) => {
-        if (event.type !== "message") return;
-        const msg = event.data;
+      const timer = setTimeout(() => {
+        if (wsRefs.current.has(room.id)) return;
+        const ws = createChatWS(room.id);
+        ws.on((event: WsChatEvent) => {
+          if (event.type !== "message") return;
+          const msg = event.data;
 
-        // 내가 보낸 메시지는 무시
-        if (msg.user_id === me?.id) return;
-        // AI 응답도 알림 (user_id === null)
+          if (msg.user_id === me?.id) return;
 
-        // 현재 보고 있는 방이면 무시
-        // 1순위: page.tsx가 room 로드 후 저장한 UUID (가장 정확)
-        // 2순위: URL slug/UUID → rooms 목록으로 변환
-        const resolvedUuid = currentRoomUuidRef.current ?? (() => {
-          const cur = currentRoomIdRef.current;
-          const found = roomsRef.current.find((r) => r.id === cur || r.slug === cur);
-          return found?.id ?? cur;
-        })();
-        if (resolvedUuid === room.id && !document.hidden) return;
+          const resolvedUuid = currentRoomUuidRef.current ?? (() => {
+            const cur = currentRoomIdRef.current;
+            const found = roomsRef.current.find((r) => r.id === cur || r.slug === cur);
+            return found?.id ?? cur;
+          })();
+          if (resolvedUuid === room.id && !document.hidden) return;
 
-        // 미읽 카운트 증가
-        incrementUnread(room.id);
+          incrementUnread(room.id);
 
-        // 브라우저 알림 (창이 포커스 없을 때)
-        if (
-          document.hidden &&
-          typeof window !== "undefined" &&
-          "Notification" in window &&
-          Notification.permission === "granted"
-        ) {
-          const senderName = msg.user?.name ?? "SyncAI";
-          const body = msg.content.length > 80 ? msg.content.slice(0, 80) + "…" : msg.content;
-          const n = new Notification(`#${room.name}`, {
-            body: `${senderName}: ${body}`,
-            icon: "/favicon.ico",
-            tag: room.id,
-          });
-          n.onclick = () => {
-            window.focus();
-            router.push(`/rooms/${room.slug ?? room.id}`);
-            n.close();
-          };
-        }
-      });
+          if (
+            document.hidden &&
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            const senderName = msg.user?.name ?? "SyncAI";
+            const body = msg.content.length > 80 ? msg.content.slice(0, 80) + "…" : msg.content;
+            const n = new Notification(`#${room.name}`, {
+              body: `${senderName}: ${body}`,
+              icon: "/favicon.ico",
+              tag: room.id,
+            });
+            n.onclick = () => {
+              window.focus();
+              router.push(`/rooms/${room.slug ?? room.id}`);
+              n.close();
+            };
+          }
+        });
 
-      wsRefs.current.set(room.id, ws);
+        wsRefs.current.set(room.id, ws);
+      }, 3000 + idx * 300);
+      wsTimers.current.push(timer);
     });
 
     return () => {
+      wsTimers.current.forEach(clearTimeout);
+      wsTimers.current = [];
       wsRefs.current.forEach((ws) => ws.close());
       wsRefs.current.clear();
     };
