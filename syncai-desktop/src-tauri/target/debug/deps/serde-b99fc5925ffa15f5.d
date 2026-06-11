@@ -1,0 +1,14 @@
+/Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/deps/serde-b99fc5925ffa15f5.d: /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs
+
+/Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/deps/libserde-b99fc5925ffa15f5.rlib: /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs
+
+/Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/deps/libserde-b99fc5925ffa15f5.rmeta: /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs
+
+/Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/kimhwanhee/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/kimhwanhee/khh/syncAI/syncai-desktop/src-tauri/target/debug/build/serde-fd8d8320745a88da/out

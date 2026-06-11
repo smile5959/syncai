@@ -48,6 +48,12 @@ async function tryRefresh(refreshToken: string): Promise<RefreshResult> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Tauri 데스크탑 앱: 클라이언트 사이드에서 인증 처리
+  const ua = request.headers.get("user-agent") ?? "";
+  if (ua.includes("SyncAI-Desktop")) {
+    return NextResponse.next();
+  }
+
   // Allow Next.js internal requests
   if (NEXT_INTERNAL.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();

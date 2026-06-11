@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
@@ -81,6 +81,13 @@ export default function LoginPage() {
   const setTeam = useAuthStore((s) => s.setTeam);
   const logoutStore = useAuthStore((s) => s.logout);
   const { theme, toggle } = useTheme();
+
+  const user = useAuthStore((s) => s.user);
+
+  // Tauri 앱: 이미 로그인된 경우 /rooms로
+  useEffect(() => {
+    if (user) router.replace("/rooms");
+  }, [user]);
 
   const [registered, setRegistered] = useState(false);
   const [tab, setTab] = useState<"login" | "signup">("login");
