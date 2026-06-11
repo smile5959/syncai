@@ -38,6 +38,7 @@ syncai/
 - room_id: URL slug로 오지만 내부는 UUID — `chat_connections` 키 반드시 UUID
 - layout WS: rooms 변경 시 **델타 처리만** (추가/삭제), 전체 재생성 없음 — CONNECTING 상태 강제 close 오류 방지
 - SyncWS 재연결: exponential backoff (3s→6s→12s→24s→30s max)
+- **SyncWS.close()**: CONNECTING 상태엔 `.close()` 호출 안 함 → `onopen`에서 `this.closed` 체크 후 정상 close (브라우저 에러 방지)
 
 ### Tauri 데스크탑 앱
 - `output: 'export'` static build — SSR 없음, `rooms/[id]`는 `__placeholder__` 하나만 pre-build
@@ -46,6 +47,9 @@ syncai/
 - 현재 방 활성 표시: `useParams()` 대신 `store.currentRoomUuid` 사용 (rooms-store에 UUID 저장됨)
 - WS: 쿠키 없음 → `?token=` 쿼리 파라미터, localStorage에서 읽음
 - 배경 WS 연결: 3초+idx×300ms 스태거 (cold start 중 연결 폭탄 방지)
+- **빌드**: `npm run build:tauri` → `scripts/tauri-build.sh` 실행 (page.tsx ↔ page.tauri.tsx 교체 후 복원)
+- `page.tsx` = Vercel용(`dynamicParams=true`), `page.tauri.tsx` = Tauri용(`generateStaticParams`)
+  - `dynamicParams=true`와 `output:export` 동시 사용 불가 — 반드시 분리 유지
 
 ### AI 처리 흐름
 ```
@@ -84,6 +88,8 @@ syncai/
 | 기능 | 파일 |
 |------|------|
 | 채팅방 클라이언트 | `syncai-frontend/src/app/(app)/rooms/[id]/RoomPageClient.tsx` |
+| 채팅방 라우트 (Vercel) | `syncai-frontend/src/app/(app)/rooms/[id]/page.tsx` |
+| 채팅방 라우트 (Tauri) | `syncai-frontend/src/app/(app)/rooms/[id]/page.tauri.tsx` |
 | 방 목록 레이아웃 (unread, layout WS) | `syncai-frontend/src/app/(app)/rooms/layout.tsx` |
 | WS 클라이언트 | `syncai-frontend/src/lib/ws.ts` |
 | WS 서버 | `syncai-backend/app/routers/ws.py` |
@@ -93,3 +99,4 @@ syncai/
 | 사이드바 | `syncai-frontend/src/components/layout/room-sidebar.tsx` |
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
 | 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
+| Tauri 빌드 스크립트 | `syncai-frontend/scripts/tauri-build.sh` |
