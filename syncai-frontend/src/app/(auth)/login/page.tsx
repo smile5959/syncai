@@ -76,7 +76,8 @@ export default function LoginPage() {
   const searchParams = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search)
     : null;
-  const nextUrl = searchParams?.get("next") ?? "";
+  // middleware는 "redirect" param으로 보내고, 일부 경로는 "next"를 쓰므로 둘 다 읽음
+  const nextUrl = searchParams?.get("next") ?? searchParams?.get("redirect") ?? "";
   const setUser = useAuthStore((s) => s.setUser);
   const setTeam = useAuthStore((s) => s.setTeam);
   const logoutStore = useAuthStore((s) => s.logout);
