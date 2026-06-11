@@ -19,6 +19,8 @@ interface RefreshResult {
 
 async function tryRefresh(refreshToken: string): Promise<RefreshResult> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: {
@@ -26,7 +28,9 @@ async function tryRefresh(refreshToken: string): Promise<RefreshResult> {
         Cookie: `refresh_token=${refreshToken}`,
       },
       body: JSON.stringify({}),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) return { cookies: null, status: res.status };
 
     // getSetCookie() is supported in Next.js Edge Runtime (Next.js 13.4+)
