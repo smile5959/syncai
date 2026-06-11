@@ -1,16 +1,18 @@
 """
 Supervisor 에이전트
-DEFAULT_MODEL(llama-3.1-8b:free) 고정.
 역할:
   1. analyze()  — 작업 계획 생성 (Worker에게 전달할 지시)
   2. validate() — Worker 결과 검증 + 재시도 판단
 멀티 워커 확장 시 validate()의 file_changes를 list[dict]로 변경.
+
+model은 외부(messages.py)에서 주입 — worker 모델과 동일하게 사용.
+DEFAULT_MODEL은 폴백 전용.
 """
 import json
 from openai import AsyncOpenAI
 from app.config import settings
 
-DEFAULT_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+DEFAULT_MODEL = "google/gemma-4-26b-a4b-it:free"  # 폴백 전용
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
@@ -60,10 +62,12 @@ class SupervisorAgent:
         mcp_base_dir: str = "",
         available_mcps: list[dict] | None = None,
         selected_mcp_name: str = "",
+        model: str = "",
     ):
         self.mcp_base_dir = mcp_base_dir
         self.available_mcps = available_mcps or []
         self.selected_mcp_name = selected_mcp_name
+        self.model = model or DEFAULT_MODEL
 
     async def analyze(
         self,
@@ -100,7 +104,7 @@ class SupervisorAgent:
 
         try:
             response = await client.chat.completions.create(
-                model=DEFAULT_MODEL,
+                model=self.model,
                 max_tokens=1000,
                 messages=messages,
             )
@@ -140,7 +144,7 @@ class SupervisorAgent:
 
         try:
             response = await client.chat.completions.create(
-                model=DEFAULT_MODEL,
+                model=self.model,
                 max_tokens=600,
                 messages=[
                     {"role": "system", "content": CHECK_INTERRUPTED_SYSTEM_PROMPT},
@@ -195,7 +199,7 @@ class SupervisorAgent:
 
         try:
             response = await client.chat.completions.create(
-                model=DEFAULT_MODEL,
+                model=self.model,
                 max_tokens=512,
                 messages=[
                     {"role": "system", "content": VALIDATE_SYSTEM_PROMPT},

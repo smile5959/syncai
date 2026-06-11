@@ -751,6 +751,7 @@ async def _plan_ai_task(
     context: list[dict],
     available_mcps: list[dict],
     mention_name: str | None,
+    model: str = "",
 ) -> dict:
     """
     사용자 요청 + 채팅 맥락 분석 → 작업 계획 반환
@@ -762,6 +763,7 @@ async def _plan_ai_task(
 
     base_url, api_key = await _get_client()
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    plan_model = model or DEFAULT_MODEL
 
     mcp_list_str = (
         ", ".join(f"'{m['name']}'" for m in available_mcps)
@@ -779,7 +781,7 @@ async def _plan_ai_task(
 
     try:
         response = await client.chat.completions.create(
-            model="meta-llama/llama-3.1-8b-instruct:free",  # 플래닝은 경량 모델로 빠르게
+            model=plan_model,
             max_tokens=256,
             messages=messages,
         )
@@ -991,6 +993,16 @@ async def _send_ai_plan(
                 if c.name not in existing_names:
                     available_mcps.append({"name": c.name, "base_dir": c.base_dir or ""})
 
+        # worker 모델 가져오기 (planning에도 동일 모델 사용)
+        worker_model = DEFAULT_MODEL
+        any_worker = (
+            db.query(Worker)
+            .filter(Worker.team_id == uuid.UUID(team_id))
+            .first()
+        )
+        if any_worker and any_worker.model:
+            worker_model = any_worker.model
+
         # ── interrupted 작업 연관성 체크 ──────────────────────────────────────
         # 같은 room의 최근 interrupted 작업(최대 5개)과 새 지시 비교
         # (마이그레이션 미적용 환경 방어: 컬럼 없으면 스킵)
@@ -1045,7 +1057,7 @@ async def _send_ai_plan(
             return
 
         # AI 플래닝 (MCP 있을 때만)
-        plan = await _plan_ai_task(effective_content, context, available_mcps, mention_name)
+        plan = await _plan_ai_task(effective_content, context, available_mcps, mention_name, model=worker_model)
 
         # 순수 대화 요청이면 동의 없이 바로 chat-only 실행
         if not plan["needs_mcp"]:
