@@ -249,22 +249,27 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                       <div className="fixed inset-0 z-20" onClick={() => setMenuRoomId(null)} />
                       <div
                         ref={menuRef}
-                        className="absolute right-3 top-8 z-30 w-36 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl shadow-lg overflow-hidden"
+                        className="absolute right-3 top-8 z-30 w-40 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden menu-enter"
                       >
-                        <button
-                          onClick={(e) => { e.stopPropagation(); startRename(room); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                        >
-                          <Pencil size={13} className="text-[var(--text-muted)]" />
-                          이름 변경
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteRoom(room); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                          삭제
-                        </button>
+                        <div className="p-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); startRename(room); }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                          >
+                            <Pencil size={13} className="text-[var(--text-muted)] shrink-0" />
+                            이름 변경
+                          </button>
+                        </div>
+                        <div className="border-t border-[var(--border)] mx-0" />
+                        <div className="p-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteRoom(room); }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 text-[13px] text-red-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={13} className="shrink-0" />
+                            삭제
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
