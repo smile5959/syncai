@@ -90,6 +90,10 @@ export class SyncWS<T> {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
+      if (this.closed) {
+        this.ws?.close();
+        return;
+      }
       this.reconnectAttempts = 0;
       if (!this.isFirstConnect && this.onReconnect) {
         this.onReconnect();
@@ -153,7 +157,10 @@ export class SyncWS<T> {
   close() {
     this.closed = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.ws?.close();
+    // CONNECTING 상태에서 close() 호출하면 브라우저 에러 발생 → onopen에서 처리
+    if (this.ws?.readyState !== WebSocket.CONNECTING) {
+      this.ws?.close();
+    }
   }
 }
 
