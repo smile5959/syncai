@@ -151,8 +151,8 @@ Set-Content -Path $ENV_FILE -Value $envContent -Encoding UTF8
 Write-Step "설정 파일 생성"
 
 # ── Task Scheduler 등록 ───────────────────────────────────────────────────────
-# 기존 태스크 삭제
-schtasks /Delete /TN $TASK_NAME /F 2>$null | Out-Null
+# 기존 태스크 삭제 (없으면 무시)
+Unregister-ScheduledTask -TaskName $TASK_NAME -Confirm:$false -ErrorAction SilentlyContinue
 
 $action  = New-ScheduledTaskAction `
     -Execute $VENV_PY `
@@ -186,7 +186,7 @@ Register-ScheduledTask `
 Write-Step "Task Scheduler 등록 완료"
 
 # ── 서비스 시작 ───────────────────────────────────────────────────────────────
-schtasks /Run /TN $TASK_NAME 2>$null | Out-Null
+Start-ScheduledTask -TaskName $TASK_NAME -ErrorAction SilentlyContinue
 Write-Step "서비스 시작"
 
 # ── 완료 ──────────────────────────────────────────────────────────────────────
