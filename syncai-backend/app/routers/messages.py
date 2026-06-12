@@ -1087,6 +1087,56 @@ async def _send_ai_plan(
         if proposed_mcp:
             task.mcp_config_id = proposed_mcp.id
 
+        # MCP 오프라인 여부를 플래닝 단계에서 미리 확인 → 확인 요청 없이 즉시 에러
+        if proposed_mcp:
+            from app.core import mcp_broker
+            if not mcp_broker.is_online(proposed_mcp.mcp_token or ""):
+                task.status = "failed"
+                task.error = f"MCP 오프라인: {proposed_mcp.name}"
+                db.commit()
+                error_msg = f"**{proposed_mcp.name}** PC가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
+                await broadcast(chat_connections, room_id, {
+                    "type": "message",
+                    "data": {
+                        "id": f"err-{task_id}",
+                        "room_id": room_id,
+                        "user_id": None,
+                        "content": f"⚠️ {error_msg}",
+                        "type": "ai_res",
+                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                    },
+                })
+                await broadcast(task_connections, room_id, {
+                    "type": "task_failed",
+                    "data": {
+                        "task_id": task_id,
+                        "error": f"'{proposed_mcp.name}' MCP 서버가 연결되지 않았습니다.",
+                    },
+                })
+                return
+        elif not proposed_mcp and (plan["mcp_name"] or mention_name):
+            # MCP 이름은 특정됐는데 해당 계정에 등록된 MCP가 없는 경우
+            mcp_name = plan["mcp_name"] or mention_name
+            task.status = "failed"
+            task.error = f"MCP 없음: {mcp_name}"
+            db.commit()
+            await broadcast(chat_connections, room_id, {
+                "type": "message",
+                "data": {
+                    "id": f"err-{task_id}",
+                    "room_id": room_id,
+                    "user_id": None,
+                    "content": f"⚠️ **{mcp_name}** MCP가 이 계정에 등록되어 있지 않아요. 설정 > 내 MCP에서 등록해 주세요.",
+                    "type": "ai_res",
+                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                },
+            })
+            await broadcast(task_connections, room_id, {
+                "type": "task_failed",
+                "data": {"task_id": task_id, "error": f"'{mcp_name}' MCP를 찾을 수 없습니다."},
+            })
+            return
+
         # auto_approve: 확인 없이 바로 실행
         if proposed_mcp and proposed_mcp.auto_approve:
             task.status = "pending"
