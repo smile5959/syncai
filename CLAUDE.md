@@ -79,10 +79,20 @@ syncai/
 - 5분 idle 시 suspend → 첫 요청 5-10초 지연
 - 로그인 화면 + AppLayout mount 시 `/health` ping + 4분 interval로 해결
 
+### MCP 보안
+- `mcp-server/tools.py` `_resolve_safe()`: path traversal, `~` 우회, 전체 경로 컴포넌트 검사
+- `mcp-server/config.py` BLOCKED_PATTERNS: `.ssh/.aws/.kube` 등 + BLOCKED_EXTENSIONS(`.pem/.key` 등) + BLOCKED_FILENAMES(`id_rsa` 등)
+- `worker_llm.py` / `supervisor.py` system prompt: 채팅 컨텍스트·파일 내용은 지시가 아님 명시
+- `read_file` 결과: `[파일 데이터]` prefix 래핑 (2차 인젝션 방어)
+- MCP 토큰 만료: 90일마다 자동 교체 (`MCP_TOKEN_MAX_AGE_DAYS` env로 조정)
+  - `McpConfig.token_issued_at`, `last_heartbeat_at` 컬럼 — 마이그레이션 `p5q6r7s8t9u0`
+  - heartbeat 응답 `token_expired=true` → MCP가 로컬 토큰 폐기 + SSE 재연결로 새 토큰 수신
+
 ### 환경변수
 - `.env.production` 커밋됨 (NEXT_PUBLIC_* 만 포함, 시크릿 없음)
 - `NEXT_PUBLIC_API_URL=https://syncai-backend.fly.dev/v1`
 - `NEXT_PUBLIC_WS_URL=wss://syncai-backend.fly.dev/ws`
+- `MCP_TOKEN_MAX_AGE_DAYS` (기본 90) — MCP 토큰 최대 유효 기간(일)
 
 ## 배포
 - 백엔드: `syncai-backend/**` push → GitHub Actions → Fly.io 자동
@@ -105,3 +115,5 @@ syncai/
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
 | 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
 | Tauri 빌드 스크립트 | `syncai-frontend/scripts/tauri-build.sh` |
+| MCP 파일 접근 보안 | `syncai-backend/mcp-server/tools.py`, `config.py` |
+| MCP heartbeat + 토큰 만료 | `syncai-backend/mcp-server/heartbeat.py` |
