@@ -281,6 +281,18 @@ async def _run_ai_task(
                 task.status = "failed"
                 task.error = f"MCP 오프라인: {mcp_config.name}"
                 db.commit()
+            error_msg = f"**{mcp_config.name}** PC가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
+            await broadcast(chat_connections, room_id, {
+                "type": "message",
+                "data": {
+                    "id": f"err-{task_id}",
+                    "room_id": room_id,
+                    "user_id": None,
+                    "content": f"⚠️ {error_msg}",
+                    "type": "ai_res",
+                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                },
+            })
             await broadcast(task_connections, room_id, {
                 "type": "task_failed",
                 "data": {
@@ -1135,6 +1147,18 @@ async def _send_ai_plan(
             task.status = "failed"
             task.error = str(e)
             db.commit()
+        error_msg = _format_error_for_chat(str(e))
+        await broadcast(chat_connections, room_id, {
+            "type": "message",
+            "data": {
+                "id": f"err-{task_id}",
+                "room_id": room_id,
+                "user_id": None,
+                "content": f"⚠️ {error_msg}",
+                "type": "ai_res",
+                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+            },
+        })
         await broadcast(task_connections, room_id, {
             "type": "task_failed",
             "data": {"task_id": task_id, "error": str(e)},
