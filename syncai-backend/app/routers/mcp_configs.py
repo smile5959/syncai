@@ -7,7 +7,9 @@ MCP Config 라우터
 import asyncio
 import json
 import logging
+import os
 import secrets
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
@@ -91,6 +93,7 @@ async def create_mcp_config(
     from app.core import mcp_broker
 
     token = body.mcp_token or secrets.token_hex(16)
+    now = datetime.now(timezone.utc)
     config = McpConfig(
         owner_user_id=current_user.id,
         name=body.name,
@@ -98,6 +101,7 @@ async def create_mcp_config(
         base_dir=body.base_dir,
         mcp_token=token,
         is_online=False,
+        token_issued_at=now,
     )
     db.add(config)
     db.flush()
@@ -519,6 +523,7 @@ def auto_register_mcp(
         log.info("[auto-register] token 교체: config=%s ...%s→...%s",
                  unclaimed.id, str(unclaimed.mcp_token or "")[-6:], body.mcp_token[-6:])
         unclaimed.mcp_token = body.mcp_token
+        unclaimed.token_issued_at = datetime.now(timezone.utc)
         _ensure_team_links(unclaimed, current_user, db)
         db.commit()
         db.refresh(unclaimed)
@@ -537,6 +542,7 @@ def auto_register_mcp(
             endpoint="",
             base_dir=None,
             mcp_token=body.mcp_token,
+            token_issued_at=datetime.now(timezone.utc),
         )
         db.add(new_config)
         db.flush()
@@ -726,16 +732,22 @@ async def mcp_sse(email: str, endpoint: str = "", db: Session = Depends(get_db))
     )
 
 
+TOKEN_MAX_AGE_DAYS: int = int(os.getenv("MCP_TOKEN_MAX_AGE_DAYS", "90"))
+
+
 @router.post("/mcp-configs/heartbeat", response_model=McpHeartbeatResponse)
 def mcp_heartbeat(body: McpHeartbeatRequest, db: Session = Depends(get_db)):
     """
     MCP 서버 → 백엔드 heartbeat.
     mcp_token으로 자신의 McpConfig를 찾아 endpoint를 갱신한다.
     응답에 mcp_config_id + base_dir 포함 (MCP 서버가 BASE_DIR 동적 갱신에 사용).
+    token_expired=True면 MCP 서버가 토큰을 폐기하고 SSE 재연결로 새 토큰을 받는다.
     """
     config = db.query(McpConfig).filter(McpConfig.mcp_token == body.mcp_token).first()
     if not config:
         raise HTTPException(status_code=404, detail="MCP Config not found")
+
+    now = datetime.now(timezone.utc)
 
     # 이슈 1: heartbeat에서도 캐시 갱신 (백엔드 재시작 후 pick-folder-detect 동작)
     if body.endpoint:
@@ -751,12 +763,34 @@ def mcp_heartbeat(body: McpHeartbeatRequest, db: Session = Depends(get_db)):
         log.info("[MCP HB] base_dir 최초 설정: %s", body.base_dir)
         config.base_dir = body.base_dir
 
+    # token_issued_at 미설정 레거시 레코드 보정
+    if not config.token_issued_at:
+        config.token_issued_at = config.created_at or now
+
+    config.last_heartbeat_at = now
     db.commit()
     db.refresh(config)
 
     # 이슈 3: 신규 연결 시 WebSocket으로 실시간 알림
     if endpoint_changed:
         _notify_mcp_connected(str(config.owner_user_id), str(config.id))
+
+    # 토큰 만료 체크
+    issued = config.token_issued_at.replace(tzinfo=timezone.utc) if config.token_issued_at.tzinfo is None else config.token_issued_at
+    token_age_days = (now - issued).days
+    if token_age_days >= TOKEN_MAX_AGE_DAYS:
+        log.info("[MCP HB] 토큰 만료 (...%s, %d일) — 재발급 신호", body.mcp_token[-6:], token_age_days)
+        # 토큰 재발급: 새 토큰으로 교체
+        new_token = secrets.token_hex(16)
+        config.mcp_token = new_token
+        config.token_issued_at = now
+        db.commit()
+        return McpHeartbeatResponse(
+            ok=True,
+            mcp_config_id=str(config.id),
+            base_dir=config.base_dir,
+            token_expired=True,
+        )
 
     return McpHeartbeatResponse(
         ok=True,

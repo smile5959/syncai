@@ -167,12 +167,12 @@ async def _sse_connect(email: str) -> None:
 
 # ─── heartbeat (endpoint 갱신용) ─────────────────────────────────────────────
 
-async def _send_heartbeat(token: str) -> tuple[str, str]:
+async def _send_heartbeat(token: str) -> tuple[str, str, bool]:
     """
     heartbeat 전송. 반환값:
-      ("ok",  base_dir)  — 정상
-      ("404", "")        — Config 없음
-      ("err", "")        — 기타 오류
+      ("ok",      base_dir, token_expired)  — 정상 (token_expired=True면 재발급 필요)
+      ("404",     "",       False)          — Config 없음
+      ("err",     "",       False)          — 기타 오류
     """
     import config as _cfg
     url      = f"{BACKEND_URL}/v1/mcp-configs/heartbeat"
@@ -187,20 +187,21 @@ async def _send_heartbeat(token: str) -> tuple[str, str]:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
-                data     = resp.json()
-                base_dir = data.get("base_dir") or ""
+                data          = resp.json()
+                base_dir      = data.get("base_dir") or ""
+                token_expired = bool(data.get("token_expired", False))
                 if base_dir:
                     _cfg.update_base_dir(token, base_dir)
-                return "ok", base_dir
+                return "ok", base_dir, token_expired
             elif resp.status_code == 404:
                 log.warning("[...%s] heartbeat 404", token[-6:])
-                return "404", ""
+                return "404", "", False
             else:
                 log.warning("[...%s] heartbeat %d", token[-6:], resp.status_code)
-                return "err", ""
+                return "err", "", False
     except Exception as e:
         log.warning("[...%s] heartbeat 오류: %s", token[-6:], e)
-        return "err", ""
+        return "err", "", False
 
 
 async def _token_loop(token: str) -> None:
@@ -220,10 +221,18 @@ async def _token_loop(token: str) -> None:
 
     fail_count = 0
     while True:
-        result, _ = await _send_heartbeat(token)
+        result, _, token_expired = await _send_heartbeat(token)
 
         if result == "ok":
             fail_count = 0
+            if token_expired:
+                # 백엔드가 새 토큰으로 교체했음 — 로컬 토큰 폐기 후 SSE 재연결
+                log.info("[...%s] 토큰 만료 — 로컬 폐기 후 SSE 재연결", token[-6:])
+                _cfg.remove_token(token)
+                email = os.getenv("SYNCAI_EMAIL", "").strip()
+                if email and _sse_task and not _sse_task.done():
+                    _sse_task.cancel()  # SSE 루프 재시작 트리거
+                return  # 이 토큰 루프 종료
         elif result in ("404", "err"):
             fail_count += 1
             if fail_count >= 3:

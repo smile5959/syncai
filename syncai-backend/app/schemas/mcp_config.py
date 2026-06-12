@@ -51,6 +51,7 @@ class McpHeartbeatResponse(BaseModel):
     ok: bool
     mcp_config_id: str
     base_dir: str | None = None
+    token_expired: bool = False  # True면 MCP가 토큰 폐기 후 SSE 재연결
 
 
 class McpAutoRegisterRequest(BaseModel):
