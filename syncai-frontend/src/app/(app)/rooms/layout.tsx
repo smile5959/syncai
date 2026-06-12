@@ -66,12 +66,6 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [rooms, clearUnread]);
 
-  // 브라우저 알림 권한 요청
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
 
   // 창 크기에 따라 사이드바 자동 조절
   useEffect(() => {
