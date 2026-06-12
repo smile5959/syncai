@@ -57,9 +57,14 @@ syncai/
   → MCP 없으면: planning 스킵 → chat-only (1-hop)
   → MCP 있으면: supervisor planning → needs_mcp 판단
       → false: chat-only (available_mcp_names 전달)
-      → true: awaiting_confirm → 동의 → MCP 실행
+      → true:
+          → 유저 MCP 미등록(DB count=0) → 채팅 에러 즉시 반환
+          → MCP 오프라인(mcp_broker.is_online) → 채팅 에러 즉시 반환
+          → 정상: awaiting_confirm → 동의 → MCP 실행
 ```
 - `worker_llm.py`: tool_calls 있으면 finish_reason 무시 (Gemini stop+tool_calls 동시 반환 대응)
+- 에러 채팅 전송: `chat_connections` broadcast, `created_at` 반드시 `+ "Z"`
+- `_format_error_for_chat(error)`: 기술적 에러 → 한국어 친화적 문구 변환
 
 ### DB / 삭제 주의사항
 - `require_room_access(room_id, user, db)` → room 객체 반환, 이후 `room.id`(UUID) 사용
