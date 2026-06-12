@@ -58,7 +58,25 @@ BLOCKED_PATTERNS: list[str] = [
     "__pycache__",
     ".venv",
     "venv",
+    # 인증서 / 키 파일 디렉토리
+    ".ssh",
+    ".gnupg",
+    ".aws",
+    ".kube",
 ]
+
+# 확장자 기반 추가 차단 (파일명 패턴으로 검사)
+BLOCKED_EXTENSIONS: tuple[str, ...] = (
+    ".pem", ".key", ".p12", ".pfx", ".cer", ".crt",
+    ".keystore", ".jks",
+)
+
+# 파일명 완전 일치 차단
+BLOCKED_FILENAMES: frozenset[str] = frozenset({
+    "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
+    "id_rsa.pub", "id_ed25519.pub", "id_ecdsa.pub", "id_dsa.pub",
+    ".netrc", ".npmrc", ".pypirc",
+})
 
 # ─── 토큰 레지스트리 ─────────────────────────────────────────────────────────
 

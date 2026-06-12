@@ -32,6 +32,14 @@ def _resolve_safe(path: str, base_dir: Path) -> Path:
         if rel == pattern or rel.startswith(pattern + os.sep) or rel.startswith(pattern + "/"):
             raise ToolError(f"Access denied: blocked path ({pattern})")
 
+    # 확장자 차단
+    if target.suffix.lower() in _cfg.BLOCKED_EXTENSIONS:
+        raise ToolError(f"Access denied: blocked file type ({target.suffix})")
+
+    # 파일명 완전 일치 차단
+    if target.name in _cfg.BLOCKED_FILENAMES:
+        raise ToolError(f"Access denied: blocked filename ({target.name})")
+
     return target
 
 
