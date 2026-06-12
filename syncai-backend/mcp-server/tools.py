@@ -21,16 +21,21 @@ class ToolError(Exception):
 
 
 def _resolve_safe(path: str, base_dir: Path) -> Path:
+    # ~ 포함 경로 명시적 차단 (홈 디렉토리 참조 우회 방지)
+    if "~" in path:
+        raise ToolError("Access denied: home directory references not allowed")
+
     target = (base_dir / path).resolve()
     try:
         target.relative_to(base_dir)
     except ValueError:
         raise ToolError(f"Access denied: path outside base_dir ({path})")
 
-    rel = str(target.relative_to(base_dir))
-    for pattern in _cfg.BLOCKED_PATTERNS:
-        if rel == pattern or rel.startswith(pattern + os.sep) or rel.startswith(pattern + "/"):
-            raise ToolError(f"Access denied: blocked path ({pattern})")
+    rel = target.relative_to(base_dir)
+    # 경로의 모든 컴포넌트를 검사 (prefix 뿐 아니라 중간 경로도 차단)
+    for part in rel.parts:
+        if part in _cfg.BLOCKED_PATTERNS:
+            raise ToolError(f"Access denied: blocked path ({part})")
 
     # 확장자 차단
     if target.suffix.lower() in _cfg.BLOCKED_EXTENSIONS:
