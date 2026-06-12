@@ -1082,6 +1082,29 @@ async def _send_ai_plan(
             )
             return
 
+        # MCP 필요인데 현재 유저가 MCP를 아예 등록하지 않은 경우 → 즉시 안내
+        user_mcp_count = db.query(McpConfig).filter(McpConfig.owner_user_id == current_user.id).count()
+        if user_mcp_count == 0:
+            task.status = "failed"
+            task.error = "MCP 미등록"
+            db.commit()
+            await broadcast(chat_connections, room_id, {
+                "type": "message",
+                "data": {
+                    "id": f"err-{task_id}",
+                    "room_id": room_id,
+                    "user_id": None,
+                    "content": "⚠️ 등록된 PC(MCP)가 없어요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요.",
+                    "type": "ai_res",
+                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                },
+            })
+            await broadcast(task_connections, room_id, {
+                "type": "task_failed",
+                "data": {"task_id": task_id, "error": "MCP 미등록"},
+            })
+            return
+
         # MCP 필요 → 제안된 MCP Config 찾아서 task에 미리 저장
         proposed_mcp = _select_mcp_config(db, team_id, plan["mcp_name"] or mention_name, current_user)
         if proposed_mcp:
