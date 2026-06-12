@@ -898,10 +898,6 @@ async def ai_command(
     if mention_name:
         mcp_check = _select_mcp_config(db, team_id, mention_name, current_user)
         if not mcp_check:
-            # 디버그: 어떤 config가 DB에 있는지 확인
-            all_user_mcps = db.query(McpConfig).filter(McpConfig.owner_user_id == current_user.id).all()
-            debug_info = [(c.name, c.is_online, str(c.id)[:8]) for c in all_user_mcps]
-            print(f"[DEBUG] user={current_user.id} mention={mention_name} team={team_id} all_mcps={debug_info}")
             raise HTTPException(
                 status_code=400,
                 detail=f"'{mention_name}' MCP를 찾을 수 없습니다. (보유 MCP: {[c.name for c in all_user_mcps]})",

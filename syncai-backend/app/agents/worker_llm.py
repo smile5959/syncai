@@ -241,7 +241,6 @@ class WorkerLLM:
                                     tool_calls_acc[idx]["function"]["arguments"] += tc_delta.function.arguments
 
             # 스트리밍 완료 후 처리
-            print(f"[WorkerLLM] iter={iteration} finish_reason={finish_reason} text_len={len(text_content)} tools={len(tool_calls_acc)}")
 
             # tool_calls 우선 — finish_reason이 "stop"/"end_turn"이어도 tool_calls가 있으면 실행
             if tool_calls_acc:
