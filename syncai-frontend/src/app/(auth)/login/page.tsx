@@ -80,6 +80,8 @@ export default function LoginPage() {
   const nextUrl = searchParams?.get("next") ?? searchParams?.get("redirect") ?? "";
   const setUser = useAuthStore((s) => s.setUser);
   const setTeam = useAuthStore((s) => s.setTeam);
+  const setAutoLogin = useAuthStore((s) => s.setAutoLogin);
+  const storedAutoLogin = useAuthStore((s) => s.autoLogin);
   const logoutStore = useAuthStore((s) => s.logout);
   const { theme, toggle } = useTheme();
 
@@ -104,6 +106,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [autoLoginChecked, setAutoLoginChecked] = useState(storedAutoLogin);
 
   // 입력값 바꾸면 에러 지움 (submit 시작 시 지우지 않음)
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +139,9 @@ export default function LoginPage() {
       // 로그인 응답 body의 토큰을 현재 도메인 쿠키로 직접 설정.
       const setAuthCookies = (token: string, refreshToken: string) => {
         const isSecure = location.protocol === "https:";
-        const opts = `path=/;${isSecure ? " Secure;" : ""} SameSite=Lax`;
+        // 자동 로그인: 30일 유지 / 미체크: 세션 쿠키 (브라우저 종료 시 삭제)
+        const maxAge = autoLoginChecked ? "; max-age=2592000" : "";
+        const opts = `path=/;${isSecure ? " Secure;" : ""} SameSite=Lax${maxAge}`;
         document.cookie = `access_token=${token}; ${opts}`;
         if (refreshToken) document.cookie = `refresh_token=${refreshToken}; ${opts}`;
       };
@@ -153,6 +158,7 @@ export default function LoginPage() {
       const res = await auth.login(email, password);
       // 이전 유저 데이터(팀 등) 초기화 후 새 유저 세팅
       logoutStore();
+      setAutoLogin(autoLoginChecked);
       setUser(res.data.user);
       setAuthCookies(res.data.token, res.data.refresh_token);
       saveTokens(res.data.token, res.data.refresh_token);
@@ -432,7 +438,26 @@ export default function LoginPage() {
             />
 
             {tab === "login" && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -4, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -4, marginBottom: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
+                  <div
+                    onClick={() => setAutoLoginChecked((v) => !v)}
+                    style={{
+                      width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                      border: `1.5px solid ${autoLoginChecked ? "var(--accent)" : "var(--border-strong)"}`,
+                      background: autoLoginChecked ? "var(--accent)" : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.15s ease", cursor: "pointer",
+                    }}
+                  >
+                    {autoLoginChecked && (
+                      <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                        <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>자동 로그인</span>
+                </label>
                 <a href="#" style={{
                   fontSize: 12.5, color: "var(--accent-text)",
                   textDecoration: "none", fontWeight: 500,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Hash, Plus, ArrowRight, Zap, Bot, Cpu } from "lucide-react";
 import { useRoomsStore } from "@/store/rooms";
 import { useAuthStore } from "@/store/auth";
@@ -11,6 +12,21 @@ export default function RoomsPage() {
   const setShowCreate = useRoomsStore((s) => s.setShowCreate);
   const user = useAuthStore((s) => s.user);
   const team = useAuthStore((s) => s.team);
+  const redirectedRef = useRef(false);
+
+  // 앱 재시작 시 마지막 접속 방으로 자동 이동
+  useEffect(() => {
+    if (redirectedRef.current || rooms.length === 0) return;
+    try {
+      const lastRoom = localStorage.getItem("syncai-last-room");
+      if (!lastRoom) return;
+      const match = rooms.find((r) => r.slug === lastRoom || r.id === lastRoom);
+      if (match) {
+        redirectedRef.current = true;
+        router.replace(`/rooms/${match.slug ?? match.id}`);
+      }
+    } catch {}
+  }, [rooms, router]);
 
   const firstName = user?.name?.split(" ")[0] ?? "팀원";
 
