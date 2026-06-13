@@ -483,6 +483,52 @@ export function IconNav() {
             className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--red)] hover:bg-red-500/10 transition-all duration-150">
             <LogOut size={18} />
           </button>
+
+          {/* 내 프로필 아바타 */}
+          {me && (
+            <div className="relative group mt-1">
+              <button
+                title={`${me.name}\n${me.email}`}
+                style={{
+                  width: 34, height: 34, borderRadius: 11, flexShrink: 0,
+                  background: "var(--gradient-accent)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: "2px solid var(--border)",
+                  cursor: "default",
+                  boxShadow: "0 2px 8px rgba(99,102,241,0.25)",
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: "white", letterSpacing: "-0.5px" }}>
+                  {me.name?.slice(0, 2).toUpperCase() ?? "?"}
+                </span>
+              </button>
+              {/* 호버 툴팁 */}
+              <div style={{
+                position: "fixed",
+                bottom: 12,
+                left: 76,
+                zIndex: 200,
+                pointerEvents: "none",
+                opacity: 0,
+                transition: "opacity 0.15s ease",
+              }}
+                className="group-hover:opacity-100"
+              >
+                <div style={{
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                  minWidth: 160,
+                  whiteSpace: "nowrap",
+                }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{me.name}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{me.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 

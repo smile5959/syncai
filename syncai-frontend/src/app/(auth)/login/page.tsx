@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
   Code2, MessageSquare, Sparkles, Sun, Moon,
 } from "lucide-react";
-import { auth, users as usersApi, saveTokens } from "@/lib/api";
+import { auth, saveTokens } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 
@@ -86,11 +86,14 @@ export default function LoginPage() {
   const { theme, toggle } = useTheme();
 
   const user = useAuthStore((s) => s.user);
+  // 로그인 진행 중엔 useEffect redirect 막음 (setUser → useEffect race condition 방지)
+  const loggingInRef = useRef(false);
 
-  // Tauri 앱: 이미 로그인된 경우 /rooms로
+  // 이미 로그인된 경우 /rooms로 (페이지 마운트 시 한 번만)
   useEffect(() => {
     if (user) router.replace("/rooms");
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 로그인 버튼 누르기 전에 백엔드를 미리 깨워둠 (Fly.io cold start 방지)
   useEffect(() => {
@@ -156,19 +159,17 @@ export default function LoginPage() {
         return;
       }
       const res = await auth.login(email, password);
+      loggingInRef.current = true;
       // 이전 유저 데이터(팀 등) 초기화 후 새 유저 세팅
       logoutStore();
       setAutoLogin(autoLoginChecked);
       setUser(res.data.user);
       setAuthCookies(res.data.token, res.data.refresh_token);
       saveTokens(res.data.token, res.data.refresh_token);
-      if (nextUrl) {
-        router.push(nextUrl);
-        return;
-      }
-      const loginTeams = res.data.teams ?? (await usersApi.myTeams()).data.teams;
+      // teams는 로그인 응답에 있으면 바로 세팅, 없으면 IconNav가 로드하므로 추가 fetch 불필요
+      const loginTeams = res.data.teams ?? [];
       if (loginTeams.length > 0) setTeam(loginTeams[0]);
-      router.push("/rooms");
+      router.push(nextUrl || "/rooms");
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })
