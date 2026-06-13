@@ -15,6 +15,8 @@ interface McpSettingsModalProps {
   teamId: string;
   onClose: () => void;
   onWorkerUpdate?: (worker: Worker) => void;
+  myUserId?: string;
+  teamOwnerId?: string;
 }
 
 type Tab = "my" | "team" | "workers";
@@ -150,7 +152,7 @@ function RetryButton({ token, setPostCreate, mcpApi: api }: {
 }
 
 // ─── 메인 모달 ───────────────────────────────────────────────────────────────
-export function McpSettingsModal({ teamId, onClose, onWorkerUpdate }: McpSettingsModalProps) {
+export function McpSettingsModal({ teamId, onClose, onWorkerUpdate, myUserId, teamOwnerId }: McpSettingsModalProps) {
   const [tab, setTab] = useState<Tab>("my");
   const mouseDownOnBackdrop = useRef(false);
 
@@ -258,7 +260,7 @@ export function McpSettingsModal({ teamId, onClose, onWorkerUpdate }: McpSetting
           <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
             {tab === "my"      && <MyMcpTab />}
             {tab === "team"    && <TeamVisibilityTab teamId={teamId} />}
-            {tab === "workers" && <WorkerSlotsTab teamId={teamId} onWorkerUpdate={onWorkerUpdate} />}
+            {tab === "workers" && <WorkerSlotsTab teamId={teamId} onWorkerUpdate={onWorkerUpdate} myUserId={myUserId} teamOwnerId={teamOwnerId} />}
           </div>
         </div>
       </div>
@@ -1021,7 +1023,7 @@ const WORKER_MODELS = [
   { id: "anthropic/claude-haiku-4-5",   label: "Claude Haiku 4.5", badge: "유료" },
 ];
 
-function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUpdate?: (worker: Worker) => void }) {
+function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { teamId: string; onWorkerUpdate?: (worker: Worker) => void; myUserId?: string; teamOwnerId?: string }) {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -1235,31 +1237,44 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
                       }}>
                         {busy ? "⚡ 작업중" : "● 대기중"}
                       </span>
-                      {/* 모델 선택 버튼 */}
-                      <button
-                        onClick={(e) => {
-                          if (isModelOpen) {
-                            setModelOpenId(null);
-                            setModelDropdownPos(null);
-                          } else {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setModelDropdownPos({ top: rect.bottom + 6, left: rect.left });
-                            setModelOpenId(w.id);
-                          }
-                        }}
-                        disabled={updatingModelId === w.id}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 4,
+                      {/* 모델 선택 버튼 - 방장만 */}
+                      {myUserId && teamOwnerId && myUserId !== teamOwnerId ? (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
                           padding: "2px 8px", borderRadius: 6,
                           border: "1px solid var(--border)",
                           background: "var(--bg-base)",
-                          cursor: "pointer", fontSize: 11,
-                          color: "var(--text-secondary)", fontWeight: 500,
-                        }}
-                      >
-                        {updatingModelId === w.id ? "저장중..." : currentModel.label}
-                        <ChevronDown size={10} />
-                      </button>
+                          fontSize: 11, color: "var(--text-muted)", fontWeight: 500,
+                          cursor: "default",
+                        }}>
+                          {currentModel.label}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            if (isModelOpen) {
+                              setModelOpenId(null);
+                              setModelDropdownPos(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setModelDropdownPos({ top: rect.bottom + 6, left: rect.left });
+                              setModelOpenId(w.id);
+                            }
+                          }}
+                          disabled={updatingModelId === w.id}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 4,
+                            padding: "2px 8px", borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            background: "var(--bg-base)",
+                            cursor: "pointer", fontSize: 11,
+                            color: "var(--text-secondary)", fontWeight: 500,
+                          }}
+                        >
+                          {updatingModelId === w.id ? "저장중..." : currentModel.label}
+                          <ChevronDown size={10} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <button

@@ -14,6 +14,7 @@ interface MessageItemProps {
   tasks?: AiTask[];
   isStreaming?: boolean;
   thinkingSteps?: string[];
+  currentUserId?: string;
 }
 
 const AVATAR_GRADIENTS = [
@@ -52,7 +53,7 @@ function Avatar({ name, userId }: { name: string; userId: string }) {
 
 // ── AI Plan 메시지 (동의 요청 카드) ──────────────────────────────────────────
 
-function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: string; tasks?: AiTask[] }) {
+function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Message; roomId: string; tasks?: AiTask[]; currentUserId?: string }) {
   const [status, setStatus] = useState<"idle" | "loading" | "confirmed" | "cancelled">("idle");
   const [autoApproved, setAutoApproved] = useState(false);
 
@@ -64,22 +65,29 @@ function AiPlanCard({ message, roomId, tasks }: { message: Message; roomId: stri
   }
 
   // task 상태로 버튼/결과 표시 결정
-  const taskStatus = tasks?.find((t) => t.id === plan?.task_id)?.status;
+  const task = tasks?.find((t) => t.id === plan?.task_id);
+  const taskStatus = task?.status;
 
   // 5분 이상 된 ai_plan은 만료 처리 (새로고침해도 이전 세션 확인창 안 뜸)
   const isExpired = message.created_at
     ? Date.now() - new Date(message.created_at).getTime() > 5 * 60 * 1000
     : false;
 
+  // /ai 호출자만 승인/거부 버튼 표시 (task 로드 전이면 currentUserId 체크 스킵)
+  const isTriggerer = !currentUserId || !task || task.triggered_by === currentUserId;
+
   // 버튼 표시 조건:
   // - 로컬에서 이미 클릭한 경우 → 숨김
   // - 5분 이상 된 ai_plan → 만료, 숨김 (이전 세션 확인창 방지)
+  // - 호출자가 아닌 경우 → 숨김
   // - awaiting_confirm 상태 → 표시
   // - task가 목록에 없음(새로 생성된 직후) → 표시 (taskList 갱신 전)
   const showButtons =
     status !== "idle"
       ? false
       : isExpired
+      ? false
+      : !isTriggerer
       ? false
       : taskStatus === "awaiting_confirm" || taskStatus === "pending" || taskStatus === undefined;
 
@@ -282,7 +290,7 @@ function ThinkingPanel({ steps, isStreaming }: { steps: string[]; isStreaming: b
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function MessageItem({ message, showAvatar = true, isMe = false, roomId = "", tasks, isStreaming = false, thinkingSteps = [] }: MessageItemProps) {
+export function MessageItem({ message, showAvatar = true, isMe = false, roomId = "", tasks, isStreaming = false, thinkingSteps = [], currentUserId }: MessageItemProps) {
   const isAi = message.type === "ai_res";
   const isPlan = message.type === "ai_plan";
   const isCmd = message.type === "ai_cmd" || message.content.startsWith("/ai ");
@@ -291,7 +299,7 @@ export function MessageItem({ message, showAvatar = true, isMe = false, roomId =
 
   // ai_plan → 동의 요청 카드
   if (isPlan) {
-    return <AiPlanCard message={message} roomId={roomId} tasks={tasks} />;
+    return <AiPlanCard message={message} roomId={roomId} tasks={tasks} currentUserId={currentUserId} />;
   }
 
   // /ai 커맨드 메시지 — 내가 보낸 것: 오른쪽, 타인이 보낸 것: 왼쪽

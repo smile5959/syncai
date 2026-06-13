@@ -899,9 +899,21 @@ async def ai_command(
     if mention_name:
         mcp_check = _select_mcp_config(db, team_id, mention_name, current_user)
         if not mcp_check:
+            # 팀 내 해당 이름 MCP가 존재하지만 비공개인지 구분
+            team_uuid_early = uuid.UUID(team_id)
+            any_named_early = (
+                db.query(McpConfig)
+                .join(McpConfigTeam, McpConfig.id == McpConfigTeam.mcp_config_id)
+                .filter(McpConfigTeam.team_id == team_uuid_early, McpConfig.name == mention_name)
+                .first()
+            )
             raise HTTPException(
                 status_code=400,
-                detail=f"'{mention_name}' MCP를 찾을 수 없습니다. (보유 MCP: {[c.name for c in all_user_mcps]})",
+                detail=(
+                    f"'{mention_name}' MCP가 공개 설정이 되어 있지 않아요."
+                    if any_named_early else
+                    f"'{mention_name}' MCP를 찾을 수 없어요."
+                ),
             )
 
     # 2. 사용자 메시지 저장 + Task 생성 (awaiting_confirm 상태)

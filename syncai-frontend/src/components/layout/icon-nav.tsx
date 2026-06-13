@@ -319,7 +319,7 @@ export function IconNav() {
   }
 
   async function handleCreate(name: string, color: string | null, icon: string | null) {
-    if (!name.trim()) return;
+    if (!name.trim() || creating) return;
     setCreating(true);
     try {
       const res = await teamsApi.create(name.trim());

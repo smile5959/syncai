@@ -460,42 +460,42 @@ export default function RoomPage() {
             {workers.length > 0 && (
               idleCount > 0 ? (
                 <span
-                  className="shrink-0 inline-flex items-center gap-2 px-3 py-1"
+                  className="shrink-0 inline-flex items-center gap-2.5"
                   style={{
-                    borderRadius: 999,
-                    background: "linear-gradient(135deg, rgba(74,222,128,0.12) 0%, rgba(34,197,94,0.07) 100%)",
-                    border: "1px solid rgba(74,222,128,0.25)",
-                    boxShadow: "0 0 10px rgba(74,222,128,0.1)",
-                    fontSize: 11.5, fontWeight: 600, color: "#4ade80",
-                    letterSpacing: "0.01em",
+                    borderRadius: 10,
+                    background: "rgba(74,222,128,0.08)",
+                    border: "1px solid rgba(74,222,128,0.2)",
+                    padding: "5px 12px 5px 10px",
                   }}
                 >
-                  <span className="relative flex" style={{ width: 9, height: 9 }}>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-60" />
-                    <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 9, height: 9 }} />
+                  <span className="relative flex shrink-0" style={{ width: 8, height: 8 }}>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-50" />
+                    <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 8, height: 8 }} />
                   </span>
-                  {idleCount === 1
-                    ? `${idleWorkers[0].name} 대기중`
-                    : `${idleWorkers[0].name} 외 ${idleCount - 1}명 대기중`
-                  }
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#4ade80", letterSpacing: "-0.01em" }}>
+                      {idleCount === 1 ? idleWorkers[0].name : `${idleWorkers[0].name} 외 ${idleCount - 1}명`}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 400, color: "rgba(74,222,128,0.6)" }}>대기중</span>
+                  </span>
                 </span>
               ) : (
                 <span
-                  className="shrink-0 inline-flex items-center gap-2 px-3 py-1"
+                  className="shrink-0 inline-flex items-center gap-2.5"
                   style={{
-                    borderRadius: 999,
-                    background: "linear-gradient(135deg, rgba(129,140,248,0.12) 0%, rgba(99,102,241,0.07) 100%)",
-                    border: "1px solid rgba(129,140,248,0.25)",
-                    boxShadow: "0 0 10px rgba(129,140,248,0.1)",
-                    fontSize: 11.5, fontWeight: 600, color: "var(--accent)",
-                    letterSpacing: "0.01em",
+                    borderRadius: 10,
+                    background: "rgba(129,140,248,0.08)",
+                    border: "1px solid rgba(129,140,248,0.2)",
+                    padding: "5px 12px 5px 10px",
                   }}
                 >
-                  <span className="relative flex" style={{ width: 9, height: 9 }}>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-60" />
-                    <span className="relative inline-flex rounded-full bg-[var(--accent)]" style={{ width: 9, height: 9 }} />
+                  <span className="relative flex shrink-0" style={{ width: 8, height: 8 }}>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-50" />
+                    <span className="relative inline-flex rounded-full bg-[var(--accent)]" style={{ width: 8, height: 8 }} />
                   </span>
-                  작업중
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>작업중</span>
+                  </span>
                 </span>
               )
             )}
@@ -597,6 +597,7 @@ export default function RoomPage() {
                     tasks={taskList}
                     isStreaming={msg.id === `streaming-${streamingTaskId}`}
                     thinkingSteps={msg.id === `streaming-${streamingTaskId}` ? thinkingSteps : (msgStepsMap[msg.id] ?? [])}
+                    currentUserId={me?.id}
                   />
                 );
               })}
@@ -666,6 +667,8 @@ export default function RoomPage() {
       {showMcpSettings && teamId && (
         <McpSettingsModal
           teamId={teamId}
+          myUserId={me?.id}
+          teamOwnerId={currentTeam?.owner_id}
           onWorkerUpdate={(updatedWorker) => {
             setWorkers((prev) => prev.map((w) => w.id === updatedWorker.id ? updatedWorker : w));
           }}
