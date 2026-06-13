@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { rooms as roomsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
+import { useTheme } from "@/components/providers/theme-provider";
 import type { ChatRoom } from "@/types";
 
 interface RoomSidebarProps {
@@ -20,6 +21,8 @@ interface RoomSidebarProps {
 export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: RoomSidebarProps) {
   const params = useParams();
   const router = useRouter();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const currentTeam = useAuthStore((s) => s.team);
   const unreadCounts = useRoomsStore((s) => s.unreadCounts);
   // Tauri static export: useParams()는 항상 __placeholder__ 반환 → store의 UUID 우선 사용
@@ -258,11 +261,13 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                         style={{
                           width: 192,
                           background: "var(--bg-elev)",
-                          backdropFilter: "blur(24px) saturate(140%)",
-                          WebkitBackdropFilter: "blur(24px) saturate(140%)",
+                          backdropFilter: "blur(20px)",
+                          WebkitBackdropFilter: "blur(20px)",
                           border: "1px solid var(--border-strong)",
                           borderRadius: 16,
-                          boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          boxShadow: isDark
+                            ? "0 20px 48px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
+                            : "0 8px 32px rgba(15,16,28,0.12), 0 2px 8px rgba(15,16,28,0.06), 0 0 0 1px rgba(15,16,28,0.06)",
                           padding: "6px",
                           overflow: "hidden",
                         }}
