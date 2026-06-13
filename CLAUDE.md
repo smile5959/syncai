@@ -74,6 +74,16 @@ syncai/
 ### 인증
 - JWT access_token + refresh_token (쿠키 / Tauri는 localStorage)
 - WS 4001 close: token 만료 → refresh 시도 → 실패 시 logout
+- **로그인 critical path**: 절대 non-critical API (ex. `myTeams()`) await 금지 — Fly.io cold start에서 hang
+  - navigate 후 레이아웃 컴포넌트에서 lazy 로딩
+  - login page: mount-only `useEffect([])` + `loggingInRef` 로 race condition 방지
+
+### 테마 시스템
+- `html` 엘리먼트에 `dark` / `light` / `oat` 클래스 → `globals.css` CSS 변수 전환
+- `theme-provider.tsx`: `type Theme = "dark" | "light" | "oat"`, localStorage `syncai-theme`
+  - `toggle()`: dark → light → oat → dark 순환
+  - `setTheme(t)`: 직접 지정 (설정 페이지 카드)
+- **Oat 팔레트**: bg `#F7F3EC`, surface `#FDFAF5`, accent `#B87333` (copper), text `#2A1C0C`
 
 ### Fly.io cold start
 - 5분 idle 시 suspend → 첫 요청 5-10초 지연
@@ -113,6 +123,8 @@ syncai/
 | 팀/방 삭제 API | `syncai-backend/app/routers/teams.py`, `rooms.py` |
 | 사이드바 | `syncai-frontend/src/components/layout/room-sidebar.tsx` |
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
+| 설정 페이지 (4탭: 프로필/테마/플랜/계정) | `syncai-frontend/src/app/(app)/settings/page.tsx` |
+| 테마 프로바이더 (dark/light/oat) | `syncai-frontend/src/components/providers/theme-provider.tsx` |
 | 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
 | Tauri 빌드 스크립트 | `syncai-frontend/scripts/tauri-build.sh` |
 | MCP 파일 접근 보안 | `syncai-backend/mcp-server/tools.py`, `config.py` |
