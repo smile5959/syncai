@@ -254,28 +254,62 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                       <div className="fixed inset-0 z-20" onClick={() => setMenuRoomId(null)} />
                       <div
                         ref={menuRef}
-                        className="absolute right-2 top-10 z-30 w-44 rounded-2xl overflow-hidden menu-enter"
+                        className="absolute right-2 top-8 z-30 w-40 menu-enter"
                         style={{
-                          background: "rgba(18, 18, 26, 0.88)",
-                          backdropFilter: "blur(24px)",
-                          WebkitBackdropFilter: "blur(24px)",
-                          border: "1px solid rgba(255,255,255,0.07)",
-                          boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
+                          background: "var(--bg-elev)",
+                          backdropFilter: "blur(20px)",
+                          WebkitBackdropFilter: "blur(20px)",
+                          border: "1px solid var(--border-strong)",
+                          borderRadius: 14,
+                          boxShadow: "var(--shadow-lg), 0 0 0 1px var(--border)",
+                          padding: "5px",
                         }}
                       >
                         <button
                           onClick={(e) => { e.stopPropagation(); startRename(room); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-[var(--text-soft)] hover:text-[var(--text)] hover:bg-white/5 transition-all"
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 9,
+                            padding: "8px 10px", borderRadius: 9,
+                            fontSize: 13, fontWeight: 500,
+                            color: "var(--text-soft)",
+                            background: "transparent", border: 0, cursor: "pointer",
+                            transition: "background 0.12s, color 0.12s",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-soft)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-soft)"; }}
                         >
-                          <Pencil size={13} className="shrink-0 opacity-50" />
+                          <span style={{
+                            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                            background: "var(--bg-soft)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Pencil size={12} />
+                          </span>
                           이름 변경
                         </button>
-                        <div className="mx-3 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+                        <div style={{ height: 1, background: "var(--border)", margin: "3px 4px" }} />
+
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteRoom(room); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-400 hover:text-red-300 hover:bg-red-500/8 transition-all"
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 9,
+                            padding: "8px 10px", borderRadius: 9,
+                            fontSize: 13, fontWeight: 500,
+                            color: "var(--red, #f87171)",
+                            background: "transparent", border: 0, cursor: "pointer",
+                            transition: "background 0.12s",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                         >
-                          <Trash2 size={13} className="shrink-0" />
+                          <span style={{
+                            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                            background: "rgba(239,68,68,0.1)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Trash2 size={12} />
+                          </span>
                           삭제
                         </button>
                       </div>
