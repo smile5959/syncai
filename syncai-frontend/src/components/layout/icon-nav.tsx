@@ -69,91 +69,155 @@ function TeamFormModal({ title, initialName = "", initialColor, initialIcon, sub
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-7 w-full max-w-sm shadow-[var(--shadow-lg)]"
+        className="w-full max-w-md mx-4 shadow-2xl"
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: 20,
+          overflow: "hidden",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-[16px] font-semibold text-[var(--text-primary)] mb-5">{title}</h3>
-
-        {/* 미리보기 */}
-        <div className="flex justify-center mb-6">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg select-none"
-            style={{ background: previewColor, boxShadow: `0 6px 24px ${previewColor}55` }}
-          >
-            {icon ?? <span className="text-[22px] font-bold tracking-tight">{getInitials(name || "?")}</span>}
-          </div>
-        </div>
-
-        {/* 팀 이름 */}
-        <Input
-          label="팀 이름"
-          placeholder="예: 프론트엔드팀, 백엔드팀..."
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !showEmoji && onSubmit(name, color, icon)}
-          autoFocus
-        />
-
-        {/* 컬러 팔레트 */}
-        <div className="mt-4">
-          <p className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">색상</p>
-          <div className="flex flex-wrap gap-2">
-            {COLOR_PALETTE.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className="w-7 h-7 rounded-lg transition-all duration-150 shrink-0"
-                style={{
-                  background: c,
-                  outline: color === c ? `3px solid ${c}` : "3px solid transparent",
-                  outlineOffset: 2,
-                  transform: color === c ? "scale(1.15)" : "scale(1)",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 이모지 선택 */}
-        <div className="mt-4">
-          <p className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">아이콘</p>
+        {/* 헤더 */}
+        <div style={{
+          padding: "20px 24px 18px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>{title}</h3>
           <button
-            onClick={() => setShowEmoji((v) => !v)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] hover:border-[var(--accent-dim)] transition-colors text-[13px] text-[var(--text-secondary)]"
-          >
-            <span className="text-lg">{icon ?? "➕"}</span>
-            <span>{icon ? "이모지 변경" : "이모지 선택"}</span>
-            {icon && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setIcon(null); }}
-                className="ml-1 text-[var(--text-muted)] hover:text-red-400 text-xs"
-              >✕</button>
-            )}
-          </button>
-
-          {showEmoji && (
-            <div className="mt-2 p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-base)]">
-              <div className="grid grid-cols-8 gap-1">
-                {EMOJI_LIST.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => { setIcon(e); setShowEmoji(false); }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--bg-hover)] text-lg transition-colors"
-                    style={{ background: icon === e ? "var(--accent-bg)" : undefined }}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 8,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 18, lineHeight: 1,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >×</button>
         </div>
 
-        <div className="flex gap-2.5 mt-5">
+        <div style={{ padding: "24px" }}>
+          {/* 미리보기 */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+            <div
+              style={{
+                width: 72, height: 72, borderRadius: 20,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: previewColor,
+                boxShadow: `0 8px 28px ${previewColor}44`,
+                fontSize: 28,
+                userSelect: "none",
+              }}
+            >
+              {icon ?? <span style={{ fontSize: 22, fontWeight: 700, color: "white", letterSpacing: "-0.5px" }}>{getInitials(name || "?")}</span>}
+            </div>
+          </div>
+
+          {/* 팀 이름 */}
+          <Input
+            label="팀 이름"
+            placeholder="예: 프론트엔드팀, 백엔드팀..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !showEmoji && onSubmit(name, color, icon)}
+            autoFocus
+          />
+
+          {/* 색상 */}
+          <div style={{ marginTop: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>색상</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {COLOR_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  style={{
+                    width: 28, height: 28, borderRadius: 9, flexShrink: 0,
+                    background: c,
+                    outline: color === c ? `3px solid ${c}` : "3px solid transparent",
+                    outlineOffset: 2,
+                    transform: color === c ? "scale(1.18)" : "scale(1)",
+                    transition: "transform 0.12s ease, outline 0.12s ease",
+                    border: "none", cursor: "pointer",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* 아이콘 */}
+          <div style={{ marginTop: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>아이콘</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={() => setShowEmoji((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 14px", borderRadius: 10,
+                  border: `1px solid ${showEmoji ? "var(--accent)" : "var(--border)"}`,
+                  background: showEmoji ? "var(--accent-bg)" : "var(--bg-base)",
+                  color: "var(--text-secondary)", fontSize: 13, cursor: "pointer",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{icon ?? "+"}</span>
+                <span>{icon ? "이모지 변경" : "이모지 선택"}</span>
+              </button>
+              {icon && (
+                <button
+                  onClick={() => setIcon(null)}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "transparent", border: "1px solid var(--border)",
+                    color: "var(--text-muted)", fontSize: 13, cursor: "pointer",
+                  }}
+                >✕</button>
+              )}
+            </div>
+
+            {showEmoji && (
+              <div style={{
+                marginTop: 10, padding: 12, borderRadius: 12,
+                border: "1px solid var(--border)", background: "var(--bg-base)",
+              }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
+                  {EMOJI_LIST.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => { setIcon(e); setShowEmoji(false); }}
+                      style={{
+                        width: 34, height: 34,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        borderRadius: 8, border: "none", cursor: "pointer", fontSize: 18,
+                        background: icon === e ? "var(--accent-bg)" : "transparent",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(ev) => { if (icon !== e) ev.currentTarget.style.background = "var(--bg-hover)"; }}
+                      onMouseLeave={(ev) => { if (icon !== e) ev.currentTarget.style.background = "transparent"; }}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 푸터 */}
+        <div style={{
+          padding: "16px 24px",
+          borderTop: "1px solid var(--border)",
+          display: "flex", gap: 10,
+        }}>
           <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
           <Button
             variant="primary"
@@ -190,6 +254,9 @@ export function IconNav() {
   const [updating, setUpdating] = useState(false);
 
   const [deleteConfirmTeam, setDeleteConfirmTeam] = useState<Team | null>(null);
+
+  // 알림 벨
+  const [bellOpen, setBellOpen] = useState(false);
 
   // 호버 메뉴
   const [menuTeamId, setMenuTeamId] = useState<string | null>(null);
@@ -449,19 +516,28 @@ export function IconNav() {
 
         {/* 하단 유틸 */}
         <div className="flex flex-col" style={{ borderTop: "1px solid var(--border)", paddingTop: 4, paddingBottom: 4 }}>
-          <div className="flex items-center" style={{ height: 40, padding: "0 14px", gap: 10 }}>
+          <button
+            onClick={() => setBellOpen((v) => !v)}
+            className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}
+          >
             <div style={navIconStyle}>
-              <InvitationBell onAccepted={(teamId) => {
-                usersApi.myTeams().then((r) => {
-                  const myTeams = r.data.teams ?? [];
-                  setTeams(myTeams);
-                  const accepted = myTeams.find((t) => t.id === teamId);
-                  if (accepted) { setTeam(accepted); router.push("/rooms"); }
-                }).catch(console.error);
-              }} />
+              <InvitationBell
+                open={bellOpen}
+                onOpenChange={setBellOpen}
+                onAccepted={(teamId) => {
+                  setBellOpen(false);
+                  usersApi.myTeams().then((r) => {
+                    const myTeams = r.data.teams ?? [];
+                    setTeams(myTeams);
+                    const accepted = myTeams.find((t) => t.id === teamId);
+                    if (accepted) { setTeam(accepted); router.push("/rooms"); }
+                  }).catch(console.error);
+                }}
+              />
             </div>
             <span className="icon-nav-label" style={{ fontSize: 13 }}>알림</span>
-          </div>
+          </button>
 
           <button
             onClick={toggle}

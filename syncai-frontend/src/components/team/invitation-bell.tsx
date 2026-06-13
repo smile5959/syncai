@@ -1,22 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, Check, X, Users } from "lucide-react";
 import { invitations as invitationsApi } from "@/lib/api";
 import type { Invitation } from "@/types";
 
 interface InvitationBellProps {
   onAccepted?: (teamId: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function InvitationBell({ onAccepted }: InvitationBellProps) {
+export function InvitationBell({ onAccepted, open: openProp, onOpenChange }: InvitationBellProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [list, setList] = useState<Invitation[]>([]);
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null);
+
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp! : internalOpen;
+
+  function setOpen(v: boolean) {
+    if (controlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  }
 
   useEffect(() => {
     invitationsApi.list().then((r) => setList(r.data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPopupPos({ top: rect.top, left: rect.right + 8 });
+    }
+  }, [open]);
 
   async function handleAccept(inv: Invitation) {
     setLoading(inv.id);
@@ -40,15 +59,17 @@ export function InvitationBell({ onAccepted }: InvitationBellProps) {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={containerRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          if (controlled) e.stopPropagation();
+          setOpen(!open);
+        }}
         className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 relative"
         style={{
           color: list.length > 0 ? "var(--accent-soft)" : "var(--text-muted)",
           background: open ? "var(--accent-bg)" : "transparent",
         }}
-        title="초대 알림"
       >
         <Bell size={17} />
         {list.length > 0 && (
@@ -65,14 +86,16 @@ export function InvitationBell({ onAccepted }: InvitationBellProps) {
         )}
       </button>
 
-      {open && (
+      {open && popupPos && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
           <div
-            className="absolute z-50"
+            className="z-50"
             style={{
-              left: 44, top: 0,
+              position: "fixed",
+              top: popupPos.top,
+              left: popupPos.left,
               width: 296,
               background: "var(--bg-elevated)",
               border: "1px solid var(--border-strong)",

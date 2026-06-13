@@ -264,7 +264,7 @@ input:-webkit-autofill:active {
 ────────────────────────────── */
 .icon-nav-root {
   width: 68px;
-  transition: width 0.25s 0s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.15s 0s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .icon-nav-root:hover {
   width: 210px;
@@ -276,7 +276,7 @@ input:-webkit-autofill:active {
   overflow: hidden;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: max-width 0s 0s ease, opacity 0.1s 0s ease;
+  transition: max-width 0s 0s ease, opacity 0.08s 0s ease;
 }
 .icon-nav-root:hover .icon-nav-label {
   max-width: 130px;
