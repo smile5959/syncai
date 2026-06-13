@@ -197,6 +197,18 @@ export function IconNav() {
   const [hoveredTeamId, setHoveredTeamId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 1초 지연 확장
+  const [expanded, setExpanded] = useState(false);
+  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleNavMouseEnter() {
+    expandTimerRef.current = setTimeout(() => setExpanded(true), 1000);
+  }
+  function handleNavMouseLeave() {
+    if (expandTimerRef.current) { clearTimeout(expandTimerRef.current); expandTimerRef.current = null; }
+    setExpanded(false);
+  }
+
   useEffect(() => {
     // 유저 정보 복구 (새로고침 시 store 초기화 대비 — 쿠키 자동 전송)
     if (!me) {
@@ -345,59 +357,78 @@ export function IconNav() {
     await logoutUser();
   }
 
+  const labelStyle: React.CSSProperties = {
+    overflow: "hidden", whiteSpace: "nowrap", fontSize: 13,
+    color: "var(--text-secondary)",
+    maxWidth: expanded ? 130 : 0,
+    opacity: expanded ? 1 : 0,
+    transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
+    flexShrink: 0,
+  };
+
+  const navIconStyle: React.CSSProperties = {
+    width: 36, height: 36, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    color: "var(--text-muted)",
+  };
+
   return (
     <>
       <nav
-        className="flex flex-col items-center justify-between border-r border-[var(--border)]"
-        style={{ width: 68, background: "var(--bg-soft)", flexShrink: 0, paddingBottom: 20 }}
+        onMouseEnter={handleNavMouseEnter}
+        onMouseLeave={handleNavMouseLeave}
+        className="flex flex-col border-r border-[var(--border)]"
+        style={{
+          width: expanded ? 210 : 68,
+          transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
+          background: "var(--bg-soft)",
+          flexShrink: 0,
+          overflow: "hidden",
+        }}
       >
         {/* 로고 */}
-        <div className="flex flex-col items-center w-full flex-1 min-h-0">
-          <div style={{
-            height: 56,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: "100%",
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-          }}>
-            <Link
-              href="/rooms"
-              className="flex items-center justify-center w-9 h-9 rounded-xl text-white"
-              style={{
-                background: "var(--gradient-accent)",
-                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
-              }}
-            >
-              <Zap size={18} fill="white" />
-            </Link>
-          </div>
-
-          {/* 팀 아이콘 목록 */}
-          <div
-            className="flex flex-col items-center gap-2.5 w-full px-2.5 overflow-y-auto"
-            style={{ flex: 1, minHeight: 0, paddingTop: 10, paddingBottom: 6 }}
+        <div style={{ height: 56, display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)", flexShrink: 0, padding: "0 14px", gap: 10 }}>
+          <Link
+            href="/rooms"
+            className="flex items-center justify-center rounded-xl text-white"
+            style={{ width: 36, height: 36, flexShrink: 0, background: "var(--gradient-accent)", boxShadow: "0 4px 12px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.2)" }}
           >
-            {teams.map((team) => {
-              const isActive = currentTeam?.id === team.id;
-              const teamColor = getTeamColor(team);
-              const isHovered = hoveredTeamId === team.id;
+            <Zap size={17} fill="white" />
+          </Link>
+          <span style={{
+            overflow: "hidden", whiteSpace: "nowrap", fontWeight: 700, fontSize: 14,
+            color: "var(--text-primary)", letterSpacing: "-0.3px",
+            maxWidth: expanded ? 120 : 0, opacity: expanded ? 1 : 0,
+            transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
+          }}>SyncAI</span>
+        </div>
 
-              return (
-                <div
-                  key={team.id}
-                  className="relative shrink-0"
-                  onMouseEnter={() => setHoveredTeamId(team.id)}
-                  onMouseLeave={() => setHoveredTeamId(null)}
+        {/* 팀 목록 */}
+        <div className="flex flex-col overflow-y-auto" style={{ flex: 1, minHeight: 0, paddingTop: 6, paddingBottom: 6 }}>
+          {teams.map((team) => {
+            const isActive = currentTeam?.id === team.id;
+            const teamColor = getTeamColor(team);
+            const isHovered = hoveredTeamId === team.id;
+
+            return (
+              <div
+                key={team.id}
+                className="relative"
+                onMouseEnter={() => setHoveredTeamId(team.id)}
+                onMouseLeave={() => setHoveredTeamId(null)}
+              >
+                <button
+                  onClick={() => handleSelectTeam(team)}
+                  onContextMenu={(e) => { e.preventDefault(); openMenu(e, team.id); }}
+                  title={team.name}
+                  className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ height: 50, padding: "0 14px", gap: 10 }}
                 >
-                  <button
-                    onClick={() => handleSelectTeam(team)}
-                    onContextMenu={(e) => { e.preventDefault(); openMenu(e, team.id); }}
-                    title={team.name}
-                    className="rounded-xl flex items-center justify-center transition-all duration-150"
+                  <div
+                    className="rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-150"
                     style={{
                       width: 40, height: 40,
                       background: teamColor,
-                      color: "white",
                       opacity: isActive ? 1 : 0.5,
                       outline: isActive ? `2px solid ${teamColor}` : "2px solid transparent",
                       outlineOffset: 2,
@@ -405,132 +436,126 @@ export function IconNav() {
                     }}
                   >
                     {team.icon
-                      ? <span style={{ fontSize: 18, lineHeight: 1 }}>{team.icon}</span>
-                      : <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.5px" }}>{getInitials(team.name)}</span>
+                      ? <span style={{ fontSize: 18, lineHeight: 1, color: "white" }}>{team.icon}</span>
+                      : <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.5px", color: "white" }}>{getInitials(team.name)}</span>
                     }
+                  </div>
+                  <span style={{
+                    ...labelStyle,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                    flex: 1, minWidth: 0, textOverflow: "ellipsis",
+                  }}>{team.name}</span>
+                </button>
+
+                {isHovered && (
+                  <button
+                    onClick={(e) => openMenu(e, team.id)}
+                    style={{
+                      position: "absolute", top: "50%", transform: "translateY(-50%)",
+                      right: expanded ? 10 : 6,
+                      width: 18, height: 18, borderRadius: "50%",
+                      background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", zIndex: 10,
+                      transition: "right 0.22s cubic-bezier(0.4,0,0.2,1)",
+                    }}
+                  >
+                    <MoreHorizontal size={10} color="var(--text-muted)" />
                   </button>
+                )}
+              </div>
+            );
+          })}
 
-                  {/* 호버 시 메뉴 버튼 — overflow 밖으로 노출 */}
-                  {isHovered && (
-                    <button
-                      onClick={(e) => openMenu(e, team.id)}
-                      style={{
-                        position: "absolute", top: -4, right: -4,
-                        width: 16, height: 16, borderRadius: "50%",
-                        background: "var(--bg-elevated)",
-                        border: "1px solid var(--border)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        cursor: "pointer", zIndex: 10,
-                      }}
-                    >
-                      <MoreHorizontal size={9} color="var(--text-muted)" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* 팀 추가 버튼 */}
-            <button
-              onClick={() => setShowCreate(true)}
-              title="새 팀 만들기"
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 shrink-0 hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              style={{
-                color: "var(--text-muted)",
-                border: "2px dashed var(--border)",
-                background: "transparent",
-              }}
-            >
+          {/* 팀 추가 */}
+          <button
+            onClick={() => setShowCreate(true)}
+            title="새 팀 만들기"
+            className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 50, padding: "0 14px", gap: 10 }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 12, border: "2px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", flexShrink: 0 }}>
               <Plus size={15} />
-            </button>
-          </div>
+            </div>
+            <span style={{ ...labelStyle, color: "var(--text-muted)" }}>새 팀 만들기</span>
+          </button>
         </div>
 
-        {/* 하단: 유틸 아이콘 */}
-        <div className="flex flex-col items-center gap-1 px-2 w-full">
-          <InvitationBell onAccepted={(teamId) => {
-            usersApi.myTeams().then((r) => {
-              const myTeams = r.data.teams ?? [];
-              setTeams(myTeams);
-              const accepted = myTeams.find((t) => t.id === teamId);
-              if (accepted) {
-                setTeam(accepted);
-                router.push("/rooms");
-              }
-            }).catch(console.error);
-          }} />
+        {/* 하단 유틸 */}
+        <div className="flex flex-col" style={{ borderTop: "1px solid var(--border)", paddingTop: 4, paddingBottom: 4 }}>
+          <div className="flex items-center" style={{ height: 40, padding: "0 14px", gap: 10 }}>
+            <div style={navIconStyle}>
+              <InvitationBell onAccepted={(teamId) => {
+                usersApi.myTeams().then((r) => {
+                  const myTeams = r.data.teams ?? [];
+                  setTeams(myTeams);
+                  const accepted = myTeams.find((t) => t.id === teamId);
+                  if (accepted) { setTeam(accepted); router.push("/rooms"); }
+                }).catch(console.error);
+              }} />
+            </div>
+            <span style={{ ...labelStyle }}>알림</span>
+          </div>
 
           <button
             onClick={toggle}
             title={theme === "dark" ? "라이트 모드로" : theme === "light" ? "Oat 모드로" : "다크 모드로"}
-            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)]"
+            className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}
           >
-            {theme === "dark" ? <Sun size={17} /> : theme === "light" ? <Coffee size={17} /> : <Moon size={17} />}
+            <div style={navIconStyle}>
+              {theme === "dark" ? <Sun size={17} /> : theme === "light" ? <Coffee size={17} /> : <Moon size={17} />}
+            </div>
+            <span style={labelStyle}>{theme === "dark" ? "라이트 모드" : theme === "light" ? "Oat 모드" : "다크 모드"}</span>
           </button>
 
-          <div className="w-6 h-px my-1" style={{ background: "var(--border)" }} />
+          <div style={{ height: 1, background: "var(--border)", margin: "2px 14px" }} />
 
           <Link href="/settings" title="설정"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)] transition-all duration-150">
-            <Settings size={18} />
+            className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}>
+            <div style={navIconStyle}><Settings size={17} /></div>
+            <span style={labelStyle}>설정</span>
           </Link>
 
           <Link href="/help" title="도움말"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)] transition-all duration-150">
-            <HelpCircle size={18} />
+            className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}>
+            <div style={navIconStyle}><HelpCircle size={17} /></div>
+            <span style={labelStyle}>도움말</span>
           </Link>
 
           <button onClick={handleLogout} title="로그아웃"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--red)] hover:bg-red-500/10 transition-all duration-150">
-            <LogOut size={18} />
+            className="flex items-center w-full transition-colors hover:bg-red-500/10"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}>
+            <div style={{ ...navIconStyle, color: "var(--text-muted)" }}><LogOut size={17} /></div>
+            <span style={{ ...labelStyle, color: "var(--red, #f87171)" }}>로그아웃</span>
           </button>
+        </div>
 
-          {/* 내 프로필 아바타 */}
-          {me && (
-            <div className="relative group mt-1">
-              <button
-                title={`${me.name}\n${me.email}`}
-                style={{
-                  width: 34, height: 34, borderRadius: 11, flexShrink: 0,
-                  background: "var(--gradient-accent)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: "2px solid var(--border)",
-                  cursor: "default",
-                  boxShadow: "0 2px 8px rgba(99,102,241,0.25)",
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 700, color: "white", letterSpacing: "-0.5px" }}>
+        {/* 유저 패널 */}
+        {me && (
+          <div style={{ borderTop: "1px solid var(--border)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, background: "var(--bg-base)", flexShrink: 0 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 11, background: "var(--gradient-accent)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(99,102,241,0.25)" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "white", letterSpacing: "-0.5px" }}>
                   {me.name?.slice(0, 2).toUpperCase() ?? "?"}
                 </span>
-              </button>
-              {/* 호버 툴팁 */}
-              <div style={{
-                position: "fixed",
-                bottom: 12,
-                left: 76,
-                zIndex: 200,
-                pointerEvents: "none",
-                opacity: 0,
-                transition: "opacity 0.15s ease",
-              }}
-                className="group-hover:opacity-100"
-              >
-                <div style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                  minWidth: 160,
-                  whiteSpace: "nowrap",
-                }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{me.name}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{me.email}</p>
-                </div>
               </div>
+              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#22c55e", border: "2px solid var(--bg-base)", position: "absolute", bottom: -1, right: -1 }} />
             </div>
-          )}
-        </div>
+            <div style={{
+              flex: 1, minWidth: 0,
+              maxWidth: expanded ? 110 : 0, opacity: expanded ? 1 : 0,
+              overflow: "hidden",
+              transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me.name}</p>
+              <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>온라인</p>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* 팀 컨텍스트 메뉴 — fixed 포지셔닝으로 overflow 클리핑 우회 */}
