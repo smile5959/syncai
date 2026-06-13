@@ -254,61 +254,79 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                       <div className="fixed inset-0 z-20" onClick={() => setMenuRoomId(null)} />
                       <div
                         ref={menuRef}
-                        className="absolute right-2 top-8 z-30 w-40 menu-enter"
+                        className="absolute right-2 top-8 z-30 menu-enter"
                         style={{
+                          width: 192,
                           background: "var(--bg-elev)",
-                          backdropFilter: "blur(20px)",
-                          WebkitBackdropFilter: "blur(20px)",
+                          backdropFilter: "blur(24px) saturate(140%)",
+                          WebkitBackdropFilter: "blur(24px) saturate(140%)",
                           border: "1px solid var(--border-strong)",
-                          borderRadius: 14,
-                          boxShadow: "var(--shadow-lg), 0 0 0 1px var(--border)",
-                          padding: "5px",
+                          borderRadius: 16,
+                          boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          padding: "6px",
+                          overflow: "hidden",
                         }}
                       >
+                        {/* 방 이름 헤더 */}
+                        <div style={{
+                          padding: "8px 12px 6px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}>
+                          {room.name}
+                        </div>
+
+                        <div style={{ height: 1, background: "var(--border)", margin: "2px 6px 4px" }} />
+
                         <button
                           onClick={(e) => { e.stopPropagation(); startRename(room); }}
                           style={{
-                            width: "100%", display: "flex", alignItems: "center", gap: 9,
-                            padding: "8px 10px", borderRadius: 9,
-                            fontSize: 13, fontWeight: 500,
-                            color: "var(--text-soft)",
+                            width: "100%", display: "flex", alignItems: "center", gap: 11,
+                            padding: "10px 12px", borderRadius: 10,
+                            fontSize: 13.5, fontWeight: 500,
+                            color: "var(--text)",
                             background: "transparent", border: 0, cursor: "pointer",
-                            transition: "background 0.12s, color 0.12s",
+                            transition: "background 0.15s",
+                            textAlign: "left",
                           }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-soft)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-soft)"; }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-soft)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                         >
                           <span style={{
-                            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
-                            background: "var(--bg-soft)",
+                            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                            background: "var(--accent-bg)",
+                            color: "var(--accent-text)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
-                            <Pencil size={12} />
+                            <Pencil size={13} />
                           </span>
                           이름 변경
                         </button>
 
-                        <div style={{ height: 1, background: "var(--border)", margin: "3px 4px" }} />
-
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteRoom(room); }}
                           style={{
-                            width: "100%", display: "flex", alignItems: "center", gap: 9,
-                            padding: "8px 10px", borderRadius: 9,
-                            fontSize: 13, fontWeight: 500,
+                            width: "100%", display: "flex", alignItems: "center", gap: 11,
+                            padding: "10px 12px", borderRadius: 10,
+                            fontSize: 13.5, fontWeight: 500,
                             color: "var(--red, #f87171)",
                             background: "transparent", border: 0, cursor: "pointer",
-                            transition: "background 0.12s",
+                            transition: "background 0.15s",
+                            textAlign: "left",
                           }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.07)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                         >
                           <span style={{
-                            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
                             background: "rgba(239,68,68,0.1)",
+                            color: "var(--red, #f87171)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
-                            <Trash2 size={12} />
+                            <Trash2 size={13} />
                           </span>
                           삭제
                         </button>
