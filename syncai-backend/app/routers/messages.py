@@ -613,7 +613,8 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 
         def _clean_ctx(c: str, t: str) -> str:
             if t == "ai_cmd":
-                return re.sub(r'^/ai\s+@\S+\s*', '', c, flags=re.IGNORECASE).strip()
+                # /ai @멘션 ... 또는 /ai ... 모두 prefix 제거
+                return re.sub(r'^/ai\s+(?:@\S+\s*)?', '', c, flags=re.IGNORECASE).strip()
             if t == "ai_res":
                 c = re.sub(r'`/ai\s+@[^`]+`', '', c, flags=re.DOTALL)
                 c = re.sub(r'^/ai\s+@\S+[^\n]*$', '', c, flags=re.MULTILINE)
@@ -630,7 +631,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                     else m.content
                 ),
             })
-        clean_user_content = re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
+        clean_user_content = re.sub(r'^/ai\s+(?:@\S+\s*)?', '', content, flags=re.IGNORECASE).strip()
         messages.append({"role": "user", "content": clean_user_content})
 
         result_text = ""
@@ -1078,31 +1079,69 @@ async def _send_ai_plan(
             )
             return
 
-        # MCP 필요인데 현재 유저가 MCP를 아예 등록하지 않은 경우 → 즉시 안내
-        user_mcp_count = db.query(McpConfig).filter(McpConfig.owner_user_id == current_user.id).count()
-        if user_mcp_count == 0:
-            task.status = "failed"
-            task.error = "MCP 미등록"
-            db.commit()
-            await broadcast(chat_connections, room_id, {
-                "type": "message",
-                "data": {
-                    "id": f"err-{task_id}",
-                    "room_id": room_id,
-                    "user_id": None,
-                    "content": "⚠️ 등록된 PC(MCP)가 없어요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요.",
-                    "type": "ai_res",
-                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
-                },
-            })
-            await broadcast(task_connections, room_id, {
-                "type": "task_failed",
-                "data": {"task_id": task_id, "error": "MCP 미등록"},
-            })
-            return
+        effective_mention = plan["mcp_name"] or mention_name
 
-        # MCP 필요 → 제안된 MCP Config 찾아서 task에 미리 저장
-        proposed_mcp = _select_mcp_config(db, team_id, plan["mcp_name"] or mention_name, current_user)
+        if effective_mention:
+            # @멘션 있음: 해당 MCP 접근 가능 여부 확인 (소유자 or 공개)
+            proposed_mcp = _select_mcp_config(db, team_id, effective_mention, current_user)
+            if not proposed_mcp:
+                # 팀 내 해당 이름 MCP 존재 여부로 비공개 vs 없음 구분
+                team_uuid_val = uuid.UUID(team_id)
+                any_named = (
+                    db.query(McpConfig)
+                    .join(McpConfigTeam, McpConfig.id == McpConfigTeam.mcp_config_id)
+                    .filter(McpConfigTeam.team_id == team_uuid_val, McpConfig.name == effective_mention)
+                    .first()
+                )
+                err_content = (
+                    f"⚠️ **{effective_mention}** MCP가 공개 설정이 되어 있지 않아요."
+                    if any_named else
+                    f"⚠️ **{effective_mention}** MCP를 찾을 수 없어요."
+                )
+                task.status = "failed"
+                task.error = err_content
+                db.commit()
+                await broadcast(chat_connections, room_id, {
+                    "type": "message",
+                    "data": {
+                        "id": f"err-{task_id}",
+                        "room_id": room_id,
+                        "user_id": None,
+                        "content": err_content,
+                        "type": "ai_res",
+                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                    },
+                })
+                await broadcast(task_connections, room_id, {
+                    "type": "task_failed",
+                    "data": {"task_id": task_id, "error": err_content},
+                })
+                return
+        else:
+            # @멘션 없음: 본인 MCP 등록 여부 확인
+            user_mcp_count = db.query(McpConfig).filter(McpConfig.owner_user_id == current_user.id).count()
+            if user_mcp_count == 0:
+                task.status = "failed"
+                task.error = "MCP 미등록"
+                db.commit()
+                await broadcast(chat_connections, room_id, {
+                    "type": "message",
+                    "data": {
+                        "id": f"err-{task_id}",
+                        "room_id": room_id,
+                        "user_id": None,
+                        "content": "⚠️ 등록된 PC(MCP)가 없어요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요.",
+                        "type": "ai_res",
+                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                    },
+                })
+                await broadcast(task_connections, room_id, {
+                    "type": "task_failed",
+                    "data": {"task_id": task_id, "error": "MCP 미등록"},
+                })
+                return
+            proposed_mcp = _select_mcp_config(db, team_id, None, current_user)
+
         if proposed_mcp:
             task.mcp_config_id = proposed_mcp.id
 
@@ -1133,28 +1172,6 @@ async def _send_ai_plan(
                     },
                 })
                 return
-        elif not proposed_mcp and (plan["mcp_name"] or mention_name):
-            # MCP 이름은 특정됐는데 해당 계정에 등록된 MCP가 없는 경우
-            mcp_name = plan["mcp_name"] or mention_name
-            task.status = "failed"
-            task.error = f"MCP 없음: {mcp_name}"
-            db.commit()
-            await broadcast(chat_connections, room_id, {
-                "type": "message",
-                "data": {
-                    "id": f"err-{task_id}",
-                    "room_id": room_id,
-                    "user_id": None,
-                    "content": f"⚠️ **{mcp_name}** MCP가 이 계정에 등록되어 있지 않아요. 설정 > 내 MCP에서 등록해 주세요.",
-                    "type": "ai_res",
-                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
-                },
-            })
-            await broadcast(task_connections, room_id, {
-                "type": "task_failed",
-                "data": {"task_id": task_id, "error": f"'{mcp_name}' MCP를 찾을 수 없습니다."},
-            })
-            return
 
         # auto_approve: 확인 없이 바로 실행
         if proposed_mcp and proposed_mcp.auto_approve:
