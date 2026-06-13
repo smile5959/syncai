@@ -88,10 +88,11 @@ export function InvitationBell({ onAccepted, open: openProp, onOpenChange }: Inv
 
       {open && popupPos && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
 
           <div
             className="z-50"
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: "fixed",
               top: popupPos.top,
