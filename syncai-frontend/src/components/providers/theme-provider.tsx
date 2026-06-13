@@ -2,16 +2,18 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "oat";
 
 interface ThemeContextValue {
   theme: Theme;
   toggle: () => void;
+  setTheme: (t: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
   toggle: () => {},
+  setTheme: () => {},
 });
 
 export function useTheme() {
@@ -19,18 +21,24 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
-    // 마운트 시점에 localStorage에서 읽어 적용
     const saved = (localStorage.getItem("syncai-theme") as Theme) ?? "dark";
-    setTheme(saved);
+    setThemeState(saved);
     applyTheme(saved);
   }, []);
 
+  function setTheme(t: Theme) {
+    setThemeState(t);
+    localStorage.setItem("syncai-theme", t);
+    applyTheme(t);
+  }
+
+  // dark → light → oat → dark 순환
   function toggle() {
-    setTheme((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
+    setThemeState((prev) => {
+      const next: Theme = prev === "dark" ? "light" : prev === "light" ? "oat" : "dark";
       localStorage.setItem("syncai-theme", next);
       applyTheme(next);
       return next;
@@ -38,7 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggle, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -46,6 +54,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 function applyTheme(theme: Theme) {
   const el = document.documentElement;
-  el.classList.remove("dark", "light");
+  el.classList.remove("dark", "light", "oat");
   el.classList.add(theme);
 }

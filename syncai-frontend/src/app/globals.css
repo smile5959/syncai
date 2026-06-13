@@ -120,6 +120,64 @@ html.light {
 }
 
 /* ──────────────────────────────
+   Oat theme — 따뜻한 아이보리, copper 액센트
+────────────────────────────── */
+html.oat {
+  --bg: #F7F3EC;
+  --bg-elev: #FDFAF5;
+  --bg-soft: #EDE5D8;
+  --bg-sunken: #E4D9C8;
+  --border: rgba(120, 88, 52, 0.12);
+  --border-strong: rgba(120, 88, 52, 0.22);
+  --text: #2A1C0C;
+  --text-soft: #5A4025;
+  --text-muted: #9A7A55;
+  --text-faint: #C4A87E;
+  --accent: #B87333;
+  --accent-soft: #D4935A;
+  --accent-violet: #C86E3A;
+  --accent-bg: rgba(184, 115, 51, 0.1);
+  --accent-bg-hover: rgba(184, 115, 51, 0.17);
+  --accent-text: #8B4513;
+  --gradient-accent: linear-gradient(135deg, #B87333 0%, #D4935A 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(184, 115, 51, 0.15) 0%, rgba(212, 147, 90, 0.10) 100%);
+  --gradient-bg: radial-gradient(ellipse 70% 50% at 50% -5%, rgba(184, 115, 51, 0.07), transparent 55%),
+                 radial-gradient(ellipse 60% 40% at 0% 100%, rgba(212, 147, 90, 0.05), transparent 60%),
+                 #F7F3EC;
+  --shadow-sm: 0 1px 3px rgba(120, 88, 52, 0.06);
+  --shadow-md: 0 4px 12px rgba(120, 88, 52, 0.1);
+  --shadow-lg: 0 12px 40px rgba(184, 115, 51, 0.14), 0 4px 16px rgba(120, 88, 52, 0.08);
+  --shadow-glow: 0 0 0 1px rgba(184, 115, 51, 0.22), 0 8px 24px rgba(184, 115, 51, 0.2);
+  --green: #2E6B47;
+  --red: #B83A2A;
+  --yellow: #A0720A;
+  --status-online: #2E6B47;
+  --status-online-bg: rgba(46, 107, 71, 0.1);
+  --status-online-border: rgba(46, 107, 71, 0.2);
+  --status-error: #B83A2A;
+  --status-error-bg: rgba(184, 58, 42, 0.08);
+  --status-error-border: rgba(184, 58, 42, 0.2);
+  /* aliases */
+  --bg-base: var(--bg);
+  --bg-surface: var(--bg-elev);
+  --bg-elevated: var(--bg-soft);
+  --bg-hover: var(--bg-soft);
+  --border-subtle: var(--border);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-soft);
+  --accent-dim: rgba(184, 115, 51, 0.24);
+  --accent-glow: rgba(184, 115, 51, 0.16);
+  --ai-bubble: var(--accent-bg);
+  --ai-border: rgba(184, 115, 51, 0.22);
+}
+html.oat ::selection { background: rgba(184, 115, 51, 0.2); }
+html.oat .field-wrap:focus-within {
+  background: var(--bg-elev) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+/* ──────────────────────────────
    Base
 ────────────────────────────── */
 * {

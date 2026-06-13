@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
+import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Coffee, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 import { InvitationBell } from "@/components/team/invitation-bell";
@@ -461,10 +461,10 @@ export function IconNav() {
 
           <button
             onClick={toggle}
-            title={theme === "dark" ? "라이트 모드" : "다크 모드"}
+            title={theme === "dark" ? "라이트 모드로" : theme === "light" ? "Oat 모드로" : "다크 모드로"}
             className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 text-[var(--text-muted)] hover:text-[var(--text-soft)] hover:bg-[var(--bg-elev)]"
           >
-            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            {theme === "dark" ? <Sun size={17} /> : theme === "light" ? <Coffee size={17} /> : <Moon size={17} />}
           </button>
 
           <div className="w-6 h-px my-1" style={{ background: "var(--border)" }} />
