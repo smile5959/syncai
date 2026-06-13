@@ -401,7 +401,8 @@ export default function RoomPage() {
   const mcpConnected = teamMcpConfigs.some((c) => c.is_public);
   const availableMcpNames = teamMcpConfigs.filter((c) => c.is_public).map((c) => c.name);
 
-  const idleCount = workers.filter((w) => w.status === "idle").length;
+  const idleWorkers = workers.filter((w) => w.status === "idle");
+  const idleCount = idleWorkers.length;
 
   return (
     <div style={{ display: "flex", flex: 1, overflow: "hidden", minWidth: 0 }}>
@@ -473,7 +474,10 @@ export default function RoomPage() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ade80] opacity-60" />
                     <span className="relative inline-flex rounded-full bg-[#4ade80]" style={{ width: 9, height: 9 }} />
                   </span>
-                  슬롯 {idleCount}개 대기중
+                  {idleCount === 1
+                    ? `${idleWorkers[0].name} 대기중`
+                    : `${idleWorkers[0].name} 외 ${idleCount - 1}명 대기중`
+                  }
                 </span>
               ) : (
                 <span

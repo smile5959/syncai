@@ -6,6 +6,7 @@ import { RoomSidebar } from "@/components/layout/room-sidebar";
 import { InviteModal } from "@/components/team/invite-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Hash, X } from "lucide-react";
 import { rooms as roomsApi } from "@/lib/api";
 import { createChatWS } from "@/lib/ws";
 import { useAuthStore } from "@/store/auth";
@@ -228,15 +229,55 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
       {showCreate && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowCreate(false)}
+          onClick={() => { setShowCreate(false); setNewName(""); }}
         >
           <div
-            className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-7 w-full max-w-sm shadow-[var(--shadow-lg)]"
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 24,
+              padding: "32px 36px",
+              width: "100%",
+              maxWidth: 480,
+              boxShadow: "0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[16px] font-semibold text-[var(--text-primary)] mb-5">
-              새 채팅방 만들기
-            </h3>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: 16,
+                  background: "var(--accent-bg)",
+                  border: "1px solid var(--accent-dim)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Hash size={22} style={{ color: "var(--accent)" }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                    새 채팅방 만들기
+                  </h3>
+                  <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 5, lineHeight: 1.5 }}>
+                    팀원들과 대화할 공간을 만들어보세요
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowCreate(false); setNewName(""); }}
+                style={{
+                  width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "transparent", border: "none", cursor: "pointer",
+                  color: "var(--text-muted)", marginTop: 2,
+                }}
+                className="hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
             <Input
               label="채팅방 이름"
               placeholder="예: frontend, backend, hotfix..."
@@ -245,13 +286,18 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
               onKeyDown={(e) => e.key === "Enter" && createRoom()}
               autoFocus
             />
-            <div className="flex gap-2.5 mt-5">
-              <Button variant="ghost" className="flex-1" onClick={() => setShowCreate(false)}>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+              <Button
+                variant="ghost"
+                style={{ flex: 1, height: 46, fontSize: 14, borderRadius: 12 }}
+                onClick={() => { setShowCreate(false); setNewName(""); }}
+              >
                 취소
               </Button>
               <Button
                 variant="primary"
-                className="flex-1"
+                style={{ flex: 2, height: 46, fontSize: 14, borderRadius: 12, fontWeight: 600 }}
                 onClick={createRoom}
                 loading={creating}
                 disabled={!newName.trim()}

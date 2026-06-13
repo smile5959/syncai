@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   X, Plus, Folder, Trash2, RefreshCw, Server, Users,
-  Zap, Check, Download, Pencil, Cpu, ChevronDown,
+  Zap, Check, Download, Pencil, Cpu, ChevronDown, Globe, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -867,33 +867,56 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
   const publicConfigs = teamConfigs.filter((tc) => tc.is_public);
 
   return (
-    <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Header */}
       <div>
         <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.015em" }}>팀 공유 설정</p>
-        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.6 }}>
-          공개된 MCP는 팀원이{" "}
-          <code style={{ color: "var(--accent)", fontFamily: "monospace" }}>/ai</code>
-          {" "}명령에 사용할 수 있어요.
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 5, lineHeight: 1.6 }}>
+          공개로 설정한 MCP는 팀원이{" "}
+          <code style={{
+            color: "var(--accent)", fontFamily: "monospace", fontSize: 12,
+            background: "var(--accent-bg)", padding: "1px 5px", borderRadius: 4,
+          }}>/ai @이름</code>
+          {" "}으로 직접 호출할 수 있어요.
         </p>
       </div>
 
+      {/* 공개된 MCP 요약 */}
       {publicConfigs.length > 0 && (
         <div style={{
-          background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.18)",
-          borderRadius: 14, padding: "16px 18px",
+          background: "var(--accent-bg)",
+          border: "1px solid var(--accent-dim)",
+          borderRadius: 16, padding: "16px 20px",
         }}>
-          <p style={{ fontSize: 12.5, fontWeight: 600, color: "#4ade80", marginBottom: 10 }}>
-            이 팀에 공개된 MCP {publicConfigs.length}개
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: 6,
+              background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Globe size={11} color="white" />
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+              팀 공개 MCP {publicConfigs.length}개
+            </p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {publicConfigs.map((tc) => (
-              <span key={tc.id} style={{
-                fontSize: 12, padding: "4px 10px", borderRadius: 8, fontWeight: 500,
-                background: "rgba(34,197,94,0.12)", color: "#4ade80",
-                border: "1px solid rgba(74,222,128,0.22)",
+              <div key={tc.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px", borderRadius: 10,
+                background: "rgba(99,102,241,0.08)", border: "1px solid rgba(129,140,248,0.15)",
               }}>
-                @{tc.name}
-              </span>
+                <Server size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {tc.name}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 5,
+                  background: "var(--accent)", color: "white",
+                }}>
+                  공개중
+                </span>
+              </div>
             ))}
           </div>
         </div>
@@ -907,7 +930,11 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
           <span style={{ fontSize: 12 }}>먼저 &quot;내 MCP&quot; 탭에서 MCP를 등록해주세요.</span>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <>
+          <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: -8 }}>
+            내 MCP 목록
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {configs.map((c) => {
             const pub = isPublicForTeam(c.id);
             const toggling = togglingId === c.id;
@@ -915,18 +942,19 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
               <div key={c.id} style={{
                 display: "flex", alignItems: "center", gap: 14,
                 background: "var(--bg-elevated)",
-                border: `1px solid ${pub ? "rgba(74,222,128,0.18)" : "var(--border)"}`,
+                border: `1px solid ${pub ? "var(--accent-dim)" : "var(--border)"}`,
                 borderRadius: 16, padding: "16px 18px",
                 transition: "border-color 0.2s ease",
               }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                  background: pub ? "rgba(34,197,94,0.1)" : "var(--bg-hover)",
-                  border: `1px solid ${pub ? "rgba(74,222,128,0.22)" : "var(--border)"}`,
+                  background: pub ? "var(--accent-bg)" : "var(--bg-hover)",
+                  border: `1px solid ${pub ? "var(--accent-dim)" : "var(--border)"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: pub ? "0 0 12px rgba(74,222,128,0.1)" : "none",
+                  boxShadow: pub ? "0 0 14px var(--accent-glow)" : "none",
+                  transition: "all 0.2s ease",
                 }}>
-                  <Server size={17} color={pub ? "#4ade80" : "var(--text-muted)"} />
+                  <Server size={17} color={pub ? "var(--accent)" : "var(--text-muted)"} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -942,15 +970,40 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
                   </p>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500, color: pub ? "#4ade80" : "var(--text-muted)" }}>
-                    {pub ? "공개" : "비공개"}
-                  </span>
-                  <Toggle checked={pub} onChange={() => toggle(c.id, pub)} disabled={toggling} />
+                  <button
+                    onClick={() => toggle(c.id, pub)}
+                    disabled={toggling}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "6px 14px", borderRadius: 10, border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                      background: pub ? "var(--accent)" : "var(--bg-hover)",
+                      color: pub ? "white" : "var(--text-muted)",
+                      transition: "all 0.18s ease",
+                      opacity: toggling ? 0.5 : 1,
+                    }}
+                    className="hover:opacity-80"
+                  >
+                    {toggling ? (
+                      <span style={{ fontSize: 11 }}>저장중...</span>
+                    ) : pub ? (
+                      <>
+                        <Globe size={11} />
+                        공개중
+                      </>
+                    ) : (
+                      <>
+                        <Lock size={11} />
+                        비공개
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -976,6 +1029,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [modelOpenId, setModelOpenId] = useState<string | null>(null);
+  const [modelDropdownPos, setModelDropdownPos] = useState<{ top: number; left: number } | null>(null);
   const [updatingModelId, setUpdatingModelId] = useState<string | null>(null);
 
   async function load() {
@@ -1014,6 +1068,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
   async function handleModelChange(workerId: string, model: string) {
     setUpdatingModelId(workerId);
     setModelOpenId(null);
+    setModelDropdownPos(null);
     try {
       const res = await workersApi.updateModel(teamId, workerId, model);
       setWorkers((prev) => prev.map((w) => w.id === workerId ? res.data : w));
@@ -1182,7 +1237,16 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
                       </span>
                       {/* 모델 선택 버튼 */}
                       <button
-                        onClick={() => setModelOpenId(isModelOpen ? null : w.id)}
+                        onClick={(e) => {
+                          if (isModelOpen) {
+                            setModelOpenId(null);
+                            setModelDropdownPos(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setModelDropdownPos({ top: rect.bottom + 6, left: rect.left });
+                            setModelOpenId(w.id);
+                          }
+                        }}
                         disabled={updatingModelId === w.id}
                         style={{
                           display: "flex", alignItems: "center", gap: 4,
@@ -1214,41 +1278,50 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate }: { teamId: string; onWorkerUp
                     <Trash2 size={13} />
                   </button>
                 </div>
-                {/* 모델 드롭다운 */}
-                {isModelOpen && (
-                  <div style={{
-                    position: "absolute", top: "calc(100% + 6px)", left: 0,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12, overflow: "hidden",
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                    zIndex: 100, minWidth: 220,
-                  }}>
-                    {WORKER_MODELS.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => handleModelChange(w.id, m.id)}
-                        style={{
-                          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                          gap: 10, padding: "10px 14px",
-                          background: m.id === w.model ? "var(--bg-hover)" : "transparent",
-                          border: "none", cursor: "pointer", textAlign: "left",
-                        }}
-                      >
-                        <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: m.id === w.model ? 600 : 400 }}>
-                          {m.label}
-                        </span>
-                        <span style={{
-                          fontSize: 10, fontWeight: 600,
-                          color: m.badge === "무료" ? "#22c55e" : "var(--text-muted)",
-                          background: m.badge === "무료" ? "rgba(34,197,94,0.12)" : "var(--bg-base)",
-                          borderRadius: 4, padding: "2px 6px",
-                        }}>
-                          {m.badge}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                {/* 모델 드롭다운 — position:fixed로 모달 overflow 제약 없이 표시 */}
+                {isModelOpen && modelDropdownPos && (
+                  <>
+                    <div
+                      style={{ position: "fixed", inset: 0, zIndex: 299 }}
+                      onClick={() => { setModelOpenId(null); setModelDropdownPos(null); }}
+                    />
+                    <div style={{
+                      position: "fixed",
+                      top: modelDropdownPos.top,
+                      left: modelDropdownPos.left,
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12, overflow: "hidden",
+                      boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+                      zIndex: 300, minWidth: 240,
+                    }}>
+                      {WORKER_MODELS.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => handleModelChange(w.id, m.id)}
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                            gap: 10, padding: "10px 14px",
+                            background: m.id === w.model ? "var(--bg-hover)" : "transparent",
+                            border: "none", cursor: "pointer", textAlign: "left",
+                          }}
+                          className="hover:bg-[var(--bg-hover)] transition-colors"
+                        >
+                          <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: m.id === w.model ? 600 : 400 }}>
+                            {m.label}
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600,
+                            color: m.badge === "무료" ? "#22c55e" : "var(--text-muted)",
+                            background: m.badge === "무료" ? "rgba(34,197,94,0.12)" : "var(--bg-base)",
+                            borderRadius: 4, padding: "2px 6px",
+                          }}>
+                            {m.badge}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             );

@@ -41,37 +41,55 @@ export function InviteModal({ teamId, onClose }: InviteModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-7 w-full max-w-sm shadow-[var(--shadow-lg)]"
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: 24,
+          padding: "32px 36px",
+          width: "100%",
+          maxWidth: 480,
+          boxShadow: "0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center">
-              <UserPlus size={15} className="text-white" />
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 16,
+              background: "var(--accent)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 4px 16px var(--accent-glow)",
+            }}>
+              <UserPlus size={22} color="white" />
             </div>
-            <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
-              팀원 초대
-            </h3>
+            <div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                팀원 초대
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 5, lineHeight: 1.5 }}>
+                SyncAI에 가입된 계정만 초대할 수 있어요
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--text-muted)", marginTop: 2,
+            }}
+            className="hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Description */}
-        <p className="text-[13px] text-[var(--text-muted)] mb-5 leading-relaxed">
-          초대할 팀원의 이메일을 입력하세요.
-          <br />
-          <span className="text-[var(--text-secondary)]">SyncAI에 가입된 계정만 초대할 수 있어요.</span>
-        </p>
-
         {/* Input */}
         <Input
-          label="이메일"
+          label="이메일 주소"
           type="email"
           placeholder="teammate@example.com"
           value={email}
@@ -82,25 +100,41 @@ export function InviteModal({ teamId, onClose }: InviteModalProps) {
 
         {/* Error */}
         {error && (
-          <p className="text-[12px] text-red-400 mt-2.5 px-1">{error}</p>
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            marginTop: 12, padding: "10px 14px",
+            background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: 10,
+          }}>
+            <p style={{ fontSize: 13, color: "#f87171", lineHeight: 1.5 }}>{error}</p>
+          </div>
         )}
 
         {/* Success */}
         {success && (
-          <div className="flex items-center gap-2 mt-2.5 px-1">
-            <Check size={13} className="text-emerald-400" />
-            <p className="text-[12px] text-emerald-400">초대 완료! 팀원이 추가됐어요.</p>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            marginTop: 12, padding: "10px 14px",
+            background: "rgba(34,197,94,0.08)", border: "1px solid rgba(74,222,128,0.2)",
+            borderRadius: 10,
+          }}>
+            <Check size={15} style={{ color: "#4ade80", flexShrink: 0 }} />
+            <p style={{ fontSize: 13, color: "#4ade80" }}>초대 완료! 팀원에게 초대 링크가 전송됐어요.</p>
           </div>
         )}
 
         {/* Buttons */}
-        <div className="flex gap-2.5 mt-5">
-          <Button variant="ghost" className="flex-1" onClick={onClose}>
+        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          <Button
+            variant="ghost"
+            style={{ flex: 1, height: 46, fontSize: 14, borderRadius: 12 }}
+            onClick={onClose}
+          >
             닫기
           </Button>
           <Button
             variant="primary"
-            className="flex-1"
+            style={{ flex: 2, height: 46, fontSize: 14, borderRadius: 12, fontWeight: 600 }}
             onClick={handleInvite}
             loading={loading}
             disabled={!email.trim()}
