@@ -530,7 +530,7 @@ async def _run_ai_task(
                 "user_id": None,
                 "content": f"⚠️ {error_msg}",
                 "type": "ai_res",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
@@ -721,7 +721,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 "user_id": None,
                 "content": f"⚠️ {error_msg}",
                 "type": "ai_res",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
