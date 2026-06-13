@@ -85,6 +85,13 @@ syncai/
   - `setTheme(t)`: 직접 지정 (설정 페이지 카드)
 - **Oat 팔레트**: bg `#F7F3EC`, surface `#FDFAF5`, accent `#B87333` (copper), text `#2A1C0C`
 
+### icon-nav 확장 패턴
+- `globals.css` `.icon-nav-root` / `.icon-nav-label` 클래스로 hover 확장 구현
+- 커서 1초 유지 → 68px → 210px (`transition-delay: 1s`), 이탈 즉시 축소 (`delay: 0s`)
+- **JS state 쓰지 말 것** — setTimeout + setState는 React 렌더 타이밍 이슈로 동작 불안정
+- 레이블: `max-width: 0 → 130px` + `opacity: 0 → 1` (delay 1.08s)
+- 팀 이니셜: 3글자 (`name.slice(0, 3)`), 팀 아이콘 크기: 40px
+
 ### Fly.io cold start
 - 5분 idle 시 suspend → 첫 요청 5-10초 지연
 - 로그인 화면 + AppLayout mount 시 `/health` ping + 4분 interval로 해결
