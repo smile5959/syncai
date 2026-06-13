@@ -201,15 +201,17 @@ async def _ws_loop(backend_url: str, token: str) -> None:
                     # ── 폴더 선택 이벤트 ─────────────────────────────────
                     elif msg_type in ("new_config", "request_folder_pick"):
                         config_id = data.get("mcp_config_id", "")
+                        new_token = data.get("mcp_token", "").strip()
                         log.info("[ws] 폴더 선택 요청 (type=%s config=%s)", msg_type, config_id[:8] if config_id else "")
                         path = await _pick_folder_async("AI가 접근할 폴더를 선택하세요")
                         if path:
-                            _cfg.register_token(token, path, persist=True)
-                            log.info("[ws] 폴더 선택 완료: %s", path)
-                            await ws.send(json.dumps({
-                                "type":     "base_dir_update",
-                                "base_dir": path,
-                            }))
+                            target_token = new_token if new_token else token
+                            _cfg.register_token(target_token, path, persist=True)
+                            log.info("[ws] 폴더 선택 완료: %s (token=...%s)", path, target_token[-6:])
+                            update_msg: dict = {"type": "base_dir_update", "base_dir": path}
+                            if new_token and new_token != token:
+                                update_msg["mcp_token"] = new_token
+                            await ws.send(json.dumps(update_msg))
                         else:
                             log.info("[ws] 폴더 선택 취소됨")
 

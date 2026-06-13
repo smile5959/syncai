@@ -308,10 +308,17 @@ async def ws_mcp_agent(websocket: WebSocket):
 
             elif msg_type == "base_dir_update":
                 # MCP 서버가 폴더 선택 완료 후 경로 전송
+                # payload에 mcp_token이 있으면 new_config 이벤트로 등록된 새 토큰 — 해당 config 업데이트
                 base_dir = data.get("base_dir", "")
+                payload_token = data.get("mcp_token", "").strip()
                 if base_dir:
-                    _update_base_dir(mcp_token, base_dir)
-                    _publish_mcp_status(user_id, config_id, online=True, base_dir=base_dir)
+                    if payload_token and payload_token != mcp_token:
+                        target_token, target_config_id = _resolve_same_user_token(payload_token, user_id)
+                    else:
+                        target_token, target_config_id = mcp_token, config_id
+                    if target_token:
+                        _update_base_dir(target_token, base_dir)
+                        _publish_mcp_status(user_id, target_config_id, online=True, base_dir=base_dir)
 
             elif msg_type == "ping":
                 pass  # keep-alive, 무시
@@ -348,6 +355,24 @@ def _update_base_dir(mcp_token: str, base_dir: str) -> None:
             log.info("[mcp-agent] base_dir 업데이트: %s → %s", config.base_dir, base_dir)
             config.base_dir = base_dir
             db.commit()
+    finally:
+        db.close()
+
+
+def _resolve_same_user_token(token: str, user_id: str) -> tuple[str, str]:
+    """
+    token이 user_id 소유인지 확인. 맞으면 (token, config_id) 반환, 아니면 ("", "") 반환.
+    new_config 이벤트로 전달된 새 토큰 검증용.
+    """
+    from app.database import SessionLocal
+    from app.models.mcp_config import McpConfig
+    db = SessionLocal()
+    try:
+        config = db.query(McpConfig).filter(McpConfig.mcp_token == token).first()
+        if config and str(config.owner_user_id) == user_id:
+            return token, str(config.id)
+        log.warning("[mcp-agent] base_dir_update 토큰 불일치 — payload token 무시 (...%s)", token[-6:] if token else "")
+        return "", ""
     finally:
         db.close()
 
