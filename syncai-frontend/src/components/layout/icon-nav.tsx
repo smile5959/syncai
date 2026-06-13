@@ -44,7 +44,7 @@ function getTeamColor(team: Team): string {
 }
 
 function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
+  return name.slice(0, 3).toUpperCase();
 }
 
 // ─── 서브 컴포넌트: 팀 생성/수정 모달 ─────────────────
@@ -393,8 +393,9 @@ export function IconNav() {
                     onClick={() => handleSelectTeam(team)}
                     onContextMenu={(e) => { e.preventDefault(); openMenu(e, team.id); }}
                     title={team.name}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150"
+                    className="rounded-xl flex items-center justify-center transition-all duration-150"
                     style={{
+                      width: 40, height: 40,
                       background: teamColor,
                       color: "white",
                       opacity: isActive ? 1 : 0.5,
@@ -404,8 +405,8 @@ export function IconNav() {
                     }}
                   >
                     {team.icon
-                      ? <span style={{ fontSize: 17, lineHeight: 1 }}>{team.icon}</span>
-                      : <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "-0.5px" }}>{getInitials(team.name)}</span>
+                      ? <span style={{ fontSize: 18, lineHeight: 1 }}>{team.icon}</span>
+                      : <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.5px" }}>{getInitials(team.name)}</span>
                     }
                   </button>
 
