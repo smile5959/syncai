@@ -258,3 +258,28 @@ input:-webkit-autofill:active {
   caret-color: var(--text);
   transition: background-color 99999s ease-in-out 0s;
 }
+
+/* ──────────────────────────────
+   icon-nav 1초 지연 hover 확장
+────────────────────────────── */
+.icon-nav-root {
+  width: 68px;
+  transition: width 0.25s 0s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.icon-nav-root:hover {
+  width: 210px;
+  transition: width 0.25s 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.icon-nav-label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: max-width 0s 0s ease, opacity 0.1s 0s ease;
+}
+.icon-nav-root:hover .icon-nav-label {
+  max-width: 130px;
+  opacity: 1;
+  transition: max-width 0.2s 1.08s ease, opacity 0.2s 1.1s ease;
+}

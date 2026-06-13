@@ -197,17 +197,6 @@ export function IconNav() {
   const [hoveredTeamId, setHoveredTeamId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 1초 지연 확장
-  const [expanded, setExpanded] = useState(false);
-  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function handleNavMouseEnter() {
-    expandTimerRef.current = setTimeout(() => setExpanded(true), 1000);
-  }
-  function handleNavMouseLeave() {
-    if (expandTimerRef.current) { clearTimeout(expandTimerRef.current); expandTimerRef.current = null; }
-    setExpanded(false);
-  }
 
   useEffect(() => {
     // 유저 정보 복구 (새로고침 시 store 초기화 대비 — 쿠키 자동 전송)
@@ -357,15 +346,6 @@ export function IconNav() {
     await logoutUser();
   }
 
-  const labelStyle: React.CSSProperties = {
-    overflow: "hidden", whiteSpace: "nowrap", fontSize: 13,
-    color: "var(--text-secondary)",
-    maxWidth: expanded ? 130 : 0,
-    opacity: expanded ? 1 : 0,
-    transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
-    flexShrink: 0,
-  };
-
   const navIconStyle: React.CSSProperties = {
     width: 36, height: 36, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -375,16 +355,8 @@ export function IconNav() {
   return (
     <>
       <nav
-        onMouseEnter={handleNavMouseEnter}
-        onMouseLeave={handleNavMouseLeave}
-        className="flex flex-col border-r border-[var(--border)]"
-        style={{
-          width: expanded ? 210 : 68,
-          transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
-          background: "var(--bg-soft)",
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
+        className="icon-nav-root flex flex-col border-r border-[var(--border)]"
+        style={{ background: "var(--bg-soft)", flexShrink: 0, overflow: "hidden" }}
       >
         {/* 로고 */}
         <div style={{ height: 56, display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)", flexShrink: 0, padding: "0 14px", gap: 10 }}>
@@ -395,12 +367,7 @@ export function IconNav() {
           >
             <Zap size={17} fill="white" />
           </Link>
-          <span style={{
-            overflow: "hidden", whiteSpace: "nowrap", fontWeight: 700, fontSize: 14,
-            color: "var(--text-primary)", letterSpacing: "-0.3px",
-            maxWidth: expanded ? 120 : 0, opacity: expanded ? 1 : 0,
-            transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
-          }}>SyncAI</span>
+          <span className="icon-nav-label" style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", letterSpacing: "-0.3px" }}>SyncAI</span>
         </div>
 
         {/* 팀 목록 */}
@@ -440,11 +407,10 @@ export function IconNav() {
                       : <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.5px", color: "white" }}>{getInitials(team.name)}</span>
                     }
                   </div>
-                  <span style={{
-                    ...labelStyle,
+                  <span className="icon-nav-label" style={{
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                    flex: 1, minWidth: 0, textOverflow: "ellipsis",
+                    flex: 1, minWidth: 0, textOverflow: "ellipsis", fontSize: 13,
                   }}>{team.name}</span>
                 </button>
 
@@ -453,12 +419,11 @@ export function IconNav() {
                     onClick={(e) => openMenu(e, team.id)}
                     style={{
                       position: "absolute", top: "50%", transform: "translateY(-50%)",
-                      right: expanded ? 10 : 6,
+                      right: 8,
                       width: 18, height: 18, borderRadius: "50%",
                       background: "var(--bg-elevated)", border: "1px solid var(--border)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       cursor: "pointer", zIndex: 10,
-                      transition: "right 0.22s cubic-bezier(0.4,0,0.2,1)",
                     }}
                   >
                     <MoreHorizontal size={10} color="var(--text-muted)" />
@@ -478,7 +443,7 @@ export function IconNav() {
             <div style={{ width: 40, height: 40, borderRadius: 12, border: "2px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", flexShrink: 0 }}>
               <Plus size={15} />
             </div>
-            <span style={{ ...labelStyle, color: "var(--text-muted)" }}>새 팀 만들기</span>
+            <span className="icon-nav-label" style={{ color: "var(--text-muted)", fontSize: 13 }}>새 팀 만들기</span>
           </button>
         </div>
 
@@ -495,7 +460,7 @@ export function IconNav() {
                 }).catch(console.error);
               }} />
             </div>
-            <span style={{ ...labelStyle }}>알림</span>
+            <span className="icon-nav-label" style={{ fontSize: 13 }}>알림</span>
           </div>
 
           <button
@@ -507,7 +472,7 @@ export function IconNav() {
             <div style={navIconStyle}>
               {theme === "dark" ? <Sun size={17} /> : theme === "light" ? <Coffee size={17} /> : <Moon size={17} />}
             </div>
-            <span style={labelStyle}>{theme === "dark" ? "라이트 모드" : theme === "light" ? "Oat 모드" : "다크 모드"}</span>
+            <span className="icon-nav-label" style={{ fontSize: 13 }}>{theme === "dark" ? "라이트 모드" : theme === "light" ? "Oat 모드" : "다크 모드"}</span>
           </button>
 
           <div style={{ height: 1, background: "var(--border)", margin: "2px 14px" }} />
@@ -516,21 +481,21 @@ export function IconNav() {
             className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
             style={{ height: 40, padding: "0 14px", gap: 10 }}>
             <div style={navIconStyle}><Settings size={17} /></div>
-            <span style={labelStyle}>설정</span>
+            <span className="icon-nav-label" style={{ fontSize: 13 }}>설정</span>
           </Link>
 
           <Link href="/help" title="도움말"
             className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
             style={{ height: 40, padding: "0 14px", gap: 10 }}>
             <div style={navIconStyle}><HelpCircle size={17} /></div>
-            <span style={labelStyle}>도움말</span>
+            <span className="icon-nav-label" style={{ fontSize: 13 }}>도움말</span>
           </Link>
 
           <button onClick={handleLogout} title="로그아웃"
             className="flex items-center w-full transition-colors hover:bg-red-500/10"
             style={{ height: 40, padding: "0 14px", gap: 10 }}>
             <div style={{ ...navIconStyle, color: "var(--text-muted)" }}><LogOut size={17} /></div>
-            <span style={{ ...labelStyle, color: "var(--red, #f87171)" }}>로그아웃</span>
+            <span className="icon-nav-label" style={{ fontSize: 13, color: "var(--red, #f87171)" }}>로그아웃</span>
           </button>
         </div>
 
@@ -545,12 +510,7 @@ export function IconNav() {
               </div>
               <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#22c55e", border: "2px solid var(--bg-base)", position: "absolute", bottom: -1, right: -1 }} />
             </div>
-            <div style={{
-              flex: 1, minWidth: 0,
-              maxWidth: expanded ? 110 : 0, opacity: expanded ? 1 : 0,
-              overflow: "hidden",
-              transition: "max-width 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease",
-            }}>
+            <div className="icon-nav-label" style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me.name}</p>
               <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>온라인</p>
             </div>
