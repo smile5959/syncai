@@ -912,9 +912,12 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {tc.name}
                 </span>
+                <span style={{ fontSize: 11, color: tc.is_online ? "#4ade80" : "var(--text-muted)", flexShrink: 0 }}>
+                  {tc.is_online ? "● 온라인" : "◎ 오프라인"}
+                </span>
                 <span style={{
                   fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 5,
-                  background: "var(--accent)", color: "white",
+                  background: "var(--accent)", color: "white", flexShrink: 0,
                 }}>
                   공개중
                 </span>
