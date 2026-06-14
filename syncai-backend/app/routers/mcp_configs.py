@@ -512,6 +512,7 @@ def auto_register_mcp(
     ).first()
     if existing:
         _ensure_team_links(existing, current_user, db)
+        db.commit()
         return McpAutoRegisterResponse(ok=True, mcp_config_id=str(existing.id), created=False)
 
     # 2) 미연결 config(endpoint="")에 token 교체 — 사용자가 UI에서 만든 것
@@ -770,6 +771,12 @@ def mcp_heartbeat(body: McpHeartbeatRequest, db: Session = Depends(get_db)):
     config.last_heartbeat_at = now
     db.commit()
     db.refresh(config)
+
+    # 새 팀에 McpConfigTeam 자동 생성 (팀 가입 후 MCP가 재연결 없이 heartbeat만 보내는 경우 대응)
+    owner = db.query(User).filter(User.id == config.owner_user_id).first()
+    if owner:
+        _ensure_team_links(config, owner, db)
+        db.commit()
 
     # 이슈 3: 신규 연결 시 WebSocket으로 실시간 알림
     if endpoint_changed:

@@ -25,6 +25,7 @@ import {
   users as usersApi,
   workers as workersApi,
   mcpConfigs as mcpConfigsApi,
+  teams as teamsApi,
 } from "@/lib/api";
 import { InviteModal } from "@/components/team/invite-modal";
 import { createChatWS, createTaskWS } from "@/lib/ws";
@@ -32,6 +33,7 @@ import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
 import type {
   ChatRoom,
+  Team,
   Message,
   AiTask,
   Worker,
@@ -112,7 +114,11 @@ export default function RoomPage() {
   const me = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const currentTeam = useAuthStore((s) => s.team);
-  const teamId = currentTeam?.id ?? "";
+  const [roomTeam, setRoomTeam] = useState<Team | null>(null);
+
+  // room.team_id를 우선 사용 — currentTeam이 다른 팀일 수 있음
+  const teamId = room?.team_id || currentTeam?.id || "";
+  const effectiveTeam = roomTeam ?? currentTeam;
 
   // 창 크기에 따라 Worker 패널 자동 조절
   useEffect(() => {
@@ -156,6 +162,17 @@ export default function RoomPage() {
     return () => setCurrentRoomUuid(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // room 팀 정보 로드 (currentTeam과 다를 수 있으므로 별도 fetch)
+  useEffect(() => {
+    if (!room?.team_id) return;
+    if (currentTeam?.id === room.team_id) {
+      setRoomTeam(currentTeam);
+    } else {
+      teamsApi.get(room.team_id).then((r) => setRoomTeam(r.data)).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.team_id]);
 
   // Workers + MCP Configs 로드 (teamId 준비되면)
   useEffect(() => {
@@ -653,10 +670,10 @@ export default function RoomPage() {
           flexShrink: 0,
         }}
       >
-        {showMembers && currentTeam && me && (
+        {showMembers && effectiveTeam && me && (
           <MemberPanel
             teamId={teamId}
-            ownerId={currentTeam.owner_id}
+            ownerId={effectiveTeam.owner_id}
             myUserId={me.id}
             onClose={() => setShowMembers(false)}
           />
@@ -668,7 +685,7 @@ export default function RoomPage() {
         <McpSettingsModal
           teamId={teamId}
           myUserId={me?.id}
-          teamOwnerId={currentTeam?.owner_id}
+          teamOwnerId={effectiveTeam?.owner_id}
           onWorkerUpdate={(updatedWorker) => {
             setWorkers((prev) => prev.map((w) => w.id === updatedWorker.id ? updatedWorker : w));
           }}
