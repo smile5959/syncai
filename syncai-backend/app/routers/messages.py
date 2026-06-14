@@ -1245,6 +1245,13 @@ async def _send_ai_plan(
                 "created_at": plan_msg.created_at.isoformat() + "Z",
             },
         })
+        await broadcast(task_connections, room_id, {
+            "type": "task_awaiting_confirm",
+            "data": {
+                "task_id": task_id,
+                "triggered_by": str(task.triggered_by) if task.triggered_by else None,
+            },
+        })
 
     except Exception as e:
         print(f"[_send_ai_plan] 오류: {e}")

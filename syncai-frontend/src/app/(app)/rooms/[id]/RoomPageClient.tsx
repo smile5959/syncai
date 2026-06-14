@@ -336,6 +336,29 @@ export default function RoomPage() {
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
         if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
+      } else if (event.type === "task_awaiting_confirm") {
+        // triggered_by 포함한 task를 taskList에 upsert — isTriggerer 판단에 필요
+        setTaskList((prev) => {
+          const exists = prev.find((t) => t.id === event.data.task_id);
+          if (exists) {
+            return prev.map((t) =>
+              t.id === event.data.task_id
+                ? { ...t, status: "awaiting_confirm" as const, triggered_by: event.data.triggered_by ?? "" }
+                : t
+            );
+          }
+          return [...prev, {
+            id: event.data.task_id,
+            room_id: id,
+            worker_id: null,
+            message_id: "",
+            triggered_by: event.data.triggered_by ?? "",
+            status: "awaiting_confirm" as const,
+            result_diff: null,
+            created_at: new Date().toISOString(),
+            completed_at: null,
+          }];
+        });
       } else if (event.type === "task_queued") {
         // 큐 대기 안내 메시지를 채팅에 임시 표시
         const queueMsg: Message = {

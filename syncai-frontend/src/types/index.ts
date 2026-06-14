@@ -179,6 +179,11 @@ export interface WsTaskInterrupted {
   data: { task_id: string; error: string };
 }
 
+export interface WsTaskAwaitingConfirm {
+  type: "task_awaiting_confirm";
+  data: { task_id: string; triggered_by: string | null };
+}
+
 export type WsChatEvent = WsChatMessage | WsMessageChunk;
 export type WsTaskEvent =
   | WsTaskStarted
@@ -187,7 +192,8 @@ export type WsTaskEvent =
   | WsTaskFailed
   | WsTaskQueued
   | WsTaskCancelled
-  | WsTaskInterrupted;
+  | WsTaskInterrupted
+  | WsTaskAwaitingConfirm;
 
 
 export interface Invitation {

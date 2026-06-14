@@ -9,6 +9,7 @@ class TaskOut(BaseModel):
 
     id: uuid.UUID
     worker_id: uuid.UUID | None
+    triggered_by: uuid.UUID | None = None
     status: str
     result_diff: str | None
     error: str | None = None
