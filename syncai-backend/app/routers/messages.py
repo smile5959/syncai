@@ -186,8 +186,16 @@ def _select_mcp_config(
             .first()
         )
 
-    # @멘션 없음
-    # 1) 팀 연결 + public + 온라인 우선
+    # @멘션 없음 — 본인 MCP 최우선
+    # 1) 소유자 본인 + 팀 연결 + 온라인
+    result = (
+        base_q
+        .filter(McpConfig.owner_user_id == current_user.id, McpConfig.is_online.is_(True))
+        .first()
+    )
+    if result:
+        return result
+    # 2) 팀 public + 온라인 (타 팀원 MCP)
     result = (
         base_q
         .filter(McpConfigTeam.is_public.is_(True), McpConfig.is_online.is_(True))
@@ -195,7 +203,6 @@ def _select_mcp_config(
     )
     if result:
         return result
-    # 2) 오프라인 MCP 선택 시 이후 실행 실패하므로 None 반환
     # 3) Fallback: 팀 연결 없어도 소유자 config 중 온라인인 것
     return (
         db.query(McpConfig)
@@ -290,7 +297,7 @@ async def _run_ai_task(
                     "user_id": None,
                     "content": f"⚠️ {error_msg}",
                     "type": "ai_res",
-                    "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                    "created_at": datetime.utcnow().isoformat() + "Z",
                 },
             })
             await broadcast(task_connections, room_id, {
@@ -530,7 +537,7 @@ async def _run_ai_task(
                 "user_id": None,
                 "content": f"⚠️ {error_msg}",
                 "type": "ai_res",
-                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                "created_at": datetime.utcnow().isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
@@ -722,7 +729,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 "user_id": None,
                 "content": f"⚠️ {error_msg}",
                 "type": "ai_res",
-                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                "created_at": datetime.utcnow().isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
@@ -1121,7 +1128,7 @@ async def _send_ai_plan(
                         "user_id": None,
                         "content": err_content,
                         "type": "ai_res",
-                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                        "created_at": datetime.utcnow().isoformat() + "Z",
                     },
                 })
                 await broadcast(task_connections, room_id, {
@@ -1144,7 +1151,7 @@ async def _send_ai_plan(
                         "user_id": None,
                         "content": "⚠️ 등록된 PC(MCP)가 없어요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요.",
                         "type": "ai_res",
-                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                        "created_at": datetime.utcnow().isoformat() + "Z",
                     },
                 })
                 await broadcast(task_connections, room_id, {
@@ -1173,7 +1180,7 @@ async def _send_ai_plan(
                         "user_id": None,
                         "content": f"⚠️ {error_msg}",
                         "type": "ai_res",
-                        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                        "created_at": datetime.utcnow().isoformat() + "Z",
                     },
                 })
                 await broadcast(task_connections, room_id, {
@@ -1254,7 +1261,7 @@ async def _send_ai_plan(
                 "user_id": None,
                 "content": f"⚠️ {error_msg}",
                 "type": "ai_res",
-                "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+                "created_at": datetime.utcnow().isoformat() + "Z",
             },
         })
         await broadcast(task_connections, room_id, {
