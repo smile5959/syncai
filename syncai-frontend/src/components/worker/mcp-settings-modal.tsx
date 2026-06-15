@@ -1034,7 +1034,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [modelOpenId, setModelOpenId] = useState<string | null>(null);
-  const [modelDropdownPos, setModelDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const [modelDropdownPos, setModelDropdownPos] = useState<{ top: number; left: number; openUpward: boolean } | null>(null);
   const [updatingModelId, setUpdatingModelId] = useState<string | null>(null);
 
   async function load() {
@@ -1260,7 +1260,13 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
                               setModelDropdownPos(null);
                             } else {
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setModelDropdownPos({ top: rect.bottom + 6, left: rect.left });
+                              const DROPDOWN_H = WORKER_MODELS.length * 41 + 8;
+                              const openUpward = rect.bottom + DROPDOWN_H + 8 > window.innerHeight;
+                              setModelDropdownPos({
+                                top: openUpward ? rect.top - DROPDOWN_H - 6 : rect.bottom + 6,
+                                left: rect.left,
+                                openUpward,
+                              });
                               setModelOpenId(w.id);
                             }
                           }}
@@ -1312,6 +1318,10 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
                       borderRadius: 12, overflow: "hidden",
                       boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
                       zIndex: 300, minWidth: 240,
+                      maxHeight: modelDropdownPos.openUpward
+                        ? modelDropdownPos.top - 8
+                        : window.innerHeight - modelDropdownPos.top - 8,
+                      overflowY: "auto",
                     }}>
                       {WORKER_MODELS.map((m) => (
                         <button
