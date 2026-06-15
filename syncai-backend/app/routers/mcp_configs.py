@@ -918,9 +918,8 @@ def _ensure_team_links(config: McpConfig, current_user: User, db: Session) -> No
 def _notify_mcp_connected(user_id: str, config_id: str) -> None:
     """MCP 연결 이벤트를 Redis pub/sub으로 알림 (WebSocket 실시간 전파용)."""
     try:
-        from app.config import settings
-        r = sync_redis.from_url(settings.REDIS_URL)
-        r.publish(
+        from app.core.redis_client import publish
+        publish(
             f"syncai:mcp:{user_id}",
             json.dumps({"type": "mcp_connected", "config_id": config_id}),
         )
