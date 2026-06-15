@@ -16,10 +16,10 @@
 ```
 syncai/
 ├── syncai-backend/app/
-│   ├── agents/        # worker_llm.py, supervisor.py, worker.py
+│   ├── agents/        # worker_llm.py, supervisor.py
 │   ├── routers/       # messages.py, ws.py, rooms.py, teams.py, workers.py, mcp_configs.py
 │   ├── models/        # SQLAlchemy 모델
-│   └── core/          # deps.py, auth.py
+│   └── core/          # deps.py, auth.py, redis_client.py
 └── syncai-frontend/src/
     ├── app/(app)/rooms/          # layout.tsx, page.tsx, [id]/RoomPageClient.tsx
     ├── components/chat/          # message-item.tsx, chat-input.tsx
@@ -34,7 +34,7 @@ syncai/
 ### WebSocket
 - chat WS: `wss://.../rooms/{room_id}/chat`, task WS: `wss://.../rooms/{room_id}/tasks`
 - broadcast 형식: `{type:"message", data:{id, room_id, user_id, content, type, created_at}}`
-- **`created_at` 반드시 `+ "Z"`** — 없으면 한국 브라우저가 UTC를 KST로 파싱, 9시간 오차
+- **`created_at` 포맷**: `datetime.utcnow().isoformat() + "Z"` 사용 — `datetime.now(timezone.utc).isoformat()` 은 `"...+00:00"` 반환, 뒤에 `"Z"` 붙이면 `"...+00:00Z"` (이중 타임존) → JS `Invalid Date`
 - room_id: URL slug로 오지만 내부는 UUID — `chat_connections` 키 반드시 UUID
 - layout WS: rooms 변경 시 **델타 처리만** (추가/삭제), 전체 재생성 없음 — CONNECTING 상태 강제 close 오류 방지
 - SyncWS 재연결: exponential backoff (3s→6s→12s→24s→30s max)
@@ -63,8 +63,32 @@ syncai/
           → 정상: awaiting_confirm → 동의 → MCP 실행
 ```
 - `worker_llm.py`: tool_calls 있으면 finish_reason 무시 (Gemini stop+tool_calls 동시 반환 대응)
-- 에러 채팅 전송: `chat_connections` broadcast, `created_at` 반드시 `+ "Z"`
+- 에러 채팅 전송: `chat_connections` broadcast, `created_at` 반드시 `datetime.utcnow().isoformat() + "Z"` 포맷
 - `_format_error_for_chat(error)`: 기술적 에러 → 한국어 친화적 문구 변환
+
+### AiPlanCard 승인 버튼
+- `showButtons` 조건: `status === "idle"` AND `!isExpired` AND `isTriggerer` AND `taskStatus ∈ {awaiting_confirm, pending, undefined}`
+- `isTriggerer = !currentUserId || !task || task.triggered_by === currentUserId`
+- **`triggered_by`는 `TaskOut` 스키마에 반드시 포함** — 없으면 `undefined === userId` → `false` → 버튼 미표시
+- `task_awaiting_confirm` WS 이벤트: plan 전송 직후 `task_connections`로 broadcast, `{task_id, triggered_by}` 포함
+  → 프론트 `taskList`에 즉시 upsert → REST 폴링 전에도 버튼 정상 표시
+
+### RoomPageClient teamId 주의
+- `teamId`는 **`room.team_id` 우선** (`currentTeam`은 auth store의 마지막 선택 팀 — 방 팀과 다를 수 있음)
+- `teamId = room?.team_id || currentTeam?.id || ""`
+- room 팀 ≠ currentTeam이면 `teamsApi.get(room.team_id)`로 별도 fetch → `effectiveTeam` 사용
+- MCP 설정 모달, 멤버 패널 등 모두 `effectiveTeam` 기준으로 렌더링
+
+### MCP 선택 우선순위 (@멘션 없을 때)
+1. 본인 소유 + 팀 연결 + 온라인
+2. 팀 public + 온라인 (타 팀원 MCP)
+3. Fallback: 팀 연결 없어도 본인 소유 온라인 config
+
+### McpConfigTeam is_public / _ensure_team_links
+- MCP 생성 시 `is_public=True` 기본값
+- `_ensure_team_links`: 팀 가입 후 McpConfigTeam 없으면 `is_public=True`로 생성 (기존 False는 유지)
+- `auto_register_mcp` case 1 (기존 토큰): `_ensure_team_links` 후 반드시 `db.commit()` 필요
+- heartbeat에서도 `_ensure_team_links` 호출 — MCP 재연결 없이 팀 가입한 경우 대응
 
 ### DB / 삭제 주의사항
 - `require_room_access(room_id, user, db)` → room 객체 반환, 이후 `room.id`(UUID) 사용
@@ -95,6 +119,23 @@ syncai/
 ### Fly.io cold start
 - 5분 idle 시 suspend → 첫 요청 5-10초 지연
 - 로그인 화면 + AppLayout mount 시 `/health` ping + 4분 interval로 해결
+
+### Redis (Upstash) 재연결
+- Upstash는 idle 연결을 끊음 → 앱이 hang되면서 health check 실패 → 503
+- `app/core/redis_client.py`: 공유 sync Redis 풀, `health_check_interval=30`, `socket_keepalive=True`
+- ws.py async `redis_subscriber()`도 동일 옵션 적용
+- publish 실패 시 `_pool = None` 리셋 → 다음 호출에서 자동 재연결
+- **절대 `sync_redis.from_url()` 매번 호출 금지** — `redis_client.publish()` 사용
+
+### SQLAlchemy 커넥션 풀
+- `pool_size=5, max_overflow=5, pool_pre_ping=True` (최대 10 연결)
+- `pool_pre_ping=True`: Neon idle disconnect 대응 (사용 전 ping 체크)
+- **pool_size=2 이하로 줄이면 동시 요청 시 QueuePool 30초 타임아웃 발생** — 경험상 최소 5 유지
+
+### Worker 모델 드롭다운 위치
+- `position:fixed` + `getBoundingClientRect()` 로 모달 overflow 제약 없이 표시
+- 아래 공간 부족 시 위로 flip: `bottom: window.innerHeight - rect.top + 6` 사용 (top 계산 금지)
+- `maxHeight`: 실제 여유 공간(`spaceAbove` or `spaceBelow`) 기준, `overflowY:auto`로 스크롤 지원
 
 ### MCP 보안
 - `mcp-server/tools.py` `_resolve_safe()`: path traversal, `~` 우회, 전체 경로 컴포넌트 검사
@@ -136,3 +177,4 @@ syncai/
 | Tauri 빌드 스크립트 | `syncai-frontend/scripts/tauri-build.sh` |
 | MCP 파일 접근 보안 | `syncai-backend/mcp-server/tools.py`, `config.py` |
 | MCP heartbeat + 토큰 만료 | `syncai-backend/mcp-server/heartbeat.py` |
+| Redis 공유 풀 (sync) | `syncai-backend/app/core/redis_client.py` |

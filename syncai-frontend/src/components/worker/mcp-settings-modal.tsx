@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   X, Plus, Folder, Trash2, RefreshCw, Server, Users,
   Zap, Check, Download, Pencil, Cpu, ChevronDown, Globe, Lock,
@@ -154,7 +154,35 @@ function RetryButton({ token, setPostCreate, mcpApi: api }: {
 // ─── 메인 모달 ───────────────────────────────────────────────────────────────
 export function McpSettingsModal({ teamId, onClose, onWorkerUpdate, myUserId, teamOwnerId }: McpSettingsModalProps) {
   const [tab, setTab] = useState<Tab>("my");
+  const [configs, setConfigs] = useState<McpConfig[]>([]);
+  const [teamConfigs, setTeamConfigs] = useState<McpConfigWithTeam[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
   const mouseDownOnBackdrop = useRef(false);
+
+  const loadConfigs = useCallback(async () => {
+    if (!teamId) return;
+    setDataLoading(true);
+    try {
+      const [mineRes, teamRes] = await Promise.all([
+        mcpApi.listMine(),
+        mcpApi.listForTeam(teamId),
+      ]);
+      setConfigs(mineRes.data ?? []);
+      setTeamConfigs(teamRes.data ?? []);
+    } catch { /* 무시 */ }
+    finally { setDataLoading(false); }
+  }, [teamId]);
+
+  // WS 이벤트용 — MCP 연결 상태만 변경되므로 listMine만 재조회
+  const reloadMine = useCallback(async () => {
+    if (!teamId) return;
+    try {
+      const res = await mcpApi.listMine();
+      setConfigs(res.data ?? []);
+    } catch { /* 무시 */ }
+  }, [teamId]);
+
+  useEffect(() => { loadConfigs(); }, [loadConfigs]);
 
   return (
     <div
@@ -256,11 +284,29 @@ export function McpSettingsModal({ teamId, onClose, onWorkerUpdate, myUserId, te
             })}
           </nav>
 
-          {/* Right Content */}
+          {/* Right Content — display:none 방식으로 탭 전환 시 unmount 없음 */}
           <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
-            {tab === "my"      && <MyMcpTab />}
-            {tab === "team"    && <TeamVisibilityTab teamId={teamId} />}
-            {tab === "workers" && <WorkerSlotsTab teamId={teamId} onWorkerUpdate={onWorkerUpdate} myUserId={myUserId} teamOwnerId={teamOwnerId} />}
+            <div style={{ display: tab === "my" ? "block" : "none" }}>
+              <MyMcpTab
+                configs={configs}
+                setConfigs={setConfigs}
+                loading={dataLoading}
+                onReload={loadConfigs}
+                onReloadMine={reloadMine}
+              />
+            </div>
+            <div style={{ display: tab === "team" ? "block" : "none" }}>
+              <TeamVisibilityTab
+                teamId={teamId}
+                configs={configs}
+                teamConfigs={teamConfigs}
+                loading={dataLoading}
+                onReload={loadConfigs}
+              />
+            </div>
+            <div style={{ display: tab === "workers" ? "block" : "none" }}>
+              <WorkerSlotsTab teamId={teamId} onWorkerUpdate={onWorkerUpdate} myUserId={myUserId} teamOwnerId={teamOwnerId} />
+            </div>
           </div>
         </div>
       </div>
@@ -269,9 +315,15 @@ export function McpSettingsModal({ teamId, onClose, onWorkerUpdate, myUserId, te
 }
 
 // ─── 내 MCP 탭 ───────────────────────────────────────────────────────────────
-function MyMcpTab() {
-  const [configs, setConfigs] = useState<McpConfig[]>([]);
-  const [loading, setLoading] = useState(true);
+interface MyMcpTabProps {
+  configs: McpConfig[];
+  setConfigs: React.Dispatch<React.SetStateAction<McpConfig[]>>;
+  loading: boolean;
+  onReload: () => Promise<void>;
+  onReloadMine: () => Promise<void>;
+}
+
+function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMcpTabProps) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -280,26 +332,29 @@ function MyMcpTab() {
   // 등록 후 상태
   const [postCreate, setPostCreate] = useState<PostCreateState | null>(null);
 
-  // macOS 여부 감지 (클라이언트에서만)
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  // macOS 여부 감지
+  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
 
   // 설치 명령어 표시 상태
   const [showInstallId, setShowInstallId] = useState<string | null>(null);
   const [installCmdData, setInstallCmdData] = useState<{ installShUrl?: string; installPs1Url?: string; token: string } | null>(null);
+  const [installCmdError, setInstallCmdError] = useState(false);
 
   async function handleShowInstall(c: McpConfig) {
     if (showInstallId === c.id) { setShowInstallId(null); return; }
+    if (!c.mcp_token) return;
     setShowInstallId(c.id);
     setInstallCmdData(null);
+    setInstallCmdError(false);
     try {
-      const res = await mcpApi.getDownloadUrl(c.mcp_token ?? "");
+      const res = await mcpApi.getDownloadUrl(c.mcp_token);
       setInstallCmdData({
         installShUrl:  res.data.install_sh_url  as string | undefined,
         installPs1Url: res.data.install_ps1_url as string | undefined,
-        token: (c.mcp_token ?? "") as string,
+        token: c.mcp_token,
       });
     } catch {
-      setInstallCmdData(null);
+      setInstallCmdError(true);
     }
   }
 
@@ -315,28 +370,25 @@ function MyMcpTab() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const res = await mcpApi.listMine();
-      setConfigs(res.data ?? []);
-    } catch { /* 무시 */ }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => { load(); }, []);
+  // stale closure 없이 항상 최신 함수를 참조하기 위한 ref
+  const onReloadMineRef = useRef(onReloadMine);
+  const postCreateRef = useRef(postCreate);
+  useEffect(() => { onReloadMineRef.current = onReloadMine; }, [onReloadMine]);
+  useEffect(() => { postCreateRef.current = postCreate; }, [postCreate]);
 
   // WS 실시간 연결 상태 갱신
   useEffect(() => {
-    const ws = createMcpWS(load);
+    const ws = createMcpWS(() => onReloadMineRef.current());
     const unsubscribe = ws.on((event) => {
       if (event.type === "mcp_connected" || event.type === "mcp_status") {
-        load();
-        setPostCreate(null);
+        onReloadMineRef.current();
+        // 방금 등록한 MCP가 처음 온라인 됐을 때만 배너 닫기
+        if (event.is_online && event.config_id === postCreateRef.current?.configId) {
+          setPostCreate(null);
+        }
       }
     });
     return () => { unsubscribe(); ws.close(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 새 MCP 등록 ──────────────────────────────────────────────────────────
@@ -496,7 +548,7 @@ function MyMcpTab() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={load} disabled={loading} title="새로고침"
+            onClick={onReload} disabled={loading} title="새로고침"
             style={{
               width: 36, height: 36, borderRadius: 10,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -772,7 +824,22 @@ function MyMcpTab() {
                     <p style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", margin: 0 }}>
                       설치 명령어 — {isMac ? "터미널" : "PowerShell"}에서 실행하세요
                     </p>
-                    {installCmdData ? (
+                    {installCmdError ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>명령어를 불러오지 못했습니다.</p>
+                        <button
+                          onClick={() => handleShowInstall(c)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            padding: "5px 12px", borderRadius: 8,
+                            background: "var(--accent)", color: "white",
+                            fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+                          }}
+                        >
+                          <RefreshCw size={11} />재시도
+                        </button>
+                      </div>
+                    ) : installCmdData ? (
                       isMac ? (
                         installCmdData.installShUrl
                           ? <MacInstallCommand installShUrl={installCmdData.installShUrl} token={installCmdData.token} />
@@ -832,26 +899,16 @@ function MyMcpTab() {
 }
 
 // ─── 팀 공유 설정 탭 ─────────────────────────────────────────────────────────
-function TeamVisibilityTab({ teamId }: { teamId: string }) {
-  const [configs, setConfigs] = useState<McpConfig[]>([]);
-  const [teamConfigs, setTeamConfigs] = useState<McpConfigWithTeam[]>([]);
-  const [loading, setLoading] = useState(true);
+interface TeamVisibilityTabProps {
+  teamId: string;
+  configs: McpConfig[];
+  teamConfigs: McpConfigWithTeam[];
+  loading: boolean;
+  onReload: () => Promise<void>;
+}
+
+function TeamVisibilityTab({ teamId, configs, teamConfigs, loading, onReload }: TeamVisibilityTabProps) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const [mineRes, teamRes] = await Promise.all([
-        mcpApi.listMine(),
-        mcpApi.listForTeam(teamId),
-      ]);
-      setConfigs(mineRes.data ?? []);
-      setTeamConfigs(teamRes.data ?? []);
-    } catch { /* 무시 */ }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => { if (teamId) load(); }, [teamId]);
 
   function isPublicForTeam(configId: string): boolean {
     return teamConfigs.some((tc) => tc.id === configId && tc.is_public);
@@ -861,7 +918,7 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
     setTogglingId(configId);
     try {
       await mcpApi.setTeamVisibility(configId, teamId, !currentPublic);
-      await load();
+      await onReload();
     } catch { /* 무시 */ }
     finally { setTogglingId(null); }
   }
@@ -883,7 +940,7 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
         </p>
       </div>
 
-      {/* 공개된 MCP 요약 */}
+      {/* 공개된 MCP 요약 — configs(listMine)의 is_online 사용으로 내 MCP 탭과 일치 */}
       {publicConfigs.length > 0 && (
         <div style={{
           background: "var(--accent-bg)",
@@ -902,27 +959,30 @@ function TeamVisibilityTab({ teamId }: { teamId: string }) {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {publicConfigs.map((tc) => (
-              <div key={tc.id} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px", borderRadius: 10,
-                background: "rgba(99,102,241,0.08)", border: "1px solid rgba(129,140,248,0.15)",
-              }}>
-                <Server size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {tc.name}
-                </span>
-                <span style={{ fontSize: 11, color: tc.is_online ? "#4ade80" : "var(--text-muted)", flexShrink: 0 }}>
-                  {tc.is_online ? "● 온라인" : "◎ 오프라인"}
-                </span>
-                <span style={{
-                  fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 5,
-                  background: "var(--accent)", color: "white", flexShrink: 0,
+            {publicConfigs.map((tc) => {
+              const online = configs.find((c) => c.id === tc.id)?.is_online ?? tc.is_online;
+              return (
+                <div key={tc.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px", borderRadius: 10,
+                  background: "rgba(99,102,241,0.08)", border: "1px solid rgba(129,140,248,0.15)",
                 }}>
-                  공개중
-                </span>
-              </div>
-            ))}
+                  <Server size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {tc.name}
+                  </span>
+                  <span style={{ fontSize: 11, color: online ? "#4ade80" : "var(--text-muted)", flexShrink: 0 }}>
+                    {online ? "● 온라인" : "◎ 오프라인"}
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 5,
+                    background: "var(--accent)", color: "white", flexShrink: 0,
+                  }}>
+                    공개중
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

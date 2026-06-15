@@ -468,6 +468,7 @@ def list_team_mcp_configs(
         )
         .all()
     )
+    from app.core import mcp_broker
     result = []
     for config, link in rows:
         out = McpConfigWithTeam(
@@ -479,6 +480,7 @@ def list_team_mcp_configs(
             mcp_token=config.mcp_token,
             created_at=config.created_at,
             is_public=link.is_public,
+            is_online=bool(config.mcp_token and mcp_broker.is_online(config.mcp_token)),
         )
         result.append(out)
     return result

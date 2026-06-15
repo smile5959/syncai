@@ -173,5 +173,5 @@ export function createTaskWS(roomId: string) {
 }
 
 export function createMcpWS(onReconnect?: () => void) {
-  return new SyncWS<{ type: string; config_id: string }>(withToken(`${WS_BASE}/mcp`), onReconnect);
+  return new SyncWS<{ type: string; config_id: string; is_online?: boolean }>(withToken(`${WS_BASE}/mcp`), onReconnect);
 }
