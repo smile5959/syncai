@@ -10,13 +10,16 @@ venv/
 .env.*
 !.env.example
 
-# MCP 서버 빌드 산출물 (42MB — Docker 이미지 제외)
-static/
-mcp-server/dist/
-mcp-server/build/
-mcp-server/__pycache__/
-mcp-server/venv/
-mcp-server/Output/
+# MCP 클라이언트 (유저 PC 실행용 — 서버 이미지 불필요)
+mcp-server/
+
+# 테스트/개발 전용
+tests/
+test_*.py
+scripts/
+docker-compose.yml
+RUNNING_LOCALLY.md
+run_worker.py
 
 # 기타
 .git/
