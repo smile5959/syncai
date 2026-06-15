@@ -4,8 +4,8 @@ from app.config import settings
 
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_size=2,
-    max_overflow=3,
+    pool_size=5,
+    max_overflow=5,
     pool_pre_ping=True,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
