@@ -137,6 +137,23 @@ syncai/
 - 아래 공간 부족 시 위로 flip: `bottom: window.innerHeight - rect.top + 6` 사용 (top 계산 금지)
 - `maxHeight`: 실제 여유 공간(`spaceAbove` or `spaceBelow`) 기준, `overflowY:auto`로 스크롤 지원
 
+### MCP 설정 모달 아키텍처 (`mcp-settings-modal.tsx`)
+
+- **탭 데이터**: `McpSettingsModal`에서 `listMine` + `listForTeam` 한 번에 fetch → `MyMcpTab` / `TeamVisibilityTab`에 props 전달
+- **탭 전환**: `display:none` 방식 — unmount/remount 없음, 전환 시 API 재호출 없음
+- **WS 핸들러 stale closure**: `useRef` 패턴으로 해결
+  ```tsx
+  const onReloadMineRef = useRef(onReloadMine);
+  useEffect(() => { onReloadMineRef.current = onReloadMine; }, [onReloadMine]);
+  useEffect(() => {
+    const ws = createMcpWS(() => onReloadMineRef.current());
+    ...
+  }, []); // 빈 dep — ref로 최신 함수 참조
+  ```
+- **WS mcp_status 이벤트**: `onReloadMine`(listMine만) 호출 — listForTeam은 MCP 연결 상태와 무관
+- **setPostCreate 닫기 조건**: `event.is_online && event.config_id === postCreateRef.current?.configId` — 다른 MCP 이벤트로 설치 배너 닫히는 문제 방지
+- **listForTeam `is_online`**: `mcp_broker.is_online()` 으로 실제 연결 상태 반영 (Pydantic 기본값 False 아님)
+
 ### MCP 보안
 - `mcp-server/tools.py` `_resolve_safe()`: path traversal, `~` 우회, 전체 경로 컴포넌트 검사
 - `mcp-server/config.py` BLOCKED_PATTERNS: `.ssh/.aws/.kube` 등 + BLOCKED_EXTENSIONS(`.pem/.key` 등) + BLOCKED_FILENAMES(`id_rsa` 등)
@@ -174,7 +191,9 @@ syncai/
 | 설정 페이지 (4탭: 프로필/테마/플랜/계정) | `syncai-frontend/src/app/(app)/settings/page.tsx` |
 | 테마 프로바이더 (dark/light/oat) | `syncai-frontend/src/components/providers/theme-provider.tsx` |
 | 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
-| Tauri 빌드 스크립트 | `syncai-frontend/scripts/tauri-build.sh` |
+| MCP 설정 모달 | `syncai-frontend/src/components/worker/mcp-settings-modal.tsx` |
+| Tauri 빌드 스크립트 (Next.js only) | `syncai-frontend/scripts/tauri-build.sh` |
+| Tauri 앱 프로젝트 (빌드·번들) | `syncai-desktop/` (`npm run build` → `.app` + `.dmg`) |
 | MCP 파일 접근 보안 | `syncai-backend/mcp-server/tools.py`, `config.py` |
 | MCP heartbeat + 토큰 만료 | `syncai-backend/mcp-server/heartbeat.py` |
 | Redis 공유 풀 (sync) | `syncai-backend/app/core/redis_client.py` |
