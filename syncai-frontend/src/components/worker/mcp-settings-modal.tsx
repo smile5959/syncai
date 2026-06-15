@@ -1034,7 +1034,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [modelOpenId, setModelOpenId] = useState<string | null>(null);
-  const [modelDropdownPos, setModelDropdownPos] = useState<{ top: number; left: number; openUpward: boolean } | null>(null);
+  const [modelDropdownPos, setModelDropdownPos] = useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
   const [updatingModelId, setUpdatingModelId] = useState<string | null>(null);
 
   async function load() {
@@ -1261,11 +1261,17 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
                             } else {
                               const rect = e.currentTarget.getBoundingClientRect();
                               const DROPDOWN_H = WORKER_MODELS.length * 41 + 8;
-                              const openUpward = rect.bottom + DROPDOWN_H + 8 > window.innerHeight;
-                              setModelDropdownPos({
-                                top: openUpward ? rect.top - DROPDOWN_H - 6 : rect.bottom + 6,
+                              const spaceBelow = window.innerHeight - rect.bottom - 8;
+                              const spaceAbove = rect.top - 8;
+                              const openUpward = spaceBelow < DROPDOWN_H && spaceAbove > spaceBelow;
+                              setModelDropdownPos(openUpward ? {
+                                bottom: window.innerHeight - rect.top + 6,
                                 left: rect.left,
-                                openUpward,
+                                maxHeight: spaceAbove,
+                              } : {
+                                top: rect.bottom + 6,
+                                left: rect.left,
+                                maxHeight: spaceBelow,
                               });
                               setModelOpenId(w.id);
                             }
@@ -1312,15 +1318,14 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
                     <div style={{
                       position: "fixed",
                       top: modelDropdownPos.top,
+                      bottom: modelDropdownPos.bottom,
                       left: modelDropdownPos.left,
                       background: "var(--bg-elevated)",
                       border: "1px solid var(--border)",
-                      borderRadius: 12, overflow: "hidden",
+                      borderRadius: 12,
                       boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
                       zIndex: 300, minWidth: 240,
-                      maxHeight: modelDropdownPos.openUpward
-                        ? modelDropdownPos.top - 8
-                        : window.innerHeight - modelDropdownPos.top - 8,
+                      maxHeight: modelDropdownPos.maxHeight,
                       overflowY: "auto",
                     }}>
                       {WORKER_MODELS.map((m) => (
