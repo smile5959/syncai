@@ -34,7 +34,14 @@ log = logging.getLogger("bootstrap")
 # ── 경로 상수 ──────────────────────────────────────────────────────────────────
 
 BACKEND_URL  = os.getenv("SYNCAI_BACKEND_URL", "https://syncai-backend.fly.dev").rstrip("/")
-CODE_DIR     = Path(os.environ.get("APPDATA", "")) / "SyncAI" / "code"
+
+# install.sh(macOS)는 ~/Library/Application Support/SyncAI/code 에 코드를 받고,
+# install.ps1(Windows)는 %APPDATA%\SyncAI\code 에 받는다 — bootstrap.py가 같은
+# 위치를 봐야 plist/Task Scheduler가 RunAtLoad로 띄울 때 기존 코드를 재사용한다.
+if sys.platform == "darwin":
+    CODE_DIR = Path.home() / "Library" / "Application Support" / "SyncAI" / "code"
+else:
+    CODE_DIR = Path(os.environ.get("APPDATA", "")) / "SyncAI" / "code"
 VERSION_FILE = CODE_DIR / "version.txt"
 
 # ── 버전 확인 ─────────────────────────────────────────────────────────────────

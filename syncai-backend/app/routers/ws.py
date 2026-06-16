@@ -355,17 +355,21 @@ async def ws_mcp_agent(websocket: WebSocket):
     except Exception as e:
         log.warning("[mcp-agent] 오류: %s", e)
     finally:
-        mcp_broker.agent_connections.pop(mcp_token, None)
-        # is_online = False 처리
-        db = SessionLocal()
-        try:
-            config = db.query(McpConfig).filter(McpConfig.mcp_token == mcp_token).first()
-            if config:
-                config.is_online = False
-                db.commit()
-        finally:
-            db.close()
-        _publish_mcp_status(user_id, config_id, online=False)
+        # 이 핸들러가 등록한 연결이 이미 새 연결로 교체됐다면(재부팅 등으로 옛 소켓이
+        # 늦게 끊기는 경우) 살아있는 새 연결을 지우거나 오프라인으로 만들면 안 된다.
+        is_current_connection = mcp_broker.agent_connections.get(mcp_token) is websocket
+        if is_current_connection:
+            mcp_broker.agent_connections.pop(mcp_token, None)
+            # is_online = False 처리
+            db = SessionLocal()
+            try:
+                config = db.query(McpConfig).filter(McpConfig.mcp_token == mcp_token).first()
+                if config:
+                    config.is_online = False
+                    db.commit()
+            finally:
+                db.close()
+            _publish_mcp_status(user_id, config_id, online=False)
 
 
 def _update_base_dir(mcp_token: str, base_dir: str) -> None:
