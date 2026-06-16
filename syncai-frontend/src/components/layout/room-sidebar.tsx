@@ -9,6 +9,7 @@ import { rooms as roomsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { ChatRoom } from "@/types";
 
 interface RoomSidebarProps {
@@ -21,6 +22,7 @@ interface RoomSidebarProps {
 export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: RoomSidebarProps) {
   const params = useParams();
   const router = useRouter();
+  const confirm = useConfirm();
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const currentTeam = useAuthStore((s) => s.team);
@@ -80,7 +82,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
 
   async function deleteRoom(room: ChatRoom) {
     setMenuRoomId(null);
-    if (!confirm(`"${room.name}" 채팅방을 삭제할까요?`)) return;
+    if (!(await confirm(`"${room.name}" 채팅방을 삭제할까요?`))) return;
     try {
       await roomsApi.delete(room.id);
       const updated = rooms.filter((r) => r.id !== room.id);

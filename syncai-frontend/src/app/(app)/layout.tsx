@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { IconNav } from "@/components/layout/icon-nav";
+import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/store/auth";
 import { users as usersApi, saveTokens } from "@/lib/api";
 import axios from "axios";
@@ -131,9 +132,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex h-full bg-[var(--bg-base)]">
-      <IconNav />
-      <div className="flex-1 flex overflow-hidden">{children}</div>
-    </div>
+    <ConfirmDialogProvider>
+      <div className="flex h-full bg-[var(--bg-base)]">
+        <IconNav />
+        <div className="flex-1 flex overflow-hidden">{children}</div>
+      </div>
+    </ConfirmDialogProvider>
   );
 }

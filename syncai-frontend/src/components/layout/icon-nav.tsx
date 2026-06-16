@@ -10,6 +10,7 @@ import { InvitationBell } from "@/components/team/invitation-bell";
 import { users as usersApi, teams as teamsApi, logoutUser } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { Team } from "@/types";
 
 // ─── 상수 ──────────────────────────────────────────────
@@ -238,6 +239,7 @@ function TeamFormModal({ title, initialName = "", initialColor, initialIcon, sub
 
 export function IconNav() {
   const router = useRouter();
+  const confirm = useConfirm();
   const { team: currentTeam, setTeam } = useAuthStore();
   const me = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -390,7 +392,7 @@ export function IconNav() {
   async function handleLeave(team: Team) {
     setMenuTeamId(null);
     if (!me) return;
-    if (!confirm(`"${team.name}" 팀에서 나갈까요?`)) return;
+    if (!(await confirm(`"${team.name}" 팀에서 나갈까요?`))) return;
     try {
       await teamsApi.removeMember(team.id, me.id);
       const updated = teams.filter((t) => t.id !== team.id);

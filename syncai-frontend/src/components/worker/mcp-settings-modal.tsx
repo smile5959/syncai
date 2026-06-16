@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { mcpConfigs, mcpConfigs as mcpApi, workers as workersApi } from "@/lib/api";
 import { createMcpWS } from "@/lib/ws";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { McpConfig, McpConfigWithTeam, Worker } from "@/types";
 
 interface McpSettingsModalProps {
@@ -324,6 +325,7 @@ interface MyMcpTabProps {
 }
 
 function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMcpTabProps) {
+  const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -468,7 +470,7 @@ function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMc
 
   // ── 삭제 ─────────────────────────────────────────────────────────────────
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`"${name}" MCP를 삭제할까요?`)) return;
+    if (!(await confirm(`"${name}" MCP를 삭제할까요?`))) return;
     setDeletingId(id);
     try {
       await mcpApi.delete(id);
@@ -1087,6 +1089,7 @@ const WORKER_MODELS = [
 ];
 
 function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { teamId: string; onWorkerUpdate?: (worker: Worker) => void; myUserId?: string; teamOwnerId?: string }) {
+  const confirm = useConfirm();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -1121,7 +1124,7 @@ function WorkerSlotsTab({ teamId, onWorkerUpdate, myUserId, teamOwnerId }: { tea
   }
 
   async function handleDelete(workerId: string, name: string) {
-    if (!confirm(`"${name}" Worker를 삭제할까요?`)) return;
+    if (!(await confirm(`"${name}" Worker를 삭제할까요?`))) return;
     setDeletingId(workerId);
     try {
       await workersApi.delete(teamId, workerId);

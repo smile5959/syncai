@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Crown, Shield, User, ChevronDown, UserMinus } from "lucide-react";
 import { teams as teamsApi } from "@/lib/api";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { TeamMember, TeamRole } from "@/types";
 
 interface MemberPanelProps {
@@ -25,6 +26,7 @@ const ROLE_ICONS: Record<TeamRole, React.ReactNode> = {
 };
 
 export function MemberPanel({ teamId, ownerId, myUserId, onClose }: MemberPanelProps) {
+  const confirm = useConfirm();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function MemberPanel({ teamId, ownerId, myUserId, onClose }: MemberPanelP
   }
 
   async function removeMember(userId: string, name: string) {
-    if (!confirm(`"${name}" 님을 팀에서 내보낼까요?`)) return;
+    if (!(await confirm(`"${name}" 님을 팀에서 내보낼까요?`))) return;
     try {
       await teamsApi.removeMember(teamId, userId);
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
