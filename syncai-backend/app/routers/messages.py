@@ -1365,6 +1365,7 @@ async def cancel_task(
     task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    require_room_access(str(task.room_id), current_user, db)
     if task.status not in ("running", "pending"):
         raise HTTPException(status_code=400, detail=f"Task is not running (status: {task.status})")
 

@@ -126,7 +126,8 @@ async def ws_chat(websocket: WebSocket, room_id: str):
 
     # slug → UUID 정규화 (broadcast 키 통일) + 유저 정보 로드
     from app.database import SessionLocal
-    from app.models.chat_room import ChatRoom
+    from app.models.chat_room import ChatRoom, RoomMember
+    from app.models.team import TeamMember
     from app.models.user import User as _User
     db = SessionLocal()
     try:
@@ -134,8 +135,19 @@ async def ws_chat(websocket: WebSocket, room_id: str):
             room = db.query(ChatRoom).filter(ChatRoom.id == _uuid_mod.UUID(room_id)).first()
         except (ValueError, AttributeError):
             room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
-        resolved_room_id = str(room.id) if room else room_id
-        user = db.query(_User).filter(_User.id == _uuid_mod.UUID(user_id)).first()
+        if not room:
+            await websocket.close(code=4004)
+            return
+        resolved_room_id = str(room.id)
+        uid = _uuid_mod.UUID(user_id)
+        is_member = (
+            db.query(RoomMember).filter(RoomMember.room_id == room.id, RoomMember.user_id == uid).first()
+            or db.query(TeamMember).filter(TeamMember.team_id == room.team_id, TeamMember.user_id == uid).first()
+        )
+        if not is_member:
+            await websocket.close(code=4003)
+            return
+        user = db.query(_User).filter(_User.id == uid).first()
         user_info = {"id": user_id, "name": user.name, "email": user.email} if user else {"id": user_id, "name": "알 수 없음", "email": ""}
     finally:
         db.close()
@@ -204,9 +216,10 @@ async def ws_tasks(websocket: WebSocket, room_id: str):
         await websocket.close(code=4001)
         return
 
-    # slug → UUID 정규화
+    # slug → UUID 정규화 + 룸 멤버십 검증
     from app.database import SessionLocal
-    from app.models.chat_room import ChatRoom
+    from app.models.chat_room import ChatRoom, RoomMember
+    from app.models.team import TeamMember
     import uuid as _uuid
     db = SessionLocal()
     try:
@@ -214,7 +227,18 @@ async def ws_tasks(websocket: WebSocket, room_id: str):
             room = db.query(ChatRoom).filter(ChatRoom.id == _uuid.UUID(room_id)).first()
         except (ValueError, AttributeError):
             room = db.query(ChatRoom).filter(ChatRoom.slug == room_id).first()
-        resolved_room_id = str(room.id) if room else room_id
+        if not room:
+            await websocket.close(code=4004)
+            return
+        resolved_room_id = str(room.id)
+        uid = _uuid.UUID(user_id)
+        is_member = (
+            db.query(RoomMember).filter(RoomMember.room_id == room.id, RoomMember.user_id == uid).first()
+            or db.query(TeamMember).filter(TeamMember.team_id == room.team_id, TeamMember.user_id == uid).first()
+        )
+        if not is_member:
+            await websocket.close(code=4003)
+            return
     finally:
         db.close()
 

@@ -592,15 +592,14 @@ def _rate_limit_lookup_by_email(request: Request) -> None:
 @router.get("/mcp-configs/lookup-by-email")
 def lookup_by_email(
     email: str,
-    endpoint: str = "",
     request: Request = None,
     db: Session = Depends(get_db),
 ):
     """
     MCP 서버 자동 연결용 — 이메일로 이 사용자의 config 조회.
     인증 불필요 (이메일 자체가 식별자, 내부 팀 툴 전제).
-    endpoint 전달 시: _pending_endpoints 캐시 저장 → config 생성 시 즉시 reconnect 신호 전송.
     IP당 10요청/분 rate limiting 적용.
+    endpoint 등록은 /mcp-configs/heartbeat (mcp_token 필요) 를 사용할 것.
     """
     if request:
         _rate_limit_lookup_by_email(request)
@@ -611,10 +610,6 @@ def lookup_by_email(
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # endpoint 캐시 — config가 없어도 저장 (생성 시 reconnect 신호 전송용)
-    if endpoint:
-        _pending_endpoints[str(user.id)] = {"endpoint": endpoint, "token": ""}
 
     # 미연결(endpoint="") config 우선, 없으면 최신 것
     config = (
@@ -634,14 +629,9 @@ def lookup_by_email(
     if not config:
         raise HTTPException(status_code=404, detail="No MCP config found. Please register MCP in the frontend.")
 
-    # token까지 포함해서 캐시 갱신
-    if endpoint and config.mcp_token:
-        _pending_endpoints[str(user.id)] = {"endpoint": endpoint, "token": config.mcp_token}
-
     # mcp_token은 응답에서 제외 — 이메일만 알면 누구나 타인의 MCP 토큰을 획득할 수 있으므로
     return {
         "mcp_config_id": str(config.id),
-        "base_dir": config.base_dir,
         "name": config.name,
     }
 
@@ -692,9 +682,8 @@ async def mcp_sse(email: str, endpoint: str = "", db: Session = Depends(get_db))
         .first()
     )
 
-    # endpoint 캐시 저장 (연결 즉시 갱신)
-    if endpoint:
-        _pending_endpoints[str(user.id)] = {"endpoint": endpoint, "token": config.mcp_token if config else ""}
+    # endpoint는 _pending_endpoints에 저장하지 않음 — 이메일만 알면 누구나 endpoint를 조작할 수 있음
+    # MCP 클라이언트는 heartbeat(mcp_token 필요)로 endpoint를 DB에 정식 등록한다
 
     q: asyncio.Queue = asyncio.Queue()
     _sse_queues[email] = q
