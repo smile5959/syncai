@@ -57,14 +57,14 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 function InstallCommandBox({ cmd, hint }: { cmd: string; hint: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
       <div style={{
-        display: "flex", alignItems: "stretch", gap: 0,
+        display: "flex", alignItems: "stretch", gap: 0, minWidth: 0,
         background: "rgba(0,0,0,0.35)", border: "1px solid var(--border)",
         borderRadius: 10, overflow: "hidden",
       }}>
         <code style={{
-          flex: 1, fontSize: 11.5, color: "#a5b4fc",
+          flex: 1, minWidth: 0, fontSize: 11.5, color: "#a5b4fc",
           fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap",
           padding: "10px 14px", userSelect: "all",
         }}>{cmd}</code>
@@ -488,7 +488,7 @@ function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMc
           background: postCreate.online ? "rgba(34,197,94,0.07)" : "rgba(99,102,241,0.07)",
           border: `1px solid ${postCreate.online ? "rgba(34,197,94,0.22)" : "rgba(99,102,241,0.25)"}`,
           borderRadius: 14, padding: "16px 18px",
-          display: "flex", alignItems: "flex-start", gap: 12,
+          display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0,
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: 9, flexShrink: 0,
@@ -499,7 +499,7 @@ function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMc
               ? <Check size={15} color="#4ade80" />
               : <Download size={14} color="var(--accent)" />}
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             {postCreate.online ? (
               <>
                 <p style={{ fontSize: 13.5, fontWeight: 600, color: "#4ade80", marginBottom: 4 }}>
