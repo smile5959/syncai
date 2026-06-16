@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ConfirmFn = (message: string) => Promise<boolean>;
@@ -29,34 +30,69 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
     setMessage(null);
   }
 
+  useEffect(() => {
+    if (!message) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") settle(false);
+      if (e.key === "Enter") settle(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message]);
+
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
       {message && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="confirm-backdrop-enter fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-md"
           onClick={() => settle(false)}
         >
           <div
+            className="confirm-card-enter"
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
-              borderRadius: 24,
-              padding: "28px 32px",
+              borderRadius: 20,
+              padding: "26px 26px 20px",
               width: "100%",
-              maxWidth: 380,
-              boxShadow: "0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset",
+              maxWidth: 360,
+              boxShadow: "0 28px 70px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.04) inset",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.5, marginBottom: 24 }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                background: "var(--accent-bg)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 18,
+              }}
+            >
+              <TriangleAlert size={20} style={{ color: "var(--red)" }} strokeWidth={2} />
+            </div>
+            <p
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: "var(--text)",
+                lineHeight: 1.5,
+                letterSpacing: "-0.01em",
+                marginBottom: 24,
+              }}
+            >
               {message}
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <Button variant="ghost" onClick={() => settle(false)}>
                 취소
               </Button>
-              <Button variant="danger" onClick={() => settle(true)}>
+              <Button variant="danger" onClick={() => settle(true)} autoFocus>
                 확인
               </Button>
             </div>
