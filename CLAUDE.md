@@ -163,6 +163,14 @@ syncai/
   - `McpConfig.token_issued_at`, `last_heartbeat_at` 컬럼 — 마이그레이션 `p5q6r7s8t9u0`
   - heartbeat 응답 `token_expired=true` → MCP가 로컬 토큰 폐기 + SSE 재연결로 새 토큰 수신
 
+### 인증(Authentication) ≠ 인가(Authorization) — 룸/태스크 접근 패턴 (2026-06-16 수정)
+- **JWT 검증만으로는 부족** — "누구인지"만 확인하고 "이 리소스에 접근해도 되는지"는 별도 체크 필요
+- REST: 룸/태스크 관련 라우트는 `require_room_access(room_id, current_user, db)` 필수 (room 객체 반환, 없으면 404, 권한 없으면 403) — `cancel_task`에 누락되어 있었음, 추가함
+- WebSocket (`ws_chat`, `ws_tasks`): `require_room_access`는 HTTPException을 던져 WS에서 못 씀 — 직접 `RoomMember`/`TeamMember` 쿼리로 멤버십 확인 후 비멤버는 `close(code=4003)`, 룸 없음은 `close(code=4004)`
+  - 누락 시 room_id만 알면(브로드캐스트 평문 노출) 비멤버가 채팅/태스크 실시간 스트림을 그대로 구독 가능했음
+- `_pending_endpoints` 캐시(`mcp_configs.py`): 비인증 엔드포인트(`lookup-by-email`, `sse`)가 `endpoint` 파라미터를 받아 이 캐시에 쓰면 안 됨 — 공격자가 임의 endpoint를 주입해 `mcp_token`을 탈취하는 경로가 생김. 둘 다 `endpoint` 처리 제거함
+  - endpoint 등록은 **`heartbeat`(mcp_token 필요)로만** 수행 — 폴더 선택 등 소비처는 DB fallback(`McpConfig.endpoint`)으로 처리
+
 ### 환경변수
 - `.env.production` 커밋됨 (NEXT_PUBLIC_* 만 포함, 시크릿 없음)
 - `NEXT_PUBLIC_API_URL=https://syncai-backend.fly.dev/v1`
