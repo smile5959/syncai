@@ -99,6 +99,8 @@ export interface AiPlanPayload {
   mcp_config_id: string | null;
   task_title?: string;
   confirmation_message: string;
+  task_plan?: string;
+  triggered_by?: string | null;
   model?: string;
 }
 

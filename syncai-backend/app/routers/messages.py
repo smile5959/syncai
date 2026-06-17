@@ -746,7 +746,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 PLAN_SYSTEM_PROMPT = (
     "당신은 팀 협업 AI 어시스턴트입니다. 사용자 요청이 '로컬 PC 파일 작업'인지 '대화/질문'인지 판단하세요.\n\n"
     "반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n"
-    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"task_title\": \"동사+목적어 형식 짧은 제목\", \"confirmation_message\": \"동의 요청 메시지\"}\n\n"
+    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"task_title\": \"동사+목적어 형식 짧은 제목\", \"confirmation_message\": \"접근 대상 한 줄 설명\", \"task_plan\": \"워커에게 전달할 구체적인 작업 지시 1-3문장\"}\n\n"
     "## needs_mcp = true (PC 파일 직접 수정/생성/삭제가 필요한 경우)\n"
     "- 파일/폴더 생성, 수정, 삭제, 이동\n"
     "- 코드 버그 수정, 기능 추가, 리팩토링\n"
@@ -762,7 +762,8 @@ PLAN_SYSTEM_PROMPT = (
     "확실하지 않으면 false로 하세요. false면 AI가 바로 대답합니다.\n"
     "- mcp_name: needs_mcp=true일 때만 PC 이름 (목록에서 선택), 아니면 null\n"
     "- task_title: 작업 내용을 15자 이내로 요약 (동사+목적어). 예: 'README.md 수정', '로그인 버그 수정', 'index.html 생성'\n"
-    "- confirmation_message: needs_mcp=true일 때만 의미 있음. 예: '맥북에서 README.md를 수정할까요?'"
+    "- confirmation_message: 접근할 파일/대상을 명사형 한 문장으로. 예: 'README.md 파일에 배포 방법을 추가하겠습니다.'\n"
+    "- task_plan: needs_mcp=true일 때만. 워커가 실제 수행할 구체적 지시 1-3문장. 예: 'README.md 파일을 열어 배포 섹션을 찾고, npm install과 npm start 명령어를 추가하세요.'"
 )
 
 
@@ -1222,6 +1223,8 @@ async def _send_ai_plan(
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
             "task_title": plan.get("task_title", ""),
             "confirmation_message": confirmation_message,
+            "task_plan": plan.get("task_plan", ""),
+            "triggered_by": str(task.triggered_by) if task.triggered_by else None,
         }, ensure_ascii=False)
 
         plan_msg = Message(

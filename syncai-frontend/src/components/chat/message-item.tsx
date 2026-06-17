@@ -64,34 +64,23 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
     return null;
   }
 
-  // task 상태로 버튼/결과 표시 결정
   const task = tasks?.find((t) => t.id === plan?.task_id);
   const taskStatus = task?.status;
 
-  // 5분 이상 된 ai_plan은 만료 처리 (새로고침해도 이전 세션 확인창 안 뜸)
+  // 5분 이상 된 ai_plan은 만료 처리
   const isExpired = message.created_at
     ? Date.now() - new Date(message.created_at).getTime() > 5 * 60 * 1000
     : false;
 
-  // /ai 호출자만 승인/거부 버튼 표시 (task 로드 전이면 currentUserId 체크 스킵)
-  const isTriggerer = !currentUserId || !task || task.triggered_by === currentUserId;
+  // plan.triggered_by를 기준으로 판단 — task 로드 여부와 무관하게 즉시 확정
+  const isTriggerer = !currentUserId || plan.triggered_by === currentUserId;
 
-  // 버튼 표시 조건:
-  // - 로컬에서 이미 클릭한 경우 → 숨김
-  // - 5분 이상 된 ai_plan → 만료, 숨김 (이전 세션 확인창 방지)
-  // - 호출자가 아닌 경우 → 숨김
-  // - awaiting_confirm 상태 → 표시
-  // - task가 목록에 없음(새로 생성된 직후) → 표시 (taskList 갱신 전)
   const showButtons =
-    status !== "idle"
-      ? false
-      : isExpired
-      ? false
-      : !isTriggerer
-      ? false
-      : taskStatus === "awaiting_confirm" || taskStatus === "pending" || taskStatus === undefined;
+    status !== "idle" ? false
+    : isExpired ? false
+    : !isTriggerer ? false
+    : taskStatus === "awaiting_confirm" || taskStatus === "pending" || taskStatus === undefined;
 
-  // 성공 표시: 로컬 confirmed 또는 running/completed
   const showSuccess =
     status === "confirmed" ||
     taskStatus === "running" ||
@@ -107,8 +96,6 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
       setStatus("idle");
     }
   };
-
-  const isDone = !showButtons;
 
   return (
     <div
@@ -137,27 +124,50 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
 
         <div
           className="border border-[var(--ai-border)] bg-[var(--ai-bubble)]"
-          style={{ borderRadius: 12, padding: "12px 16px", maxWidth: 420 }}
+          style={{ borderRadius: 12, padding: "14px 16px", maxWidth: 440 }}
         >
+          {/* MCP 배지 */}
           <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
             <div
               className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
               style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
             >
               <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
-              {plan.mcp_name ?? "PC"} 접근
+              {plan.mcp_name ?? "PC"}
             </div>
           </div>
 
+          {/* 접근 설명 */}
           <p
             className="text-[var(--text-primary)] leading-relaxed"
-            style={{ fontSize: 13.5, marginBottom: isDone ? 0 : 12, fontWeight: 500 }}
+            style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}
           >
-            {plan.task_title || plan.confirmation_message}
+            {plan.confirmation_message || `${plan.task_title}하겠습니다`}
           </p>
 
+          {/* 워커 커맨드 박스 */}
+          {plan.task_plan && (
+            <div
+              style={{
+                background: "var(--bg-elevated, rgba(0,0,0,0.15))",
+                border: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
+                borderRadius: 8,
+                padding: "8px 12px",
+                marginBottom: showButtons ? 12 : 8,
+                fontFamily: "monospace",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {plan.task_plan}
+            </div>
+          )}
+
           {showSuccess && (
-            <p className="text-emerald-400" style={{ fontSize: 12, fontWeight: 500 }}>
+            <p className="text-emerald-400" style={{ fontSize: 12, fontWeight: 500, marginTop: plan.task_plan ? 0 : 4 }}>
               ✓ 작업을 시작했어요
             </p>
           )}
@@ -167,8 +177,9 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
             </p>
           )}
 
+          {/* 호출자에게만 버튼 표시 */}
           {showButtons && (
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={() => handleConfirm(false)}
                 disabled={status === "loading"}
@@ -185,7 +196,7 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
                 style={{ borderRadius: 7, padding: "5px 11px", fontSize: 12, background: "transparent", flex: 1, justifyContent: "center" }}
               >
                 {status === "loading" ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-                한번만 허용
+                이번만 허용
               </button>
               {plan.mcp_config_id && !autoApproved && (
                 <button
