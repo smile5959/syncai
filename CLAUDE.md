@@ -64,24 +64,36 @@ syncai/
 ### AI 처리 흐름
 ```
 /ai 명령
-  → MCP 없으면: planning 스킵 → chat-only (1-hop)
-  → MCP 있으면: supervisor planning → needs_mcp 판단
-      → false: chat-only (available_mcp_names 전달)
-      → true:
-          → 유저 MCP 미등록(DB count=0) → 채팅 에러 즉시 반환
+  → _send_ai_plan: Composio 연결 앱 목록 조회 (get_connected_app_names)
+  → MCP도 없고 Composio도 없고 멘션도 없으면: planning 스킵 → chat-only (1-hop)
+  → planning (needs_mcp / needs_composio 판단)
+      → needs_composio=true, composio_app 있음:
+          → 미연결 앱 → 채팅 에러 + /integrations 안내
+          → 연결됨 → awaiting_confirm → 동의 → _run_composio_task (로컬 MCP 불필요)
+      → needs_mcp=true:
+          → 유저 MCP 미등록 → 채팅 에러 즉시 반환
           → MCP 오프라인(mcp_broker.is_online) → 채팅 에러 즉시 반환
-          → 정상: awaiting_confirm → 동의 → MCP 실행
+          → 정상: awaiting_confirm → 동의 → _run_ai_task (로컬 MCP)
+      → 둘 다 false: chat-only (available_mcp_names 전달)
 ```
 - `worker_llm.py`: tool_calls 있으면 finish_reason 무시 (Gemini stop+tool_calls 동시 반환 대응)
+- `WorkerLLM`: `composio_tools` + `composio_executor` 파라미터 — `_MCP_TOOL_NAMES`에 없는 툴은 `composio_executor` 호출
 - 에러 채팅 전송: `chat_connections` broadcast, `created_at` 반드시 `datetime.utcnow().isoformat() + "Z"` 포맷
 - `_format_error_for_chat(error)`: 기술적 에러 → 한국어 친화적 문구 변환
 
+### Composio 외부 앱 연동
+- `COMPOSIO_API_KEY` 환경변수 필수 (config.py + Fly.io secret)
+- 연결 저장: Composio 서버에 `entity_id=str(user.id)` — SyncAI DB에 토큰 없음
+- `services/composio_service.py`: `get_connected_app_names`, `get_tools_for_apps`, `execute_action`
+- `routers/integrations.py`: `GET /v1/integrations/apps`, `POST /v1/integrations/connect`, `GET /v1/integrations/connections`, `DELETE /v1/integrations/connections/{id}`
+- `AiConfirmRequest.composio_app`: confirm 요청에 포함 → `_run_composio_task` 라우팅 키
+
 ### AiPlanCard 승인 버튼
 - `showButtons` 조건: `status === "idle"` AND `!isExpired` AND `isTriggerer` AND `taskStatus ∈ {awaiting_confirm, pending, undefined}`
-- `isTriggerer = !currentUserId || !task || task.triggered_by === currentUserId`
-- **`triggered_by`는 `TaskOut` 스키마에 반드시 포함** — 없으면 `undefined === userId` → `false` → 버튼 미표시
+- `isTriggerer = !currentUserId || plan.triggered_by === currentUserId` — **plan payload 기준** (task 로드 불필요)
+- `plan_content` JSON 필드: `task_id, needs_mcp, needs_composio, composio_app, mcp_name, mcp_config_id, task_title, confirmation_message, task_plan, triggered_by`
+- `task_plan`: 다이얼로그에 monospace 박스로 표시되는 워커 지시 1-3문장
 - `task_awaiting_confirm` WS 이벤트: plan 전송 직후 `task_connections`로 broadcast, `{task_id, triggered_by}` 포함
-  → 프론트 `taskList`에 즉시 upsert → REST 폴링 전에도 버튼 정상 표시
 
 ### RoomPageClient teamId 주의
 - `teamId`는 **`room.team_id` 우선** (`currentTeam`은 auth store의 마지막 선택 팀 — 방 팀과 다를 수 있음)
@@ -185,6 +197,7 @@ syncai/
 - `.env.production` 커밋됨 (NEXT_PUBLIC_* 만 포함, 시크릿 없음)
 - `NEXT_PUBLIC_API_URL=https://syncai-backend.fly.dev/v1`
 - `NEXT_PUBLIC_WS_URL=wss://syncai-backend.fly.dev/ws`
+- `COMPOSIO_API_KEY` — Fly.io secret 등록 완료 (2026-06-17)
 - `MCP_TOKEN_MAX_AGE_DAYS` (기본 90) — MCP 토큰 최대 유효 기간(일)
 
 ## 배포
@@ -202,7 +215,10 @@ syncai/
 | WS 클라이언트 | `syncai-frontend/src/lib/ws.ts` |
 | WS 서버 | `syncai-backend/app/routers/ws.py` |
 | 메시지 API + AI 플로우 | `syncai-backend/app/routers/messages.py` |
-| AI Worker LLM | `syncai-backend/app/agents/worker_llm.py` |
+| AI Worker LLM (MCP+Composio 툴) | `syncai-backend/app/agents/worker_llm.py` |
+| Composio 외부 앱 API | `syncai-backend/app/routers/integrations.py` |
+| Composio REST 래퍼 | `syncai-backend/app/services/composio_service.py` |
+| 외부 앱 연동 허브 페이지 | `syncai-frontend/src/app/(app)/integrations/page.tsx` |
 | 팀/방 삭제 API | `syncai-backend/app/routers/teams.py`, `rooms.py` |
 | 사이드바 | `syncai-frontend/src/components/layout/room-sidebar.tsx` |
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
