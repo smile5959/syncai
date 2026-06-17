@@ -44,3 +44,4 @@ class AiCommandResponse(BaseModel):
 class AiConfirmRequest(BaseModel):
     task_id: uuid.UUID
     confirmed: bool  # True: 동의 → 실행, False: 거부 → cancelled
+    composio_app: str | None = None  # Composio 앱 태스크인 경우 앱 이름

@@ -95,6 +95,8 @@ export interface Message {
 export interface AiPlanPayload {
   task_id: string;
   needs_mcp: boolean;
+  needs_composio?: boolean;
+  composio_app?: string | null;
   mcp_name: string | null;
   mcp_config_id: string | null;
   task_title?: string;

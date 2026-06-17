@@ -99,18 +99,25 @@ def _describe_tool(name: str, args: dict) -> str:
     return f"툴 실행 중: {name}"
 
 
+_MCP_TOOL_NAMES = {t["function"]["name"] for t in MCP_TOOLS}
+
+
 class WorkerLLM:
     def __init__(
         self,
-        worker_agent: WorkerAgent,
+        worker_agent: WorkerAgent | None,
         mcp_base_dir: str = "",
         available_mcps: list[dict] | None = None,
         selected_mcp_name: str = "",
+        composio_tools: list[dict] | None = None,
+        composio_executor: Callable[[str, dict], Awaitable[str]] | None = None,
     ):
         self.worker = worker_agent
         self.mcp_base_dir = mcp_base_dir
         self.available_mcps = available_mcps or []
         self.selected_mcp_name = selected_mcp_name
+        self.composio_tools = composio_tools or []
+        self.composio_executor = composio_executor
 
     async def run(
         self,
@@ -129,6 +136,11 @@ class WorkerLLM:
         최종 텍스트 응답은 실시간 스트리밍으로 on_chunk에 전달된다.
         """
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+        # MCP 툴 + Composio 툴 병합
+        all_tools = list(MCP_TOOLS) if self.worker else []
+        if self.composio_tools:
+            all_tools.extend(self.composio_tools)
 
         # 시스템 프롬프트 구성
         if self.mcp_base_dir:
@@ -195,7 +207,7 @@ class WorkerLLM:
             stream = await client.chat.completions.create(
                 model=model,
                 max_tokens=4096,
-                tools=MCP_TOOLS,
+                tools=all_tools if all_tools else None,
                 messages=messages,
                 stream=True,
             )
@@ -267,7 +279,12 @@ class WorkerLLM:
                         await on_tool_call(tool_name, desc)
 
                     try:
-                        result = await self.worker.execute_tool(tool_name, tool_args)
+                        if tool_name in _MCP_TOOL_NAMES and self.worker:
+                            result = await self.worker.execute_tool(tool_name, tool_args)
+                        elif self.composio_executor:
+                            result = await self.composio_executor(tool_name, tool_args)
+                        else:
+                            result = f"툴 '{tool_name}'을 실행할 수 없습니다."
                     except MCPFatalError as e:
                         return f"[MCP 오류] {e}"
 

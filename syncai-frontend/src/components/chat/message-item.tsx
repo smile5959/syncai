@@ -90,7 +90,7 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
     if (status !== "idle" || !plan) return;
     setStatus("loading");
     try {
-      await messagesApi.confirmAi(roomId, plan.task_id, confirmed);
+      await messagesApi.confirmAi(roomId, plan.task_id, confirmed, plan.composio_app);
       setStatus(confirmed ? "confirmed" : "cancelled");
     } catch {
       setStatus("idle");
@@ -126,14 +126,16 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
           className="border border-[var(--ai-border)] bg-[var(--ai-bubble)]"
           style={{ borderRadius: 12, padding: "14px 16px", maxWidth: 440 }}
         >
-          {/* MCP 배지 */}
+          {/* 접근 대상 배지 */}
           <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
             <div
               className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
               style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
             >
               <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
-              {plan.mcp_name ?? "PC"}
+              {plan.needs_composio && plan.composio_app
+                ? plan.composio_app.charAt(0).toUpperCase() + plan.composio_app.slice(1)
+                : plan.mcp_name ?? "PC"}
             </div>
           </div>
 

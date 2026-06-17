@@ -251,10 +251,11 @@ export const messages = {
     http.post<Message>(`/rooms/${roomId}/messages`, { content }),
   sendAi: (roomId: string, content: string) =>
     http.post<{ task_id: string }>(`/rooms/${roomId}/ai`, { content }),
-  confirmAi: (roomId: string, taskId: string, confirmed: boolean) =>
+  confirmAi: (roomId: string, taskId: string, confirmed: boolean, composio_app?: string | null) =>
     http.post<{ status: string; task_id?: string }>(`/rooms/${roomId}/ai/confirm`, {
       task_id: taskId,
       confirmed,
+      ...(composio_app ? { composio_app } : {}),
     }),
 };
 

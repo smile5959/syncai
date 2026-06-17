@@ -744,26 +744,30 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
 # ── AI 작업 계획 분석 (동의 요청 전 단계) ────────────────────────────────────
 
 PLAN_SYSTEM_PROMPT = (
-    "당신은 팀 협업 AI 어시스턴트입니다. 사용자 요청이 '로컬 PC 파일 작업'인지 '대화/질문'인지 판단하세요.\n\n"
+    "당신은 팀 협업 AI 어시스턴트입니다. 사용자 요청을 분석하여 어떤 도구가 필요한지 판단하세요.\n\n"
     "반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n"
-    "{\"needs_mcp\": true/false, \"mcp_name\": \"PC이름 또는 null\", \"task_title\": \"동사+목적어 형식 짧은 제목\", \"confirmation_message\": \"접근 대상 한 줄 설명\", \"task_plan\": \"워커에게 전달할 구체적인 작업 지시 1-3문장\"}\n\n"
-    "## needs_mcp = true (PC 파일 직접 수정/생성/삭제가 필요한 경우)\n"
+    "{\"needs_mcp\": true/false, \"needs_composio\": true/false, \"composio_app\": \"앱이름 또는 null\", "
+    "\"mcp_name\": \"PC이름 또는 null\", \"task_title\": \"동사+목적어 형식 짧은 제목\", "
+    "\"confirmation_message\": \"접근 대상 한 줄 설명\", \"task_plan\": \"구체적인 작업 지시 1-3문장\"}\n\n"
+    "## needs_mcp = true (로컬 PC 파일 직접 수정/생성/삭제가 필요한 경우)\n"
     "- 파일/폴더 생성, 수정, 삭제, 이동\n"
     "- 코드 버그 수정, 기능 추가, 리팩토링\n"
-    "- 프로젝트 설정 변경\n"
-    "예: '로그인 버그 고쳐줘', 'README 수정해줘', '새 컴포넌트 만들어줘', '파일 만들어줘'\n\n"
-    "## needs_mcp = false (PC 접근 불필요한 경우)\n"
-    "- 질문, 설명 요청, 조언\n"
-    "- 코드 리뷰 (수정 없이 의견만)\n"
-    "- 개념 설명, 방법 안내\n"
-    "- 웹 검색, 정보 조회\n"
-    "- 인사, 잡담\n"
-    "예: '파이썬 리스트 정렬 방법?', '이 코드 어떻게 생각해?', '안녕', '요즘 트렌드 알려줘'\n\n"
-    "확실하지 않으면 false로 하세요. false면 AI가 바로 대답합니다.\n"
+    "예: '로그인 버그 고쳐줘', 'README 수정해줘', '새 컴포넌트 만들어줘'\n\n"
+    "## needs_composio = true (외부 서비스 API 호출이 필요한 경우)\n"
+    "- Notion 페이지 생성/수정/검색\n"
+    "- Figma 파일 접근\n"
+    "- GitHub 이슈/PR 작성\n"
+    "- Slack 메시지 전송 등\n"
+    "예: 'Notion에 회의록 정리해줘', 'GitHub 이슈 만들어줘', 'Figma 디자인 확인해줘'\n\n"
+    "## 둘 다 false (대화/질문인 경우)\n"
+    "- 질문, 설명 요청, 조언, 인사, 코드 리뷰(수정 없이)\n\n"
+    "주의:\n"
+    "- needs_mcp와 needs_composio를 동시에 true로 하지 마세요. 하나만 선택하세요.\n"
+    "- composio_app: needs_composio=true일 때 앱 이름 소문자 (연결된 앱 목록에서 선택), 아니면 null\n"
     "- mcp_name: needs_mcp=true일 때만 PC 이름 (목록에서 선택), 아니면 null\n"
-    "- task_title: 작업 내용을 15자 이내로 요약 (동사+목적어). 예: 'README.md 수정', '로그인 버그 수정', 'index.html 생성'\n"
-    "- confirmation_message: 접근할 파일/대상을 명사형 한 문장으로. 예: 'README.md 파일에 배포 방법을 추가하겠습니다.'\n"
-    "- task_plan: needs_mcp=true일 때만. 워커가 실제 수행할 구체적 지시 1-3문장. 예: 'README.md 파일을 열어 배포 섹션을 찾고, npm install과 npm start 명령어를 추가하세요.'"
+    "- task_title: 15자 이내 요약. 예: 'Notion 회의록 작성', 'README.md 수정'\n"
+    "- confirmation_message: 접근 대상 명사형 한 문장. 예: 'Notion에 회의록 페이지를 생성하겠습니다.'\n"
+    "- task_plan: 실제 수행할 구체적 지시 1-3문장"
 )
 
 
@@ -773,10 +777,11 @@ async def _plan_ai_task(
     available_mcps: list[dict],
     mention_name: str | None,
     model: str = "",
+    connected_composio_apps: list[str] | None = None,
 ) -> dict:
     """
     사용자 요청 + 채팅 맥락 분석 → 작업 계획 반환
-    반환: {needs_mcp: bool, mcp_name: str|None, confirmation_message: str}
+    반환: {needs_mcp, needs_composio, composio_app, mcp_name, task_title, confirmation_message, task_plan}
     """
     import json as _json
     from app.agents.supervisor import _get_client, DEFAULT_MODEL
@@ -790,39 +795,49 @@ async def _plan_ai_task(
         ", ".join(f"'{m['name']}'" for m in available_mcps)
         if available_mcps else "없음"
     )
+    composio_list_str = (
+        ", ".join(connected_composio_apps)
+        if connected_composio_apps else "없음"
+    )
 
     system = PLAN_SYSTEM_PROMPT
     system += f"\n\n사용 가능한 PC 목록: {mcp_list_str}"
+    system += f"\n연결된 외부 앱 목록 (Composio): {composio_list_str}"
     if mention_name:
         system += f"\n사용자가 '@{mention_name}'을 명시적으로 지정했습니다."
 
     messages = [{"role": "system", "content": system}]
-    messages.extend(context[-10:])  # 최근 10개만 (토큰 절약)
+    messages.extend(context[-10:])
     messages.append({"role": "user", "content": content})
 
     try:
         response = await client.chat.completions.create(
             model=plan_model,
-            max_tokens=256,
+            max_tokens=400,
             messages=messages,
         )
         raw = response.choices[0].message.content or "{}"
-        # 마크다운 코드블록 제거
         raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         plan = _json.loads(raw)
         return {
             "needs_mcp": bool(plan.get("needs_mcp", False)),
+            "needs_composio": bool(plan.get("needs_composio", False)),
+            "composio_app": plan.get("composio_app"),
             "mcp_name": plan.get("mcp_name"),
             "task_title": plan.get("task_title", "").strip(),
             "confirmation_message": plan.get("confirmation_message", "이 작업을 진행할까요?"),
+            "task_plan": plan.get("task_plan", ""),
         }
     except Exception as e:
         print(f"[_plan_ai_task] 계획 분석 실패: {e}")
         return {
             "needs_mcp": mention_name is not None,
+            "needs_composio": False,
+            "composio_app": None,
             "mcp_name": mention_name,
             "task_title": "",
             "confirmation_message": "이 작업을 진행할까요?",
+            "task_plan": "",
         }
 
 
@@ -1077,8 +1092,13 @@ async def _send_ai_plan(
         # 통합 지시문이 있으면 content 교체
         effective_content = merged_instruction if merged_instruction else content
 
-        # MCP가 없고 멘션도 없으면 planning 스킵 → 바로 chat-only 실행 (1-hop)
-        if not available_mcps and not mention_name:
+        # 사용자의 Composio 연결 앱 목록 조회
+        from app.services.composio_service import get_connected_app_names as _get_composio_apps
+        entity_id = str(current_user.id)
+        connected_composio_apps = await _get_composio_apps(entity_id) if settings.COMPOSIO_API_KEY else []
+
+        # MCP도 없고 Composio도 없고 멘션도 없으면 planning 스킵 → 바로 chat-only
+        if not available_mcps and not mention_name and not connected_composio_apps:
             task.status = "pending"
             db.commit()
             asyncio.create_task(
@@ -1086,8 +1106,88 @@ async def _send_ai_plan(
             )
             return
 
-        # AI 플래닝 (MCP 있을 때만)
-        plan = await _plan_ai_task(effective_content, context, available_mcps, mention_name, model=worker_model)
+        # AI 플래닝
+        plan = await _plan_ai_task(
+            effective_content, context, available_mcps, mention_name,
+            model=worker_model,
+            connected_composio_apps=connected_composio_apps,
+        )
+
+        # Composio 작업 처리
+        if plan.get("needs_composio") and plan.get("composio_app"):
+            composio_app = plan["composio_app"]
+            if composio_app not in connected_composio_apps:
+                # 연결 안 된 앱 요청 → 연결 안내
+                err_content = (
+                    f"⚠️ **{composio_app.capitalize()}**이 연결되어 있지 않아요. "
+                    f"[연동 페이지](/integrations)에서 연결해 주세요."
+                )
+                task.status = "failed"
+                task.error = err_content
+                db.commit()
+                await broadcast(chat_connections, room_id, {
+                    "type": "message",
+                    "data": {
+                        "id": f"err-{task_id}",
+                        "room_id": room_id,
+                        "user_id": None,
+                        "content": err_content,
+                        "type": "ai_res",
+                        "created_at": datetime.utcnow().isoformat() + "Z",
+                    },
+                })
+                await broadcast(task_connections, room_id, {
+                    "type": "task_failed",
+                    "data": {"task_id": task_id, "error": err_content},
+                })
+                return
+
+            # Composio 작업 → 동의 요청 카드 표시
+            task.status = "awaiting_confirm"
+            db.commit()
+
+            plan_content = _json.dumps({
+                "task_id": task_id,
+                "needs_mcp": False,
+                "needs_composio": True,
+                "composio_app": composio_app,
+                "mcp_name": None,
+                "mcp_config_id": None,
+                "task_title": plan.get("task_title", ""),
+                "confirmation_message": plan.get("confirmation_message", f"{composio_app.capitalize()}에 접근하겠습니다."),
+                "task_plan": plan.get("task_plan", ""),
+                "triggered_by": str(task.triggered_by) if task.triggered_by else None,
+            }, ensure_ascii=False)
+
+            plan_msg = Message(
+                room_id=uuid.UUID(room_id),
+                user_id=None,
+                content=plan_content,
+                type="ai_plan",
+            )
+            db.add(plan_msg)
+            db.commit()
+            db.refresh(plan_msg)
+
+            await broadcast(chat_connections, room_id, {
+                "type": "message",
+                "data": {
+                    "id": str(plan_msg.id),
+                    "room_id": room_id,
+                    "user_id": None,
+                    "content": plan_content,
+                    "type": "ai_plan",
+                    "created_at": plan_msg.created_at.isoformat() + "Z",
+                },
+            })
+            await broadcast(task_connections, room_id, {
+                "type": "task_awaiting_confirm",
+                "data": {
+                    "task_id": task_id,
+                    "triggered_by": str(task.triggered_by) if task.triggered_by else None,
+                },
+            })
+            return
 
         # 순수 대화 요청이면 동의 없이 바로 chat-only 실행
         if not plan["needs_mcp"]:
@@ -1282,6 +1382,141 @@ async def _send_ai_plan(
         db.close()
 
 
+async def _run_composio_task(
+    task_id: str,
+    content: str,
+    composio_app: str,
+    entity_id: str,
+    room_id: str,
+    user_name: str = "",
+):
+    """Composio 외부 앱 툴을 사용해 작업 실행 (로컬 MCP 불필요)."""
+    from app.services.composio_service import get_tools_for_apps, execute_action, is_composio_tool
+    from app.agents.supervisor import SupervisorAgent, DEFAULT_MODEL, _get_client
+
+    db = SessionLocal()
+    task = None
+    try:
+        task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
+        if not task:
+            return
+
+        task.status = "running"
+        db.commit()
+
+        await broadcast(task_connections, room_id, {
+            "type": "task_started",
+            "data": {"task_id": task_id, "worker_id": None},
+        })
+
+        # Composio 툴 정의 가져오기
+        composio_tools = await get_tools_for_apps([composio_app])
+        if not composio_tools:
+            raise Exception(f"{composio_app} 앱의 툴을 불러오지 못했습니다. 연결 상태를 확인해 주세요.")
+
+        # Supervisor로 task_plan 생성
+        supervisor = SupervisorAgent()
+        task_plan = await supervisor.analyze(content, [], user_name=user_name)
+
+        # WorkerLLM으로 실행 (MCP 없이 Composio 툴만 사용)
+        from app.agents.worker_llm import WorkerLLM
+        base_url, api_key = await _get_client()
+
+        step_counter = [0]
+
+        async def on_progress(message: str):
+            step_counter[0] += 1
+            await broadcast(task_connections, room_id, {
+                "type": "task_progress",
+                "data": {
+                    "task_id": task_id,
+                    "progress": min(step_counter[0] * 10, 90),
+                    "message": message,
+                    "step": message,
+                },
+            })
+
+        async def on_chunk(text: str):
+            await broadcast(chat_connections, room_id, {
+                "type": "message_chunk",
+                "data": {"task_id": task_id, "text": text},
+            })
+
+        async def composio_executor(action_name: str, params: dict) -> str:
+            return await execute_action(entity_id, action_name, params)
+
+        worker_llm = WorkerLLM(
+            worker_agent=None,  # type: ignore — Composio 전용, MCP 불필요
+            composio_tools=composio_tools,
+            composio_executor=composio_executor,
+        )
+
+        result_text = await worker_llm.run(
+            task_plan, [],
+            on_progress,
+            model=DEFAULT_MODEL,
+            base_url=base_url,
+            api_key=api_key,
+            user_name=user_name,
+            on_chunk=on_chunk,
+        )
+
+        task.status = "completed"
+        task.completed_at = datetime.utcnow()
+        db.commit()
+
+        ai_msg = Message(
+            room_id=uuid.UUID(room_id),
+            user_id=None,
+            content=result_text,
+            type="ai_res",
+        )
+        db.add(ai_msg)
+        db.commit()
+        db.refresh(ai_msg)
+
+        await broadcast(chat_connections, room_id, {
+            "type": "message",
+            "data": {
+                "id": str(ai_msg.id),
+                "room_id": room_id,
+                "user_id": None,
+                "content": result_text,
+                "type": "ai_res",
+                "created_at": ai_msg.created_at.isoformat() + "Z",
+            },
+        })
+        await broadcast(task_connections, room_id, {
+            "type": "task_completed",
+            "data": {"task_id": task_id, "result_diff": None, "completed_at": datetime.utcnow().isoformat()},
+        })
+
+    except Exception as e:
+        print(f"[_run_composio_task] 오류: {e}")
+        if task:
+            task.status = "failed"
+            task.error = str(e)
+            db.commit()
+        error_msg = str(e)
+        await broadcast(chat_connections, room_id, {
+            "type": "message",
+            "data": {
+                "id": f"err-{task_id}",
+                "room_id": room_id,
+                "user_id": None,
+                "content": f"⚠️ {error_msg}",
+                "type": "ai_res",
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            },
+        })
+        await broadcast(task_connections, room_id, {
+            "type": "task_failed",
+            "data": {"task_id": task_id, "error": error_msg},
+        })
+    finally:
+        db.close()
+
+
 @router.post("/rooms/{room_id}/ai/confirm", status_code=200)
 async def ai_confirm(
     room_id: str,
@@ -1314,18 +1549,28 @@ async def ai_confirm(
     # 동의 → 실행 시작
     team_id = str(room.team_id)
 
-    mcp_config = None
-    if task.mcp_config_id:
-        mcp_config = db.query(McpConfig).filter(McpConfig.id == task.mcp_config_id).first()
-
     original_msg = db.query(Message).filter(Message.id == task.message_id).first()
     content = original_msg.content if original_msg else ""
-    # interrupted 작업과 통합된 경우 merged_instruction 우선 사용
     if task.interrupted_context and task.interrupted_context.get("merged_instruction"):
         content = task.interrupted_context["merged_instruction"]
 
     task.status = "pending"
     db.commit()
+
+    # Composio 작업인 경우 별도 실행
+    if body.composio_app:
+        entity_id = str(current_user.id)
+        asyncio.create_task(
+            _run_composio_task(
+                str(task.id), content, body.composio_app,
+                entity_id, room_id_str, current_user.name,
+            )
+        )
+        return JSONResponse({"status": "started", "type": "composio"})
+
+    mcp_config = None
+    if task.mcp_config_id:
+        mcp_config = db.query(McpConfig).filter(McpConfig.id == task.mcp_config_id).first()
 
     if mcp_config:
         idle_exists = (
