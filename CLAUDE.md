@@ -51,6 +51,16 @@ syncai/
 - `page.tsx` = Vercel용(`dynamicParams=true`), `page.tauri.tsx` = Tauri용(`generateStaticParams`)
   - `dynamicParams=true`와 `output:export` 동시 사용 불가 — 반드시 분리 유지
 
+### Tauri 다이얼로그 주의사항
+- macOS WKWebView는 `window.confirm()` / `window.alert()` / `window.prompt()`를 **구현하지 않음**
+  - 호출하면 팝업 없이 조용히 `false`(confirm) / `undefined`(prompt) 반환 — 무반응처럼 보임
+  - `tauri-plugin-dialog`을 추가하거나 커스텀 React 모달을 써야 함
+- **삭제/확인 UI 패턴**: `useConfirm()` 훅 사용 — `src/components/ui/confirm-dialog.tsx`
+  - `ConfirmDialogProvider`를 `(app)/layout.tsx`에서 감싸고 있음
+  - `const confirm = useConfirm(); if (!(await confirm("..."))) return;` 패턴으로 사용
+  - Esc 취소 / Enter 확인 키보드 단축키 포함
+  - **절대 `window.confirm()` 직접 호출 금지** — Tauri 데스크탑에서 항상 무반응
+
 ### AI 처리 흐름
 ```
 /ai 명령
@@ -200,6 +210,7 @@ syncai/
 | 테마 프로바이더 (dark/light/oat) | `syncai-frontend/src/components/providers/theme-provider.tsx` |
 | 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
 | MCP 설정 모달 | `syncai-frontend/src/components/worker/mcp-settings-modal.tsx` |
+| Tauri 확인 모달 (window.confirm 대체) | `syncai-frontend/src/components/ui/confirm-dialog.tsx` |
 | Tauri 빌드 스크립트 (Next.js only) | `syncai-frontend/scripts/tauri-build.sh` |
 | Tauri 앱 프로젝트 (빌드·번들) | `syncai-desktop/` (`npm run build` → `.app` + `.dmg`) |
 | MCP 파일 접근 보안 | `syncai-backend/mcp-server/tools.py`, `config.py` |
