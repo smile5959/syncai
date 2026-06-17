@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.limiter import limiter
-from app.routers import auth, teams, workers, rooms, messages, tasks, ws, users, invitations, mcp_configs, installer
+from app.routers import auth, teams, workers, rooms, messages, tasks, ws, users, invitations, mcp_configs, installer, integrations
 from app.config import settings
 
 app = FastAPI(title="SyncAI API", version="0.1.0")
@@ -62,6 +62,7 @@ app.include_router(users.router)
 app.include_router(ws.router)
 app.include_router(invitations.router)
 app.include_router(installer.router)  # /installer-auth + /v1/installer/token (no prefix — paths are explicit)
+app.include_router(integrations.router, prefix="/v1")
 
 # 공통 에러 핸들러 — 내부 예외 메시지를 외부에 노출하지 않음
 @app.exception_handler(Exception)

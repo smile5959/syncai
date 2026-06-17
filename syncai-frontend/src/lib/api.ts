@@ -12,6 +12,8 @@ import type {
   Message,
   MessagesPage,
   AiTask,
+  ComposioApp,
+  ComposioConnection,
 } from "@/types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
@@ -262,6 +264,20 @@ export const invitations = {
   list: () => http.get<Invitation[]>("/invitations"),
   accept: (id: string) => http.post<{ ok: boolean; team_id: string }>(`/invitations/${id}/accept`),
   reject: (id: string) => http.post<{ ok: boolean }>(`/invitations/${id}/reject`),
+};
+
+// ─── Integrations (Composio) ──────────────────────────────
+export const integrations = {
+  listApps: (search?: string) =>
+    http.get<ComposioApp[]>("/integrations/apps", { params: search ? { search } : undefined }),
+  listConnections: () => http.get<ComposioConnection[]>("/integrations/connections"),
+  connect: (app_name: string) =>
+    http.post<{ redirectUrl?: string; connectionStatus: string; connectedAccountId: string }>(
+      "/integrations/connect",
+      { app_name, redirect_uri: `${window.location.origin}/integrations` }
+    ),
+  disconnect: (connection_id: string) =>
+    http.delete<{ ok: boolean }>(`/integrations/connections/${connection_id}`),
 };
 
 // ─── Tasks ────────────────────────────────────────────────

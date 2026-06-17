@@ -206,3 +206,25 @@ export interface Invitation {
   team_name: string | null;
   inviter_name: string | null;
 }
+
+
+// ─── Composio Integrations ────────────────────────────
+export interface ComposioApp {
+  key: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  logo?: string;
+  categories?: string[];
+  docs?: string;
+}
+
+export interface ComposioConnection {
+  id: string;
+  appName: string;
+  appUniqueId?: string;
+  clientUniqueUserId: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

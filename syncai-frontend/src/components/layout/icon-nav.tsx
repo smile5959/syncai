@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Coffee, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal } from "lucide-react";
+import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Coffee, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal, PlugZap } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 import { InvitationBell } from "@/components/team/invitation-bell";
@@ -554,6 +554,13 @@ export function IconNav() {
           </button>
 
           <div style={{ height: 1, background: "var(--border)", margin: "2px 14px" }} />
+
+          <Link href="/integrations" title="연동"
+            className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ height: 40, padding: "0 14px", gap: 10 }}>
+            <div style={navIconStyle}><PlugZap size={17} /></div>
+            <span className="icon-nav-label" style={{ fontSize: 13 }}>연동</span>
+          </Link>
 
           <Link href="/settings" title="설정"
             className="flex items-center transition-colors hover:bg-[var(--bg-hover)]"
