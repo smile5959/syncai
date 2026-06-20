@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, CheckCircle2, Plug, Loader2, X, Zap, ChevronRight, Link2 } from "lucide-react";
+import { Search, CheckCircle2, Plug, Loader2, X, Zap, ChevronRight, Link2, ArrowRight } from "lucide-react";
 import { integrations as integrationsApi } from "@/lib/api";
 import type { ComposioApp, ComposioConnection } from "@/types";
 
