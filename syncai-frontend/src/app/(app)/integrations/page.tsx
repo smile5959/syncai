@@ -50,8 +50,9 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
 
   return (
     <div
-      className="flex flex-col p-6 rounded-2xl transition-all duration-200"
+      className="flex flex-col rounded-2xl transition-all duration-200"
       style={{
+        padding: 28,
         background: isConnected
           ? "linear-gradient(135deg, var(--accent-bg) 0%, var(--bg-surface) 100%)"
           : "var(--bg-surface)",
@@ -68,56 +69,57 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
       onMouseLeave={() => setHovered(false)}
     >
       {/* 로고 + 이름 + 카테고리 */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-4" style={{ marginBottom: 16 }}>
         <div
           className="rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
           style={{
-            width: 52, height: 52,
+            width: 56, height: 56,
             background: "#fff",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06)",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.07)",
           }}
         >
           {app.logo ? (
             <img
               src={app.logo}
               alt={displayName}
-              className="w-8 h-8 object-contain"
+              className="object-contain"
+              style={{ width: 34, height: 34 }}
               onError={(e) => {
                 const el = e.target as HTMLImageElement;
                 el.style.display = "none";
-                el.parentElement!.innerHTML = `<span style="font-size:12px;font-weight:700;color:#888">${displayName.slice(0, 2).toUpperCase()}</span>`;
+                el.parentElement!.innerHTML = `<span style="font-size:13px;font-weight:700;color:#888">${displayName.slice(0, 2).toUpperCase()}</span>`;
               }}
             />
           ) : (
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#888" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>
               {displayName.slice(0, 2).toUpperCase()}
             </span>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
+          <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
             <h3
               className="font-bold truncate"
-              style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.3, letterSpacing: "-0.02em" }}
+              style={{ fontSize: 16, color: "var(--text)", lineHeight: 1.25, letterSpacing: "-0.02em" }}
             >
               {displayName}
             </h3>
             {isConnected && (
-              <CheckCircle2
-                size={14}
-                style={{ color: "var(--accent)", flexShrink: 0 }}
-                strokeWidth={2.5}
-              />
+              <CheckCircle2 size={15} style={{ color: "var(--accent)", flexShrink: 0 }} strokeWidth={2.5} />
             )}
           </div>
           {app.categories?.[0] && (
             <span
               style={{
-                fontSize: 10.5,
+                display: "inline-block",
+                fontSize: 11,
                 color: "var(--text-muted)",
+                background: "var(--bg-elevated, var(--bg-hover))",
+                border: "0.5px solid var(--border)",
+                borderRadius: 6,
+                padding: "2px 8px",
                 letterSpacing: "0.01em",
-                textTransform: "lowercase",
               }}
             >
               {app.categories[0]}
@@ -129,12 +131,13 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
       {/* 설명 */}
       {app.description && (
         <p
-          className="line-clamp-2 mb-5"
+          className="line-clamp-2"
           style={{
             color: "var(--text-muted)",
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.65,
             flex: 1,
+            marginBottom: 20,
           }}
         >
           {app.description}
@@ -159,19 +162,21 @@ function ConnectButton({ onClick, disabled, loading }: { onClick: () => void; di
       disabled={disabled}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="w-full h-8 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all duration-150"
+      className="w-full font-semibold flex items-center justify-center gap-2 transition-all duration-150"
       style={{
+        height: 40,
+        borderRadius: 10,
         background: h ? "var(--accent)" : "var(--accent-bg)",
         color: h ? "#fff" : "var(--accent)",
-        fontSize: 12.5,
+        fontSize: 13.5,
         letterSpacing: "0.01em",
         opacity: disabled ? 0.5 : 1,
         border: "none",
       }}
     >
       {loading
-        ? <><Loader2 size={12} className="animate-spin" />연결 중...</>
-        : <><Link2 size={12} />연결하기</>
+        ? <><Loader2 size={13} className="animate-spin" />연결 중...</>
+        : <>연결하기 <ArrowRight size={14} style={{ transition: "transform 0.15s", transform: h ? "translateX(2px)" : "none" }} /></>
       }
     </button>
   );
@@ -185,9 +190,11 @@ function DisconnectButton({ onClick, disabled }: { onClick: () => void; disabled
       disabled={disabled}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="w-full h-8 rounded-lg font-semibold transition-all duration-150"
+      className="w-full font-semibold transition-all duration-150"
       style={{
-        fontSize: 12.5,
+        height: 40,
+        borderRadius: 10,
+        fontSize: 13.5,
         color: h ? "var(--red, #c0392b)" : "var(--text-muted)",
         background: h ? "rgba(192,57,43,0.07)" : "var(--bg-hover, rgba(0,0,0,0.04))",
         opacity: disabled ? 0.5 : 1,
