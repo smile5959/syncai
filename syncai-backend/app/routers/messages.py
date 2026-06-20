@@ -24,22 +24,45 @@ router = APIRouter(tags=["Messages"])
 
 
 def _format_error_for_chat(error: str) -> str:
-    """에러 메시지를 사용자 친화적인 한국어로 변환"""
+    """에러 메시지를 대화체 한국어로 변환"""
     e = error.lower()
     if "quota" in e or "rate limit" in e or "429" in e:
-        return "API 요청 한도를 초과했어요. 잠시 후 다시 시도해 주세요."
+        return "AI 요청 한도에 걸렸네요. 잠시 후에 다시 시도해 주세요."
     if "mcp" in e and ("오프라인" in error or "offline" in e or "not connected" in e):
-        return "PC(MCP)가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
+        return "PC(MCP)가 오프라인 상태인 것 같아요. PC가 켜져 있는지 한번 확인해 주시겠어요?"
     if "401" in e or "unauthorized" in e or "api key" in e:
-        return "AI API 인증에 실패했어요. 관리자에게 문의해 주세요."
+        return "AI API 인증이 안 되고 있어요. 관리자에게 문의해 주세요."
     if "404" in e and "model" in e:
-        return "AI 모델을 찾을 수 없어요. 설정을 확인해 주세요."
+        return "AI 모델을 찾을 수 없네요. 설정을 확인해 주세요."
     if "timeout" in e:
-        return "응답 시간이 초과됐어요. 다시 시도해 주세요."
+        return "응답이 너무 오래 걸려서 중단됐어요. 다시 시도해 주세요."
     if "최대 반복" in error:
-        return "작업이 너무 복잡해서 완료하지 못했어요. 더 구체적으로 요청해 주세요."
-    # 기술적 에러는 간단히 요약
-    return "작업 중 오류가 발생했어요. 다시 시도해 주세요."
+        return "작업이 너무 복잡해서 완료하지 못했어요. 좀 더 구체적으로 요청해 주시면 도움이 될 것 같아요."
+    return "작업 중에 문제가 생겼어요. 다시 시도해 주세요."
+
+
+async def _save_and_broadcast_message(db, room_id: str, content: str) -> None:
+    """AI 메시지를 DB에 저장하고 WS로 브로드캐스트 (새로고침 후에도 유지)."""
+    msg = Message(
+        room_id=uuid.UUID(room_id),
+        user_id=None,
+        content=content,
+        type="ai_res",
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    await broadcast(chat_connections, room_id, {
+        "type": "message",
+        "data": {
+            "id": str(msg.id),
+            "room_id": room_id,
+            "user_id": None,
+            "content": content,
+            "type": "ai_res",
+            "created_at": msg.created_at.isoformat() + "Z",
+        },
+    })
 
 
 # ── Chat-only 시스템 프롬프트 (MCP 없을 때) ───────────────────────────────────
@@ -289,24 +312,13 @@ async def _run_ai_task(
                 task.status = "failed"
                 task.error = f"MCP 오프라인: {mcp_config.name}"
                 db.commit()
-            error_msg = f"**{mcp_config.name}** PC가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
-            await broadcast(chat_connections, room_id, {
-                "type": "message",
-                "data": {
-                    "id": f"err-{task_id}",
-                    "room_id": room_id,
-                    "user_id": None,
-                    "content": f"⚠️ {error_msg}",
-                    "type": "ai_res",
-                    "created_at": datetime.utcnow().isoformat() + "Z",
-                },
-            })
+            await _save_and_broadcast_message(
+                db, room_id,
+                f"**{mcp_config.name}** PC가 지금 오프라인 상태인 것 같아요. PC가 켜져 있는지 한번 확인해 주시겠어요?",
+            )
             await broadcast(task_connections, room_id, {
                 "type": "task_failed",
-                "data": {
-                    "task_id": task_id,
-                    "error": f"'{mcp_config.name}' MCP 서버가 연결되지 않았습니다. PC가 켜져 있는지 확인해 주세요.",
-                },
+                "data": {"task_id": task_id, "error": f"'{mcp_config.name}' MCP 오프라인"},
             })
             return
 
@@ -529,18 +541,7 @@ async def _run_ai_task(
                 "mcp_config_id": mcp_config_id,
             }
             db.commit()
-        error_msg = _format_error_for_chat(str(e))
-        await broadcast(chat_connections, room_id, {
-            "type": "message",
-            "data": {
-                "id": f"err-{task_id}",
-                "room_id": room_id,
-                "user_id": None,
-                "content": f"⚠️ {error_msg}",
-                "type": "ai_res",
-                "created_at": datetime.utcnow().isoformat() + "Z",
-            },
-        })
+        await _save_and_broadcast_message(db, room_id, _format_error_for_chat(str(e)))
         await broadcast(task_connections, room_id, {
             "type": "task_interrupted",
             "data": {"task_id": task_id, "error": str(e)},
@@ -721,18 +722,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
                 "mcp_config_id": None,
             }
             db.commit()
-        error_msg = _format_error_for_chat(str(e))
-        await broadcast(chat_connections, room_id, {
-            "type": "message",
-            "data": {
-                "id": f"err-{task_id}",
-                "room_id": room_id,
-                "user_id": None,
-                "content": f"⚠️ {error_msg}",
-                "type": "ai_res",
-                "created_at": datetime.utcnow().isoformat() + "Z",
-            },
-        })
+        await _save_and_broadcast_message(db, room_id, _format_error_for_chat(str(e)))
         await broadcast(task_connections, room_id, {
             "type": "task_interrupted",
             "data": {"task_id": task_id, "error": str(e)},
@@ -1117,29 +1107,34 @@ async def _send_ai_plan(
         # Composio 작업 처리
         if plan.get("needs_composio") and plan.get("composio_app"):
             composio_app = plan["composio_app"]
-            if composio_app not in connected_composio_apps:
-                # 연결 안 된 앱 요청 → 연결 안내
-                err_content = (
-                    f"⚠️ **{composio_app.capitalize()}**이 연결되어 있지 않아요. "
-                    f"[연동 페이지](/integrations)에서 연결해 주세요."
-                )
+            # 워커 없음 → 구독 안내
+            if not any_worker:
                 task.status = "failed"
-                task.error = err_content
+                task.error = "워커 미등록"
                 db.commit()
-                await broadcast(chat_connections, room_id, {
-                    "type": "message",
-                    "data": {
-                        "id": f"err-{task_id}",
-                        "room_id": room_id,
-                        "user_id": None,
-                        "content": err_content,
-                        "type": "ai_res",
-                        "created_at": datetime.utcnow().isoformat() + "Z",
-                    },
-                })
+                await _save_and_broadcast_message(
+                    db, room_id,
+                    f"**{composio_app.capitalize()}** 작업을 하려면 워커가 필요한데, 아직 등록된 워커가 없네요. "
+                    f"[설정 → 플랜](/settings) 탭에서 구독하시면 외부 앱 연동 기능을 사용할 수 있어요!",
+                )
                 await broadcast(task_connections, room_id, {
                     "type": "task_failed",
-                    "data": {"task_id": task_id, "error": err_content},
+                    "data": {"task_id": task_id, "error": "워커 미등록"},
+                })
+                return
+            if composio_app not in connected_composio_apps:
+                # 연결 안 된 앱 요청 → 연결 안내
+                task.status = "failed"
+                task.error = f"{composio_app} 미연결"
+                db.commit()
+                await _save_and_broadcast_message(
+                    db, room_id,
+                    f"**{composio_app.capitalize()}**이 아직 연결되어 있지 않네요. "
+                    f"[연동 페이지](/integrations)에서 연결하시면 바로 사용할 수 있어요!",
+                )
+                await broadcast(task_connections, room_id, {
+                    "type": "task_failed",
+                    "data": {"task_id": task_id, "error": f"{composio_app} 미연결"},
                 })
                 return
 
@@ -1215,24 +1210,14 @@ async def _send_ai_plan(
                     .first()
                 )
                 err_content = (
-                    f"⚠️ **{effective_mention}** MCP가 공개 설정이 되어 있지 않아요."
+                    f"**{effective_mention}** MCP가 공개 설정이 되어 있지 않아서 접근할 수 없어요."
                     if any_named else
-                    f"⚠️ **{effective_mention}** MCP를 찾을 수 없어요."
+                    f"**{effective_mention}** MCP를 찾을 수 없어요. 이름을 다시 확인해 주세요."
                 )
                 task.status = "failed"
                 task.error = err_content
                 db.commit()
-                await broadcast(chat_connections, room_id, {
-                    "type": "message",
-                    "data": {
-                        "id": f"err-{task_id}",
-                        "room_id": room_id,
-                        "user_id": None,
-                        "content": err_content,
-                        "type": "ai_res",
-                        "created_at": datetime.utcnow().isoformat() + "Z",
-                    },
-                })
+                await _save_and_broadcast_message(db, room_id, err_content)
                 await broadcast(task_connections, room_id, {
                     "type": "task_failed",
                     "data": {"task_id": task_id, "error": err_content},
@@ -1245,17 +1230,10 @@ async def _send_ai_plan(
                 task.status = "failed"
                 task.error = "MCP 미등록"
                 db.commit()
-                await broadcast(chat_connections, room_id, {
-                    "type": "message",
-                    "data": {
-                        "id": f"err-{task_id}",
-                        "room_id": room_id,
-                        "user_id": None,
-                        "content": "⚠️ 등록된 PC(MCP)가 없어요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요.",
-                        "type": "ai_res",
-                        "created_at": datetime.utcnow().isoformat() + "Z",
-                    },
-                })
+                await _save_and_broadcast_message(
+                    db, room_id,
+                    "아직 등록된 PC(MCP)가 없네요. 설정 > 내 MCP에서 PC를 등록하고 설치 명령어를 실행해 주세요!",
+                )
                 await broadcast(task_connections, room_id, {
                     "type": "task_failed",
                     "data": {"task_id": task_id, "error": "MCP 미등록"},
@@ -1273,24 +1251,13 @@ async def _send_ai_plan(
                 task.status = "failed"
                 task.error = f"MCP 오프라인: {proposed_mcp.name}"
                 db.commit()
-                error_msg = f"**{proposed_mcp.name}** PC가 오프라인 상태예요. PC가 켜져 있는지 확인해 주세요."
-                await broadcast(chat_connections, room_id, {
-                    "type": "message",
-                    "data": {
-                        "id": f"err-{task_id}",
-                        "room_id": room_id,
-                        "user_id": None,
-                        "content": f"⚠️ {error_msg}",
-                        "type": "ai_res",
-                        "created_at": datetime.utcnow().isoformat() + "Z",
-                    },
-                })
+                await _save_and_broadcast_message(
+                    db, room_id,
+                    f"**{proposed_mcp.name}** PC가 지금 오프라인 상태인 것 같아요. PC가 켜져 있는지 한번 확인해 주시겠어요?",
+                )
                 await broadcast(task_connections, room_id, {
                     "type": "task_failed",
-                    "data": {
-                        "task_id": task_id,
-                        "error": f"'{proposed_mcp.name}' MCP 서버가 연결되지 않았습니다.",
-                    },
+                    "data": {"task_id": task_id, "error": f"'{proposed_mcp.name}' MCP 오프라인"},
                 })
                 return
 
@@ -1363,18 +1330,7 @@ async def _send_ai_plan(
             task.status = "failed"
             task.error = str(e)
             db.commit()
-        error_msg = _format_error_for_chat(str(e))
-        await broadcast(chat_connections, room_id, {
-            "type": "message",
-            "data": {
-                "id": f"err-{task_id}",
-                "room_id": room_id,
-                "user_id": None,
-                "content": f"⚠️ {error_msg}",
-                "type": "ai_res",
-                "created_at": datetime.utcnow().isoformat() + "Z",
-            },
-        })
+        await _save_and_broadcast_message(db, room_id, _format_error_for_chat(str(e)))
         await broadcast(task_connections, room_id, {
             "type": "task_failed",
             "data": {"task_id": task_id, "error": str(e)},
@@ -1389,11 +1345,12 @@ async def _run_composio_task(
     composio_app: str,
     entity_id: str,
     room_id: str,
+    team_id: str,
     user_name: str = "",
 ):
     """Composio 외부 앱 툴을 사용해 작업 실행 (로컬 MCP 불필요)."""
     from app.services.composio_service import get_tools_for_apps, execute_action, is_composio_tool
-    from app.agents.supervisor import SupervisorAgent, DEFAULT_MODEL, _get_client
+    from app.agents.supervisor import SupervisorAgent, _get_client
 
     db = SessionLocal()
     task = None
@@ -1401,6 +1358,24 @@ async def _run_composio_task(
         task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
         if not task:
             return
+
+        # 워커 조회 — 없으면 구독 안내 후 종료
+        worker = db.query(Worker).filter(Worker.team_id == uuid.UUID(team_id)).first()
+        if not worker:
+            task.status = "failed"
+            task.error = "워커 미등록"
+            db.commit()
+            await _save_and_broadcast_message(
+                db, room_id,
+                "워커가 아직 등록되어 있지 않네요. [설정 → 플랜](/settings) 탭에서 구독하시면 외부 앱 연동 기능을 사용할 수 있어요!",
+            )
+            await broadcast(task_connections, room_id, {
+                "type": "task_failed",
+                "data": {"task_id": task_id, "error": "워커 미등록"},
+            })
+            return
+
+        worker_model = worker.model
 
         task.status = "running"
         db.commit()
@@ -1415,8 +1390,8 @@ async def _run_composio_task(
         if not composio_tools:
             raise Exception(f"{composio_app} 앱의 툴을 불러오지 못했습니다. 연결 상태를 확인해 주세요.")
 
-        # Supervisor로 task_plan 생성
-        supervisor = SupervisorAgent()
+        # Supervisor로 task_plan 생성 (워커 모델 사용)
+        supervisor = SupervisorAgent(model=worker_model)
         task_plan = await supervisor.analyze(content, [], user_name=user_name)
 
         # WorkerLLM으로 실행 (MCP 없이 Composio 툴만 사용)
@@ -1455,7 +1430,7 @@ async def _run_composio_task(
         result_text = await worker_llm.run(
             task_plan, [],
             on_progress,
-            model=DEFAULT_MODEL,
+            model=worker_model,
             base_url=base_url,
             api_key=api_key,
             user_name=user_name,
@@ -1498,21 +1473,10 @@ async def _run_composio_task(
             task.status = "failed"
             task.error = str(e)
             db.commit()
-        error_msg = str(e)
-        await broadcast(chat_connections, room_id, {
-            "type": "message",
-            "data": {
-                "id": f"err-{task_id}",
-                "room_id": room_id,
-                "user_id": None,
-                "content": f"⚠️ {error_msg}",
-                "type": "ai_res",
-                "created_at": datetime.utcnow().isoformat() + "Z",
-            },
-        })
+        await _save_and_broadcast_message(db, room_id, _format_error_for_chat(str(e)))
         await broadcast(task_connections, room_id, {
             "type": "task_failed",
-            "data": {"task_id": task_id, "error": error_msg},
+            "data": {"task_id": task_id, "error": str(e)},
         })
     finally:
         db.close()
@@ -1564,7 +1528,7 @@ async def ai_confirm(
         asyncio.create_task(
             _run_composio_task(
                 str(task.id), content, body.composio_app,
-                entity_id, room_id_str, current_user.name,
+                entity_id, room_id_str, team_id, current_user.name,
             )
         )
         return JSONResponse({"status": "started", "type": "composio"})
