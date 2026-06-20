@@ -128,15 +128,33 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
         >
           {/* 접근 대상 배지 */}
           <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-            <div
-              className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
-              style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
-            >
-              <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
-              {plan.needs_composio && plan.composio_app
-                ? plan.composio_app.charAt(0).toUpperCase() + plan.composio_app.slice(1)
-                : plan.mcp_name ?? "PC"}
-            </div>
+            {plan.needs_mcp && (
+              <div
+                className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
+                style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
+              >
+                <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
+                {plan.mcp_name ?? "PC"}
+              </div>
+            )}
+            {plan.needs_composio && plan.composio_app && (
+              <div
+                className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
+                style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
+              >
+                <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
+                {plan.composio_app.charAt(0).toUpperCase() + plan.composio_app.slice(1)}
+              </div>
+            )}
+            {!plan.needs_mcp && !plan.needs_composio && (
+              <div
+                className="inline-flex items-center bg-[var(--accent)]/10 text-[var(--accent)]"
+                style={{ borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}
+              >
+                <Zap size={10} style={{ marginRight: 4 }} fill="currentColor" />
+                PC
+              </div>
+            )}
           </div>
 
           {/* 접근 설명 */}

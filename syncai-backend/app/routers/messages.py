@@ -259,6 +259,8 @@ async def _run_ai_task(
     room_id: str,
     team_id: str,
     user_name: str = "",
+    composio_app: str | None = None,
+    user_id: str | None = None,
 ):
     from app.models.task import Task
     from app.models.message import Message
@@ -412,11 +414,23 @@ async def _run_ai_task(
         clean_content = re.sub(r'^/ai\s+@\S+\s*', '', content, flags=re.IGNORECASE).strip()
         task_plan = await supervisor.analyze(clean_content, context, user_name=user_name)
 
+        # Composio 툴 로드 (MCP+Composio 동시 케이스)
+        extra_composio_tools = []
+        extra_composio_executor = None
+        if composio_app and user_id:
+            from app.services.composio_service import get_tools_for_apps, execute_action as _exec_action
+            extra_composio_tools = await get_tools_for_apps([composio_app])
+            _uid = user_id
+            async def extra_composio_executor(action_name: str, params: dict) -> str:
+                return await _exec_action(_uid, action_name, params)
+
         worker_llm = WorkerLLM(
             worker_agent=worker_agent,
             mcp_base_dir=mcp_config.base_dir or "",
             available_mcps=public_mcps,
             selected_mcp_name=mcp_config.name,
+            composio_tools=extra_composio_tools,
+            composio_executor=extra_composio_executor,
         )
         base_url, api_key = await _get_client()
         worker_model = worker.model or DEFAULT_MODEL
@@ -750,10 +764,12 @@ PLAN_SYSTEM_PROMPT = (
     "- GitHub 이슈/PR 작성\n"
     "- Slack 메시지 전송 등\n"
     "예: 'Notion에 회의록 정리해줘', 'GitHub 이슈 만들어줘', 'Figma 디자인 확인해줘'\n\n"
+    "## 둘 다 true (로컬 PC + 외부 앱 모두 필요한 경우)\n"
+    "- 로컬 코드를 읽어 Notion에 정리, GitHub 이슈 만들면서 로컬 파일 수정 등 복합 작업\n"
+    "예: '코드 분석해서 Notion에 정리해줘', '버그 고치고 GitHub 이슈 닫아줘'\n\n"
     "## 둘 다 false (대화/질문인 경우)\n"
     "- 질문, 설명 요청, 조언, 인사, 코드 리뷰(수정 없이)\n\n"
     "주의:\n"
-    "- needs_mcp와 needs_composio를 동시에 true로 하지 마세요. 하나만 선택하세요.\n"
     "- composio_app: needs_composio=true일 때 앱 이름 소문자 (연결된 앱 목록에서 선택), 아니면 null\n"
     "- mcp_name: needs_mcp=true일 때만 PC 이름 (목록에서 선택), 아니면 null\n"
     "- task_title: 15자 이내 요약. 예: 'Notion 회의록 작성', 'README.md 수정'\n"
@@ -1104,10 +1120,9 @@ async def _send_ai_plan(
             connected_composio_apps=connected_composio_apps,
         )
 
-        # Composio 작업 처리
-        if plan.get("needs_composio") and plan.get("composio_app"):
-            composio_app = plan["composio_app"]
-            # 워커 없음 → 구독 안내
+        # Composio 필요 여부 공통 검사 (composio-only OR mcp+composio 둘 다)
+        composio_app = plan.get("composio_app") if plan.get("needs_composio") else None
+        if composio_app:
             if not any_worker:
                 task.status = "failed"
                 task.error = "워커 미등록"
@@ -1117,13 +1132,9 @@ async def _send_ai_plan(
                     f"**{composio_app.capitalize()}** 작업을 하려면 워커가 필요한데, 아직 등록된 워커가 없네요. "
                     f"[설정 → 플랜](/settings) 탭에서 구독하시면 외부 앱 연동 기능을 사용할 수 있어요!",
                 )
-                await broadcast(task_connections, room_id, {
-                    "type": "task_failed",
-                    "data": {"task_id": task_id, "error": "워커 미등록"},
-                })
+                await broadcast(task_connections, room_id, {"type": "task_failed", "data": {"task_id": task_id, "error": "워커 미등록"}})
                 return
             if composio_app not in connected_composio_apps:
-                # 연결 안 된 앱 요청 → 연결 안내
                 task.status = "failed"
                 task.error = f"{composio_app} 미연결"
                 db.commit()
@@ -1132,11 +1143,11 @@ async def _send_ai_plan(
                     f"**{composio_app.capitalize()}**이 아직 연결되어 있지 않네요. "
                     f"[연동 페이지](/integrations)에서 연결하시면 바로 사용할 수 있어요!",
                 )
-                await broadcast(task_connections, room_id, {
-                    "type": "task_failed",
-                    "data": {"task_id": task_id, "error": f"{composio_app} 미연결"},
-                })
+                await broadcast(task_connections, room_id, {"type": "task_failed", "data": {"task_id": task_id, "error": f"{composio_app} 미연결"}})
                 return
+
+        # Composio-only (MCP 불필요) → 컨펌 카드 후 composio 경로로
+        if composio_app and not plan.get("needs_mcp"):
 
             # Composio 작업 → 동의 요청 카드 표시
             task.status = "awaiting_confirm"
@@ -1266,7 +1277,8 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_ai_task(task_id, effective_content, str(proposed_mcp.id), room_id, team_id, current_user.name)
+                _run_ai_task(task_id, effective_content, str(proposed_mcp.id), room_id, team_id, current_user.name,
+                             composio_app=composio_app, user_id=str(current_user.id))
             )
             return
 
@@ -1287,6 +1299,8 @@ async def _send_ai_plan(
         plan_content = _json.dumps({
             "task_id": task_id,
             "needs_mcp": plan["needs_mcp"],
+            "needs_composio": bool(composio_app),
+            "composio_app": composio_app,
             "mcp_name": plan["mcp_name"],
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
             "task_title": plan.get("task_title", ""),
@@ -1522,9 +1536,28 @@ async def ai_confirm(
     task.status = "pending"
     db.commit()
 
-    # Composio 작업인 경우 별도 실행
+    # Composio 작업 분기
     if body.composio_app:
         entity_id = str(current_user.id)
+        if task.mcp_config_id:
+            # MCP + Composio 동시 케이스 → _run_ai_task에 composio 정보 전달
+            mcp_config = db.query(McpConfig).filter(McpConfig.id == task.mcp_config_id).first()
+            if mcp_config:
+                idle_exists = (
+                    db.query(Worker)
+                    .filter(Worker.team_id == uuid.UUID(team_id), Worker.status == WorkerStatus.idle)
+                    .first()
+                ) is not None
+                if idle_exists:
+                    asyncio.create_task(
+                        _run_ai_task(str(task.id), content, str(mcp_config.id), room_id_str, team_id, current_user.name,
+                                     composio_app=body.composio_app, user_id=entity_id)
+                    )
+                else:
+                    q = _get_queue(team_id)
+                    await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name))
+                return JSONResponse({"status": "started", "type": "mcp+composio"})
+        # Composio-only
         asyncio.create_task(
             _run_composio_task(
                 str(task.id), content, body.composio_app,
