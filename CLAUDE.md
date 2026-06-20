@@ -91,6 +91,8 @@ syncai/
   - 툴 목록: `GET /api/v3/tools?toolkit_slugs=X&important=true&limit=20`
 - 연결 저장: Composio 서버에 `user_id=str(user.id)` — SyncAI DB에 토큰 없음
 - `services/composio_service.py`: `get_connected_app_names(user_id)`, `get_tools_for_apps(slugs)`, `execute_action(user_id, tool_slug, params)`
+  - **툴 스키마 sanitize 필수**: `get_tools_for_apps`는 `_sanitize_schema` → `_sanitize_key` 적용. Composio `input_parameters`에 `$schema`/`$defs`/공백 포함 키 등 LLM 비허용 필드가 있어 그대로 쓰면 "Provider returned error" (400) 발생
+  - 허용 패턴: `^[a-zA-Z0-9_.-]{1,64}$` — `$`-prefix 키는 제거, 나머지 특수문자 `_` 치환, `type` 배열(`["string","null"]`) → non-null 단일 타입
 - `routers/integrations.py`: `GET /v1/integrations/apps`, `POST /v1/integrations/connect`, `GET /v1/integrations/connections`, `DELETE /v1/integrations/connections/{id}`
 - `AiConfirmRequest.composio_app`: confirm 요청에 포함 → `_run_composio_task` 라우팅 키
 
@@ -100,6 +102,7 @@ syncai/
 - `plan_content` JSON 필드: `task_id, needs_mcp, needs_composio, composio_app, mcp_name, mcp_config_id, task_title, confirmation_message, task_plan, triggered_by`
 - `task_plan`: 다이얼로그에 monospace 박스로 표시되는 워커 지시 1-3문장
 - `task_awaiting_confirm` WS 이벤트: plan 전송 직후 `task_connections`로 broadcast, `{task_id, triggered_by}` 포함
+- **`isExpired` 계산**: `useState(false)` + `useEffect` 내 `setInterval` 패턴 — `Date.now()`를 컴포넌트 바디에 쓰면 서버/클라이언트 값 불일치로 React hydration error #418 발생
 
 ### RoomPageClient teamId 주의
 - `teamId`는 **`room.team_id` 우선** (`currentTeam`은 auth store의 마지막 선택 팀 — 방 팀과 다를 수 있음)
