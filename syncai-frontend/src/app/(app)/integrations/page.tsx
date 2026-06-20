@@ -6,24 +6,26 @@ import { Search, CheckCircle2, Plug, Loader2, X, Zap } from "lucide-react";
 import { integrations as integrationsApi } from "@/lib/api";
 import type { ComposioApp, ComposioConnection } from "@/types";
 
-// ─── 스켈레톤 카드 ───────────────────────────────────────────────────────────
+// ─── 스켈레톤 ────────────────────────────────────────────────────────────────
 
 function SkeletonCard() {
   return (
     <div
-      className="flex flex-col gap-3 p-4 rounded-2xl animate-pulse"
+      className="flex flex-col gap-4 p-5 rounded-2xl animate-pulse"
       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
     >
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl flex-shrink-0" style={{ background: "var(--bg-hover)" }} />
+      <div className="flex items-center gap-3.5">
+        <div className="w-12 h-12 rounded-2xl flex-shrink-0" style={{ background: "var(--bg-hover)" }} />
         <div className="flex-1 flex flex-col gap-2">
-          <div className="h-3 rounded-full w-3/4" style={{ background: "var(--bg-hover)" }} />
-          <div className="h-2.5 rounded-full w-1/2" style={{ background: "var(--bg-hover)" }} />
+          <div className="h-3.5 rounded-full w-3/4" style={{ background: "var(--bg-hover)" }} />
+          <div className="h-2.5 rounded-full w-2/5" style={{ background: "var(--bg-hover)" }} />
         </div>
       </div>
-      <div className="h-2.5 rounded-full w-full" style={{ background: "var(--bg-hover)" }} />
-      <div className="h-2.5 rounded-full w-5/6" style={{ background: "var(--bg-hover)" }} />
-      <div className="h-8 rounded-xl mt-1" style={{ background: "var(--bg-hover)" }} />
+      <div className="flex flex-col gap-2">
+        <div className="h-2.5 rounded-full w-full" style={{ background: "var(--bg-hover)" }} />
+        <div className="h-2.5 rounded-full w-4/5" style={{ background: "var(--bg-hover)" }} />
+      </div>
+      <div className="h-9 rounded-xl mt-auto" style={{ background: "var(--bg-hover)" }} />
     </div>
   );
 }
@@ -41,44 +43,66 @@ interface AppCardProps {
 function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCardProps) {
   const isConnected = !!connection;
   const displayName = app.displayName || app.name;
+  const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      className="flex flex-col gap-3 p-4 rounded-2xl transition-all duration-200"
+      className="flex flex-col gap-4 p-5 rounded-2xl transition-all duration-200"
       style={{
-        background: isConnected ? "var(--accent-bg)" : "var(--bg-surface)",
-        border: `1px solid ${isConnected ? "var(--accent-dim, var(--border-strong))" : "var(--border)"}`,
-        opacity: connecting ? 0.65 : 1,
-        transform: connecting ? "scale(0.98)" : "scale(1)",
+        background: isConnected
+          ? "var(--accent-bg)"
+          : hovered
+          ? "var(--bg-elevated, var(--bg-soft))"
+          : "var(--bg-surface)",
+        border: `1px solid ${
+          isConnected
+            ? "var(--accent-dim, var(--border-strong))"
+            : hovered
+            ? "var(--border-strong)"
+            : "var(--border)"
+        }`,
+        boxShadow: hovered && !isConnected
+          ? "var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08))"
+          : isConnected
+          ? "var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.04))"
+          : "none",
+        opacity: connecting ? 0.6 : 1,
+        transform: connecting ? "scale(0.97)" : "scale(1)",
+        cursor: "default",
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {/* 로고 + 이름 */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3.5">
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ background: "var(--bg-elevated, var(--bg-hover))", border: "1px solid var(--border)" }}
+          className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{
+            background: "var(--bg-base, var(--bg))",
+            border: "1px solid var(--border)",
+          }}
         >
           {app.logo ? (
             <img
               src={app.logo}
               alt={displayName}
-              className="w-7 h-7 object-contain"
+              className="w-8 h-8 object-contain"
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).parentElement!.innerHTML =
-                  `<span style="font-size:13px;font-weight:700;color:var(--text-muted)">${displayName.slice(0, 2).toUpperCase()}</span>`;
+                const el = e.target as HTMLImageElement;
+                el.style.display = "none";
+                el.parentElement!.innerHTML = `<span style="font-size:14px;font-weight:700;color:var(--text-muted)">${displayName.slice(0, 2).toUpperCase()}</span>`;
               }}
             />
           ) : (
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-muted)" }}>
               {displayName.slice(0, 2).toUpperCase()}
             </span>
           )}
         </div>
 
         <div className="flex-1 min-w-0 pt-0.5">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-semibold truncate" style={{ color: "var(--text)", lineHeight: 1.3 }}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>
               {displayName}
             </p>
             {isConnected && (
@@ -86,7 +110,7 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
             )}
           </div>
           {app.categories?.[0] && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)", fontSize: 11 }}>
+            <p className="truncate" style={{ color: "var(--text-muted)", fontSize: 11 }}>
               {app.categories[0]}
             </p>
           )}
@@ -96,65 +120,69 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
       {/* 설명 */}
       {app.description && (
         <p
-          className="text-xs leading-relaxed line-clamp-2 flex-1"
-          style={{ color: "var(--text-muted)", fontSize: 12, lineHeight: 1.55 }}
+          className="line-clamp-2 leading-relaxed flex-1"
+          style={{ color: "var(--text-soft, var(--text-muted))", fontSize: 12, lineHeight: 1.6 }}
         >
           {app.description}
         </p>
       )}
 
       {/* 버튼 */}
-      <div className="mt-auto pt-1">
+      <div className="mt-auto">
         {isConnected ? (
-          <button
-            onClick={() => onDisconnect(connection!.id)}
-            disabled={connecting}
-            className="w-full py-2 rounded-xl font-medium transition-all duration-150"
-            style={{ color: "var(--text-muted)", border: "1px solid var(--border)", background: "transparent", fontSize: 12 }}
-            onMouseEnter={e => {
-              const b = e.currentTarget;
-              b.style.color = "var(--red, #f87171)";
-              b.style.borderColor = "rgba(248,113,113,0.4)";
-              b.style.background = "rgba(248,113,113,0.06)";
-            }}
-            onMouseLeave={e => {
-              const b = e.currentTarget;
-              b.style.color = "var(--text-muted)";
-              b.style.borderColor = "var(--border)";
-              b.style.background = "transparent";
-            }}
-          >
-            연결 해제
-          </button>
+          <DisconnectButton onClick={() => onDisconnect(connection!.id)} disabled={connecting} />
         ) : (
-          <button
-            onClick={() => onConnect(app.key)}
-            disabled={connecting}
-            className="w-full py-2 rounded-xl font-medium flex items-center justify-center gap-1.5 transition-opacity duration-150"
-            style={{ background: "var(--accent)", color: "#fff", fontSize: 12, opacity: connecting ? 0.7 : 1 }}
-          >
-            {connecting ? <><Loader2 size={11} className="animate-spin" />연결 중...</> : "연결하기"}
-          </button>
+          <ConnectButton onClick={() => onConnect(app.key)} disabled={connecting} loading={connecting} />
         )}
       </div>
     </div>
   );
 }
 
-// ─── 섹션 라벨 ───────────────────────────────────────────────────────────────
-
-function SectionLabel({ label }: { label: string }) {
+function ConnectButton({ onClick, disabled, loading }: { onClick: () => void; disabled: boolean; loading: boolean }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <p
-      className="text-xs font-semibold mb-3 uppercase tracking-wider"
-      style={{ color: "var(--text-muted)", fontSize: 11 }}
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full py-2.5 rounded-xl font-medium flex items-center justify-center gap-1.5 transition-all duration-150"
+      style={{
+        background: hovered ? "var(--accent-soft, var(--accent))" : "var(--accent)",
+        color: "#fff",
+        fontSize: 12,
+        opacity: disabled ? 0.65 : 1,
+        letterSpacing: "0.01em",
+      }}
     >
-      {label}
-    </p>
+      {loading ? <><Loader2 size={12} className="animate-spin" />연결 중...</> : "연결하기"}
+    </button>
   );
 }
 
-// ─── 그리드 ──────────────────────────────────────────────────────────────────
+function DisconnectButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full py-2.5 rounded-xl font-medium transition-all duration-150"
+      style={{
+        color: hovered ? "var(--red, #e55)" : "var(--text-muted)",
+        border: `1px solid ${hovered ? "rgba(229,85,85,0.35)" : "var(--border)"}`,
+        background: hovered ? "rgba(229,85,85,0.06)" : "transparent",
+        fontSize: 12,
+      }}
+    >
+      연결 해제
+    </button>
+  );
+}
+
+// ─── 앱 그리드 ───────────────────────────────────────────────────────────────
 
 function AppGrid({ items, connectionMap, connectingApp, onConnect, onDisconnect }: {
   items: ComposioApp[];
@@ -165,8 +193,11 @@ function AppGrid({ items, connectionMap, connectingApp, onConnect, onDisconnect 
 }) {
   return (
     <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
+      className="grid"
+      style={{
+        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+        gap: "14px",
+      }}
     >
       {items.map((app) => (
         <AppCard
@@ -207,14 +238,12 @@ function IntegrationsContent() {
     } catch { /* 조용히 */ }
   }, []);
 
-  // 앱 목록과 커넥션을 분리해서 로드 — 하나 실패해도 다른 건 표시
   useEffect(() => {
     setLoadingApps(true);
     integrationsApi.listApps()
       .then((res) => setApps(Array.isArray(res.data) ? res.data : []))
       .catch(() => showToast("앱 목록을 불러오지 못했습니다", "error"))
       .finally(() => setLoadingApps(false));
-
     loadConnections();
   }, [loadConnections]);
 
@@ -286,72 +315,82 @@ function IntegrationsContent() {
   }
 
   const connectedCount = connections.length;
+  const commonGridProps = {
+    connectionMap,
+    connectingApp,
+    onConnect: handleConnect,
+    onDisconnect: handleDisconnect,
+  };
 
   return (
-    // 전체 스크롤 컨테이너 — 부모 flex 컨테이너에서 남은 공간 전부 차지
-    <div className="flex-1 min-w-0 h-full overflow-y-auto" style={{ background: "var(--bg)", color: "var(--text)" }}>
-      {/* 가운데 정렬 + 반응형 너비 */}
-      <div className="mx-auto w-full px-6 py-8" style={{ maxWidth: 960 }}>
+    <div
+      className="flex-1 min-w-0 h-full overflow-y-auto"
+      style={{ background: "var(--bg)", color: "var(--text)" }}
+    >
+      <div className="mx-auto w-full px-8 pt-10 pb-12" style={{ maxWidth: 1040 }}>
 
         {/* ── 헤더 ── */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-8">
           <div>
-            <div className="flex items-center gap-2.5 mb-1">
+            <div className="flex items-center gap-3 mb-2">
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--gradient-accent, var(--accent))", boxShadow: "var(--shadow-md)" }}
+                className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: "var(--gradient-accent, var(--accent))",
+                  boxShadow: "var(--shadow-md)",
+                }}
               >
-                <Zap size={15} fill="white" color="white" />
+                <Zap size={16} fill="white" color="white" />
               </div>
-              <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
                 연동
               </h1>
             </div>
-            <p className="text-sm" style={{ color: "var(--text-muted)", marginLeft: 42 }}>
-              Notion, Figma, GitHub 등 외부 서비스를 연결하면 AI가 직접 작업합니다
+            <p className="text-sm" style={{ color: "var(--text-muted)", paddingLeft: 48 }}>
+              외부 서비스를 연결하면 AI가 Notion, Figma, GitHub 등에 직접 접근해 작업합니다
             </p>
           </div>
 
           {connectedCount > 0 && (
             <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 mt-1"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 mt-1"
               style={{
                 background: "var(--accent-bg)",
                 color: "var(--accent)",
                 border: "1px solid var(--accent-dim, var(--border-strong))",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--accent)" }} />
               {connectedCount}개 연결됨
             </div>
           )}
         </div>
 
         {/* ── 검색 + 필터 ── */}
-        <div className="flex items-center gap-2.5 mb-6">
+        <div className="flex items-center gap-3 mb-8">
           <div className="relative flex-1">
             <Search
               size={14}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: "var(--text-muted)" }}
             />
             <input
               type="text"
-              placeholder="앱 이름이나 카테고리 검색..."
+              placeholder="앱 이름, 카테고리로 검색..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none transition-all"
+              className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none transition-all"
               style={{
                 background: "var(--bg-surface)",
                 border: "1px solid var(--border)",
                 color: "var(--text)",
                 fontSize: 13,
               }}
-              onFocus={e => {
+              onFocus={(e) => {
                 e.currentTarget.style.borderColor = "var(--accent)";
                 e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-glow, var(--accent-bg))";
               }}
-              onBlur={e => {
+              onBlur={(e) => {
                 e.currentTarget.style.borderColor = "var(--border)";
                 e.currentTarget.style.boxShadow = "none";
               }}
@@ -359,14 +398,14 @@ function IntegrationsContent() {
           </div>
 
           <div
-            className="flex p-1 rounded-xl gap-1 flex-shrink-0"
+            className="flex p-1 rounded-2xl gap-1 flex-shrink-0"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
           >
             {(["all", "connected"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className="px-3.5 py-1.5 rounded-lg font-medium transition-all duration-150"
+                className="px-4 py-2 rounded-xl font-medium transition-all duration-150"
                 style={{
                   background: filter === f ? "var(--accent)" : "transparent",
                   color: filter === f ? "#fff" : "var(--text-muted)",
@@ -374,76 +413,46 @@ function IntegrationsContent() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {f === "all" ? "전체" : `연결됨${connectedCount > 0 ? ` ${connectedCount}` : ""}`}
+                {f === "all" ? "전체" : `연결됨 ${connectedCount > 0 ? connectedCount : ""}`}
               </button>
             ))}
           </div>
         </div>
 
         {/* ── 구분선 ── */}
-        <div className="mb-6" style={{ height: 1, background: "var(--border)" }} />
+        <div className="mb-8" style={{ height: 1, background: "var(--border)" }} />
 
-        {/* ── 앱 목록 ── */}
+        {/* ── 콘텐츠 ── */}
         {loadingApps ? (
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}
+          >
             {Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-20">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-            >
-              <Plug size={22} style={{ color: "var(--text-muted)" }} />
-            </div>
-            <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-              {filter === "connected" ? "연결된 앱이 없습니다" : "검색 결과가 없습니다"}
-            </p>
-            <p className="text-xs text-center" style={{ color: "var(--text-muted)", maxWidth: 280 }}>
-              {filter === "connected"
-                ? "앱을 연결하면 AI가 Notion, Figma 등 외부 서비스에 직접 접근할 수 있어요"
-                : "다른 검색어로 시도해보세요"}
-            </p>
-            {filter === "connected" && (
-              <button
-                onClick={() => setFilter("all")}
-                className="mt-1 px-4 py-2 rounded-lg font-medium"
-                style={{ background: "var(--accent)", color: "#fff", fontSize: 12 }}
-              >
-                앱 찾아보기
-              </button>
-            )}
-          </div>
+          <EmptyState filter={filter} onReset={() => setFilter("all")} />
         ) : (
-          <div className="flex flex-col gap-8">
-            {/* 연결됨 섹션 (전체 필터일 때만 분리) */}
+          <div className="flex flex-col gap-10">
+            {/* 연결됨 섹션 */}
             {filter === "all" && connectedInFiltered.length > 0 && (
-              <div>
-                <SectionLabel label="연결됨" />
-                <AppGrid
-                  items={connectedInFiltered}
-                  connectionMap={connectionMap}
-                  connectingApp={connectingApp}
-                  onConnect={handleConnect}
-                  onDisconnect={handleDisconnect}
-                />
-              </div>
+              <section>
+                <SectionLabel label="연결됨" count={connectedInFiltered.length} accent />
+                <AppGrid items={connectedInFiltered} {...commonGridProps} />
+              </section>
             )}
 
-            {/* 전체 앱 섹션 */}
+            {/* 전체 / 연결 안 된 앱 */}
             {(filter !== "all" || unconnectedInFiltered.length > 0) && (
-              <div>
+              <section>
                 {filter === "all" && connectedInFiltered.length > 0 && (
-                  <SectionLabel label="전체 앱" />
+                  <SectionLabel label="전체 앱" count={unconnectedInFiltered.length} />
                 )}
                 <AppGrid
                   items={filter === "all" ? unconnectedInFiltered : filtered}
-                  connectionMap={connectionMap}
-                  connectingApp={connectingApp}
-                  onConnect={handleConnect}
-                  onDisconnect={handleDisconnect}
+                  {...commonGridProps}
                 />
-              </div>
+              </section>
             )}
           </div>
         )}
@@ -452,11 +461,11 @@ function IntegrationsContent() {
       {/* ── 토스트 ── */}
       {toast && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm z-50"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl z-50"
           style={{
-            background: toast.type === "error" ? "var(--red, #e55)" : "var(--accent)",
+            background: toast.type === "error" ? "var(--red, #d94)" : "var(--accent)",
             color: "#fff",
-            boxShadow: "var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.2))",
+            boxShadow: "var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.18))",
             fontSize: 13,
             fontWeight: 500,
             whiteSpace: "nowrap",
@@ -472,7 +481,69 @@ function IntegrationsContent() {
   );
 }
 
-// ─── 페이지 래퍼 ─────────────────────────────────────────────────────────────
+// ─── 섹션 라벨 ───────────────────────────────────────────────────────────────
+
+function SectionLabel({ label, count, accent }: { label: string; count?: number; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <p
+        className="text-xs font-bold uppercase tracking-widest"
+        style={{ color: accent ? "var(--accent)" : "var(--text-muted)", fontSize: 11 }}
+      >
+        {label}
+      </p>
+      {count !== undefined && (
+        <span
+          className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+          style={{
+            background: accent ? "var(--accent-bg)" : "var(--bg-surface)",
+            color: accent ? "var(--accent)" : "var(--text-muted)",
+            fontSize: 10,
+            border: `1px solid ${accent ? "var(--accent-dim, var(--border))" : "var(--border)"}`,
+          }}
+        >
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── 빈 상태 ─────────────────────────────────────────────────────────────────
+
+function EmptyState({ filter, onReset }: { filter: "all" | "connected"; onReset: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-24">
+      <div
+        className="w-16 h-16 rounded-3xl flex items-center justify-center"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+      >
+        <Plug size={24} style={{ color: "var(--text-muted)" }} />
+      </div>
+      <div className="text-center">
+        <p className="text-base font-semibold mb-1.5" style={{ color: "var(--text)" }}>
+          {filter === "connected" ? "연결된 앱이 없습니다" : "검색 결과가 없습니다"}
+        </p>
+        <p className="text-sm" style={{ color: "var(--text-muted)", maxWidth: 300 }}>
+          {filter === "connected"
+            ? "앱을 연결하면 AI가 외부 서비스에 직접 접근할 수 있어요"
+            : "다른 검색어로 시도해보세요"}
+        </p>
+      </div>
+      {filter === "connected" && (
+        <button
+          onClick={onReset}
+          className="px-5 py-2.5 rounded-xl font-medium text-sm mt-1"
+          style={{ background: "var(--accent)", color: "#fff" }}
+        >
+          앱 둘러보기
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── 페이지 ──────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
   return (
