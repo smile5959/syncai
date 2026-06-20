@@ -130,6 +130,18 @@ syncai/
   - navigate 후 레이아웃 컴포넌트에서 lazy 로딩
   - login page: mount-only `useEffect([])` + `loggingInRef` 로 race condition 방지
 
+### 페이지 레이아웃 패턴
+- **설정/연동 페이지 공통 패턴**: `<main style={{ flex: 1, overflowY: "auto", background: "var(--bg-base)" }}>` + 내부 `<div style={{ maxWidth: 900, margin: "0 auto", padding: "0 28px 60px" }}>`
+- **sticky 헤더 full-width 배경**: `marginLeft/Right: -28`, `paddingLeft/Right: 28` 음수 마진으로 컨테이너 경계 너머까지 배경 확장
+- **설정 페이지**: maxWidth 820, padding 36px 28px 60px
+- **연동 페이지**: maxWidth 900, padding 0 28px 60px
+
+### 연동 페이지 카드 디자인 (2026-06-20 기준)
+- 카드 패딩: 28px, border-radius: rounded-2xl
+- 로고: 56×56px, 흰 배경, `box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.07)`
+- 앱 이름: 16px bold, 카테고리: pill 뱃지 (bg-elevated + border)
+- 버튼: height 40px, border-radius 10px, accent-bg 기본 → hover 시 accent 채움 + ArrowRight 이동
+
 ### 테마 시스템
 - `html` 엘리먼트에 `dark` / `light` / `oat` 클래스 → `globals.css` CSS 변수 전환
 - `theme-provider.tsx`: `type Theme = "dark" | "light" | "oat"`, localStorage `syncai-theme`
