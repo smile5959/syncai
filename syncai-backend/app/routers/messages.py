@@ -18,6 +18,7 @@ from app.models.mcp_config import McpConfig
 from app.models.mcp_config_team import McpConfigTeam
 from app.schemas.message import MessageCreate, MessageOut, MessagesResponse, AiCommandRequest, AiCommandResponse, AiConfirmRequest
 from app.routers.ws import broadcast, chat_connections, task_connections
+from app.config import settings
 
 router = APIRouter(tags=["Messages"])
 
