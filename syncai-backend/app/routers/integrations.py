@@ -68,6 +68,7 @@ async def list_connections(current_user: User = Depends(get_current_user)):
         raise HTTPException(502, f"Composio API 오류: {resp.status_code}")
 
     raw = resp.json().get("items", [])
+    # Composio가 user_id/status 필터를 무시하므로 직접 필터링
     return [
         {
             "id": item.get("id", ""),
@@ -78,6 +79,7 @@ async def list_connections(current_user: User = Depends(get_current_user)):
             "updatedAt": item.get("updated_at"),
         }
         for item in raw
+        if item.get("user_id") == user_id and item.get("status") == "ACTIVE"
     ]
 
 

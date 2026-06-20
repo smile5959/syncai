@@ -27,10 +27,11 @@ async def get_connected_app_names(user_id: str) -> list[str]:
             )
         if resp.status_code != 200:
             return []
+        # Composio가 user_id/status 필터를 무시하므로 직접 필터링
         return [
             item.get("toolkit", {}).get("slug", "").lower()
             for item in resp.json().get("items", [])
-            if item.get("status") == "ACTIVE"
+            if item.get("user_id") == user_id and item.get("status") == "ACTIVE"
         ]
     except Exception:
         return []
