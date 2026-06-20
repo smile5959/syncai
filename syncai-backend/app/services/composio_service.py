@@ -16,6 +16,64 @@ def _headers() -> dict:
     return {"x-api-key": settings.COMPOSIO_API_KEY, "Content-Type": "application/json"}
 
 
+def _sanitize_property(prop: dict) -> dict:
+    """단일 프로퍼티 스키마를 Gemini/OpenAI 호환 형식으로 정리."""
+    if not isinstance(prop, dict):
+        return {"type": "string"}
+    result: dict = {}
+    t = prop.get("type")
+    # nullable / anyOf(null) → 단순 타입으로 축소
+    if isinstance(t, list):
+        non_null = [x for x in t if x != "null"]
+        t = non_null[0] if non_null else "string"
+    if t:
+        result["type"] = t
+    if "description" in prop:
+        result["description"] = str(prop["description"])[:500]
+    if "enum" in prop and isinstance(prop["enum"], list):
+        result["enum"] = prop["enum"]
+    if t == "array" and isinstance(prop.get("items"), dict):
+        result["items"] = _sanitize_property(prop["items"])
+    if t == "object":
+        if isinstance(prop.get("properties"), dict):
+            result["properties"] = {
+                k: _sanitize_property(v)
+                for k, v in prop["properties"].items()
+                if isinstance(v, dict)
+            }
+        if isinstance(prop.get("required"), list):
+            result["required"] = [str(x) for x in prop["required"] if isinstance(x, str)]
+        if "properties" not in result:
+            result["properties"] = {}
+    if "type" not in result:
+        result["type"] = "string"
+    return result
+
+
+def _sanitize_schema(schema: dict) -> dict:
+    """Composio input_parameters를 Gemini/OpenAI 호환 JSON Schema로 정리.
+
+    Gemini는 $schema/$defs/$ref/additionalProperties/nullable 등을 지원하지 않아
+    OpenRouter를 통해 Provider returned error를 반환한다.
+    """
+    if not isinstance(schema, dict):
+        return {"type": "object", "properties": {}}
+    result: dict = {"type": "object"}
+    if isinstance(schema.get("properties"), dict):
+        result["properties"] = {
+            k: _sanitize_property(v)
+            for k, v in schema["properties"].items()
+            if isinstance(v, dict)
+        }
+    else:
+        result["properties"] = {}
+    if isinstance(schema.get("required"), list):
+        result["required"] = [str(x) for x in schema["required"] if isinstance(x, str)]
+    if "description" in schema:
+        result["description"] = str(schema["description"])[:500]
+    return result
+
+
 async def get_connected_app_names(user_id: str) -> list[str]:
     """사용자의 활성 연결 앱 슬러그 목록 반환."""
     try:
@@ -56,14 +114,13 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
             return []
         tools = []
         for tool in resp.json().get("items", []):
-            params = tool.get("input_parameters") or {"type": "object", "properties": {}}
-            if not isinstance(params, dict):
-                params = {"type": "object", "properties": {}}
+            raw_params = tool.get("input_parameters") or {}
+            params = _sanitize_schema(raw_params if isinstance(raw_params, dict) else {})
             tools.append({
                 "type": "function",
                 "function": {
                     "name": tool["slug"],
-                    "description": tool.get("description", tool["slug"]),
+                    "description": (tool.get("description", tool["slug"]) or tool["slug"])[:1000],
                     "parameters": params,
                 },
             })

@@ -36,6 +36,8 @@ def _format_error_for_chat(error: str) -> str:
         return "AI 모델을 찾을 수 없네요. 설정을 확인해 주세요."
     if "timeout" in e:
         return "응답이 너무 오래 걸려서 중단됐어요. 다시 시도해 주세요."
+    if "provider returned error" in e or "provider_returned_error" in e:
+        return "AI 처리 중 일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."
     if "최대 반복" in error:
         return "작업이 너무 복잡해서 완료하지 못했어요. 좀 더 구체적으로 요청해 주시면 도움이 될 것 같아요."
     return "작업 중에 문제가 생겼어요. 다시 시도해 주세요."

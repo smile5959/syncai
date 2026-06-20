@@ -56,6 +56,21 @@ function Avatar({ name, userId }: { name: string; userId: string }) {
 function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Message; roomId: string; tasks?: AiTask[]; currentUserId?: string }) {
   const [status, setStatus] = useState<"idle" | "loading" | "confirmed" | "cancelled">("idle");
   const [autoApproved, setAutoApproved] = useState(false);
+  // Date.now()는 서버/클라이언트 값이 달라 하이드레이션 불일치 — useEffect로 클라이언트 전용 계산
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      setIsExpired(
+        message.created_at
+          ? Date.now() - new Date(message.created_at).getTime() > 5 * 60 * 1000
+          : false
+      );
+    };
+    check();
+    const timer = setInterval(check, 30_000);
+    return () => clearInterval(timer);
+  }, [message.created_at]);
 
   let plan: AiPlanPayload | null = null;
   try {
@@ -66,11 +81,6 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
 
   const task = tasks?.find((t) => t.id === plan?.task_id);
   const taskStatus = task?.status;
-
-  // 5분 이상 된 ai_plan은 만료 처리
-  const isExpired = message.created_at
-    ? Date.now() - new Date(message.created_at).getTime() > 5 * 60 * 1000
-    : false;
 
   // plan.triggered_by를 기준으로 판단 — task 로드 여부와 무관하게 즉시 확정
   const isTriggerer = !currentUserId || plan.triggered_by === currentUserId;
