@@ -1,5 +1,6 @@
 """Composio v3 REST API 래퍼 — 외부 앱(Notion, Figma 등) 툴 조회 및 실행."""
 import json
+import re
 import httpx
 from app.config import settings
 
@@ -14,6 +15,17 @@ _MCP_TOOL_NAMES = {
 
 def _headers() -> dict:
     return {"x-api-key": settings.COMPOSIO_API_KEY, "Content-Type": "application/json"}
+
+
+_VALID_PROP_KEY = re.compile(r'^[a-zA-Z0-9_.\-]{1,64}$')
+
+
+def _sanitize_key(key: str) -> str | None:
+    """프로퍼티 키를 LLM 호환 패턴으로 변환. 불가 시 None."""
+    if key.startswith("$"):  # $schema, $defs 등 제거
+        return None
+    cleaned = re.sub(r"[^a-zA-Z0-9_.\-]", "_", key)[:64]
+    return cleaned if _VALID_PROP_KEY.match(cleaned) else None
 
 
 def _sanitize_property(prop: dict) -> dict:
@@ -36,13 +48,18 @@ def _sanitize_property(prop: dict) -> dict:
         result["items"] = _sanitize_property(prop["items"])
     if t == "object":
         if isinstance(prop.get("properties"), dict):
-            result["properties"] = {
-                k: _sanitize_property(v)
-                for k, v in prop["properties"].items()
-                if isinstance(v, dict)
-            }
+            safe_props = {}
+            for k, v in prop["properties"].items():
+                safe_k = _sanitize_key(k)
+                if safe_k and isinstance(v, dict):
+                    safe_props[safe_k] = _sanitize_property(v)
+            result["properties"] = safe_props
         if isinstance(prop.get("required"), list):
-            result["required"] = [str(x) for x in prop["required"] if isinstance(x, str)]
+            # required 목록도 sanitize된 키만 포함
+            result["required"] = [
+                sk for x in prop["required"]
+                if isinstance(x, str) and (sk := _sanitize_key(x))
+            ]
         if "properties" not in result:
             result["properties"] = {}
     if "type" not in result:
@@ -60,15 +77,19 @@ def _sanitize_schema(schema: dict) -> dict:
         return {"type": "object", "properties": {}}
     result: dict = {"type": "object"}
     if isinstance(schema.get("properties"), dict):
-        result["properties"] = {
-            k: _sanitize_property(v)
-            for k, v in schema["properties"].items()
-            if isinstance(v, dict)
-        }
+        safe_props = {}
+        for k, v in schema["properties"].items():
+            safe_k = _sanitize_key(k)
+            if safe_k and isinstance(v, dict):
+                safe_props[safe_k] = _sanitize_property(v)
+        result["properties"] = safe_props
     else:
         result["properties"] = {}
     if isinstance(schema.get("required"), list):
-        result["required"] = [str(x) for x in schema["required"] if isinstance(x, str)]
+        result["required"] = [
+            sk for x in schema["required"]
+            if isinstance(x, str) and (sk := _sanitize_key(x))
+        ]
     if "description" in schema:
         result["description"] = str(schema["description"])[:500]
     return result
