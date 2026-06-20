@@ -369,13 +369,13 @@ function IntegrationsContent() {
             marginRight: -28,
             paddingLeft: 28,
             paddingRight: 28,
-            paddingBottom: 14,
-            paddingTop: 24,
+            paddingBottom: 20,
+            paddingTop: 32,
             borderBottom: "1px solid var(--border)",
           }}
         >
           {/* 타이틀 + 연결됨 버튼 */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
               <div
                 className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -414,7 +414,7 @@ function IntegrationsContent() {
           </div>
 
           {/* 검색창 */}
-          <div className="relative mb-3">
+          <div className="relative mb-5">
             <Search
               size={14}
               className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
