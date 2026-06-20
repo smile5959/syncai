@@ -351,24 +351,26 @@ function IntegrationsContent() {
   };
 
   return (
-    <div
-      className="flex-1 min-w-0 h-full overflow-y-auto"
-      style={{ background: "var(--bg)" }}
-    >
+    <main style={{ flex: 1, overflowY: "auto", background: "var(--bg-base)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 28px 60px" }}>
+
       {/* ── 헤더 (sticky) ── */}
       <div
-        className="w-full"
         style={{
           position: "sticky",
           top: 0,
           zIndex: 20,
-          background: "var(--bg)",
+          background: "var(--bg-base)",
           borderBottom: "1px solid var(--border)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
+          marginLeft: -28,
+          marginRight: -28,
+          paddingLeft: 28,
+          paddingRight: 28,
         }}
       >
-        <div className="mx-auto w-full px-10 pt-8 pb-5" style={{ maxWidth: 960 }}>
+        <div className="w-full pt-8 pb-5">
           {/* 타이틀 + 연결됨 버튼 */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
@@ -468,7 +470,7 @@ function IntegrationsContent() {
       </div>
 
       {/* ── 콘텐츠 영역 ── */}
-      <div className="mx-auto w-full px-10 py-7" style={{ maxWidth: 960 }}>
+      <div className="w-full py-7">
         {loadingApps ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
             {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -554,7 +556,8 @@ function IntegrationsContent() {
           </button>
         </div>
       )}
-    </div>
+      </div>
+    </main>
   );
 }
 

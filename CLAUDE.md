@@ -83,8 +83,14 @@ syncai/
 
 ### Composio 외부 앱 연동
 - `COMPOSIO_API_KEY` 환경변수 필수 (config.py + Fly.io secret)
-- 연결 저장: Composio 서버에 `entity_id=str(user.id)` — SyncAI DB에 토큰 없음
-- `services/composio_service.py`: `get_connected_app_names`, `get_tools_for_apps`, `execute_action`
+- **Composio API v3** 사용 (v1은 2026-06 전체 종료 — 410 Gone)
+  - 앱 목록: `GET /api/v3/toolkits` → `{items:[{name,slug,meta:{description,logo,categories}}]}`
+  - 연결 목록: `GET /api/v3/connected_accounts` → **user_id/status 파라미터를 Composio가 무시** → 응답에서 직접 필터 (`item.user_id == user_id and item.status == "ACTIVE"`)
+  - 연결 시작: ① `GET /api/v3/auth_configs?toolkit_slug=X` → managed auth_config 조회 ② 없으면 `POST /api/v3/auth_configs` 생성 ③ `POST /api/v3/connected_accounts/link` → `redirect_url` 반환
+  - 툴 실행: `POST /api/v3/tools/execute/{tool_slug}` body: `{user_id, arguments}`
+  - 툴 목록: `GET /api/v3/tools?toolkit_slugs=X&important=true&limit=20`
+- 연결 저장: Composio 서버에 `user_id=str(user.id)` — SyncAI DB에 토큰 없음
+- `services/composio_service.py`: `get_connected_app_names(user_id)`, `get_tools_for_apps(slugs)`, `execute_action(user_id, tool_slug, params)`
 - `routers/integrations.py`: `GET /v1/integrations/apps`, `POST /v1/integrations/connect`, `GET /v1/integrations/connections`, `DELETE /v1/integrations/connections/{id}`
 - `AiConfirmRequest.composio_app`: confirm 요청에 포함 → `_run_composio_task` 라우팅 키
 
@@ -218,7 +224,7 @@ syncai/
 | AI Worker LLM (MCP+Composio 툴) | `syncai-backend/app/agents/worker_llm.py` |
 | Composio 외부 앱 API | `syncai-backend/app/routers/integrations.py` |
 | Composio REST 래퍼 | `syncai-backend/app/services/composio_service.py` |
-| 외부 앱 연동 허브 페이지 | `syncai-frontend/src/app/(app)/integrations/page.tsx` |
+| 외부 앱 연동 허브 페이지 (마켓플레이스 UI) | `syncai-frontend/src/app/(app)/integrations/page.tsx` |
 | 팀/방 삭제 API | `syncai-backend/app/routers/teams.py`, `rooms.py` |
 | 사이드바 | `syncai-frontend/src/components/layout/room-sidebar.tsx` |
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
