@@ -368,7 +368,7 @@ function IntegrationsContent() {
           WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        <div className="mx-auto px-10 pt-8 pb-5" style={{ maxWidth: 1100 }}>
+        <div className="mx-auto w-full px-10 pt-8 pb-5" style={{ maxWidth: 960 }}>
           {/* 타이틀 + 연결됨 버튼 */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
@@ -468,7 +468,7 @@ function IntegrationsContent() {
       </div>
 
       {/* ── 콘텐츠 영역 ── */}
-      <div className="mx-auto px-10 py-7" style={{ maxWidth: 1100 }}>
+      <div className="mx-auto w-full px-10 py-7" style={{ maxWidth: 960 }}>
         {loadingApps ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
             {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
