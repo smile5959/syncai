@@ -1403,12 +1403,15 @@ async def _run_composio_task(
 
         # Composio 툴 정의 가져오기
         composio_tools = await get_tools_for_apps([composio_app])
+        print(f"[composio] app={composio_app} tools={[t['function']['name'] for t in composio_tools]}")
         if not composio_tools:
             raise Exception(f"{composio_app} 앱의 툴을 불러오지 못했습니다. 연결 상태를 확인해 주세요.")
 
         # Supervisor로 task_plan 생성 (워커 모델 사용)
+        print(f"[composio] model={worker_model} analyzing...")
         supervisor = SupervisorAgent(model=worker_model)
         task_plan = await supervisor.analyze(content, [], user_name=user_name)
+        print(f"[composio] task_plan={task_plan[:100]!r}")
 
         # WorkerLLM으로 실행 (MCP 없이 Composio 툴만 사용)
         from app.agents.worker_llm import WorkerLLM
@@ -1484,7 +1487,8 @@ async def _run_composio_task(
         })
 
     except Exception as e:
-        print(f"[_run_composio_task] 오류: {e}")
+        import traceback
+        print(f"[_run_composio_task] 오류: {e}\n{traceback.format_exc()}")
         if task:
             task.status = "failed"
             task.error = str(e)
