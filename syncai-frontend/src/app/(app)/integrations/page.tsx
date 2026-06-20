@@ -288,8 +288,8 @@ function IntegrationsContent() {
   const connectedCount = connections.length;
 
   return (
-    // 전체 스크롤 컨테이너
-    <div className="h-full overflow-y-auto" style={{ background: "var(--bg)", color: "var(--text)" }}>
+    // 전체 스크롤 컨테이너 — 부모 flex 컨테이너에서 남은 공간 전부 차지
+    <div className="flex-1 min-w-0 h-full overflow-y-auto" style={{ background: "var(--bg)", color: "var(--text)" }}>
       {/* 가운데 정렬 + 반응형 너비 */}
       <div className="mx-auto w-full px-6 py-8" style={{ maxWidth: 960 }}>
 
