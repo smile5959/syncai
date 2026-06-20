@@ -50,7 +50,7 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
 
   return (
     <div
-      className="flex flex-col p-5 rounded-2xl transition-all duration-200"
+      className="flex flex-col p-6 rounded-2xl transition-all duration-200"
       style={{
         background: isConnected
           ? "linear-gradient(135deg, var(--accent-bg) 0%, var(--bg-surface) 100%)"
@@ -68,10 +68,11 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
       onMouseLeave={() => setHovered(false)}
     >
       {/* 로고 + 이름 + 카테고리 */}
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3 mb-4">
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+          className="rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
           style={{
+            width: 52, height: 52,
             background: "#fff",
             boxShadow: "0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06)",
           }}
@@ -80,7 +81,7 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
             <img
               src={app.logo}
               alt={displayName}
-              className="w-7 h-7 object-contain"
+              className="w-8 h-8 object-contain"
               onError={(e) => {
                 const el = e.target as HTMLImageElement;
                 el.style.display = "none";
@@ -128,7 +129,7 @@ function AppCard({ app, connection, onConnect, onDisconnect, connecting }: AppCa
       {/* 설명 */}
       {app.description && (
         <p
-          className="line-clamp-2 mb-4"
+          className="line-clamp-2 mb-5"
           style={{
             color: "var(--text-muted)",
             fontSize: 12.5,
@@ -369,25 +370,25 @@ function IntegrationsContent() {
             marginRight: -28,
             paddingLeft: 28,
             paddingRight: 28,
-            paddingBottom: 20,
-            paddingTop: 32,
+            paddingBottom: 24,
+            paddingTop: 40,
             borderBottom: "1px solid var(--border)",
           }}
         >
           {/* 타이틀 + 연결됨 버튼 */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between" style={{ marginBottom: 24 }}>
+            <div className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--accent)", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
+                className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "var(--accent)", boxShadow: "0 3px 10px rgba(0,0,0,0.18)" }}
               >
-                <Zap size={15} fill="white" color="white" />
+                <Zap size={18} fill="white" color="white" />
               </div>
               <div>
-                <h1 style={{ fontSize: 19, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.03em", lineHeight: 1.2 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
                   연동
                 </h1>
-                <p style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 3 }}>
                   외부 서비스를 연결해 AI가 직접 접근하게 하세요
                 </p>
               </div>
@@ -398,26 +399,26 @@ function IntegrationsContent() {
                 onClick={() => setShowConnectedOnly((v) => !v)}
                 className="flex items-center gap-1.5 font-semibold transition-all duration-150"
                 style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
+                  padding: "8px 16px",
+                  borderRadius: 10,
                   background: showConnectedOnly ? "var(--accent)" : "var(--bg-surface)",
                   color: showConnectedOnly ? "#fff" : "var(--accent)",
-                  fontSize: 12,
+                  fontSize: 13,
                   boxShadow: showConnectedOnly ? "none" : "0 0 0 1.5px var(--accent-dim, var(--border-strong))",
                   border: "none",
                 }}
               >
-                <CheckCircle2 size={12} />
+                <CheckCircle2 size={13} />
                 연결됨 {connectedCount}
               </button>
             )}
           </div>
 
           {/* 검색창 */}
-          <div className="relative mb-5">
+          <div className="relative" style={{ marginBottom: 20 }}>
             <Search
-              size={14}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              size={15}
+              className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: "var(--text-muted)" }}
             />
             <input
@@ -427,16 +428,16 @@ function IntegrationsContent() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full outline-none transition-all"
               style={{
-                paddingLeft: 36,
-                paddingRight: search ? 36 : 14,
-                paddingTop: 10,
-                paddingBottom: 10,
-                borderRadius: 10,
+                paddingLeft: 42,
+                paddingRight: search ? 40 : 16,
+                paddingTop: 13,
+                paddingBottom: 13,
+                borderRadius: 12,
                 background: "var(--bg-surface)",
                 border: "none",
                 boxShadow: "0 0 0 1.5px var(--border)",
                 color: "var(--text)",
-                fontSize: 13,
+                fontSize: 14,
               }}
               onFocus={(e) => {
                 e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)";
@@ -447,10 +448,10 @@ function IntegrationsContent() {
             />
             {search && (
               <button
-                className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70 transition-opacity"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70 transition-opacity"
                 onClick={() => setSearch("")}
               >
-                <X size={13} style={{ color: "var(--text-muted)" }} />
+                <X size={14} style={{ color: "var(--text-muted)" }} />
               </button>
             )}
           </div>
