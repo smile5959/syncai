@@ -206,19 +206,25 @@ function CategoryPills({
   onSelect: (c: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+    <div
+      className="flex items-center gap-2 overflow-x-auto"
+      style={{ scrollbarWidth: "none", paddingBottom: 2 }}
+    >
       {["전체", ...categories].map((cat) => {
         const active = cat === selected;
         return (
           <button
             key={cat}
             onClick={() => onSelect(cat)}
-            className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 capitalize"
+            className="flex-shrink-0 font-medium transition-all duration-150 capitalize whitespace-nowrap"
             style={{
-              background: active ? "var(--accent)" : "var(--bg-surface)",
-              color: active ? "#fff" : "var(--text-muted)",
-              border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              fontSize: 12,
+              padding: "9px 18px",
+              borderRadius: 10,
+              background: active ? "var(--accent)" : "transparent",
+              color: active ? "#fff" : "var(--text-soft, var(--text-muted))",
+              border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+              fontSize: 13,
+              letterSpacing: "0.01em",
             }}
           >
             {cat}
@@ -349,17 +355,22 @@ function IntegrationsContent() {
       className="flex-1 min-w-0 h-full overflow-y-auto"
       style={{ background: "var(--bg)" }}
     >
-      {/* ── 헤더 영역 ── */}
+      {/* ── 헤더 (sticky) ── */}
       <div
-        className="w-full px-10 pt-12 pb-8"
+        className="w-full"
         style={{
-          borderBottom: "1px solid var(--border)",
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
           background: "var(--bg)",
+          borderBottom: "1px solid var(--border)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        <div className="mx-auto" style={{ maxWidth: 1100 }}>
-          {/* 타이틀 */}
-          <div className="flex items-center justify-between mb-6">
+        <div className="mx-auto px-10 pt-8 pb-5" style={{ maxWidth: 1100 }}>
+          {/* 타이틀 + 연결됨 버튼 */}
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -371,13 +382,10 @@ function IntegrationsContent() {
                 <Zap size={18} fill="white" color="white" />
               </div>
               <div>
-                <h1
-                  className="font-bold leading-tight"
-                  style={{ fontSize: 22, color: "var(--text)" }}
-                >
+                <h1 className="font-bold" style={{ fontSize: 24, color: "var(--text)", lineHeight: 1.2 }}>
                   연동
                 </h1>
-                <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 1 }}>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
                   외부 서비스를 연결해 AI가 직접 접근하게 하세요
                 </p>
               </div>
@@ -386,11 +394,13 @@ function IntegrationsContent() {
             {connectedCount > 0 && (
               <button
                 onClick={() => setShowConnectedOnly((v) => !v)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-150"
+                className="flex items-center gap-2 font-semibold transition-all duration-150"
                 style={{
+                  padding: "9px 18px",
+                  borderRadius: 10,
                   background: showConnectedOnly ? "var(--accent)" : "var(--accent-bg)",
                   color: showConnectedOnly ? "#fff" : "var(--accent)",
-                  border: "1px solid var(--accent-dim, var(--border-strong))",
+                  border: "1.5px solid var(--accent-dim, var(--border-strong))",
                   fontSize: 13,
                 }}
               >
@@ -401,10 +411,10 @@ function IntegrationsContent() {
           </div>
 
           {/* 검색창 */}
-          <div className="relative mb-5">
+          <div className="relative mb-4">
             <Search
-              size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+              size={17}
+              className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: "var(--text-muted)" }}
             />
             <input
@@ -414,11 +424,11 @@ function IntegrationsContent() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full outline-none transition-all"
               style={{
-                paddingLeft: 44,
-                paddingRight: 16,
-                paddingTop: 14,
-                paddingBottom: 14,
-                borderRadius: 14,
+                paddingLeft: 48,
+                paddingRight: search ? 44 : 20,
+                paddingTop: 15,
+                paddingBottom: 15,
+                borderRadius: 12,
                 background: "var(--bg-surface)",
                 border: "1.5px solid var(--border)",
                 color: "var(--text)",
@@ -435,15 +445,15 @@ function IntegrationsContent() {
             />
             {search && (
               <button
-                className="absolute right-4 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70 transition-opacity"
+                className="absolute right-4 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-80 transition-opacity"
                 onClick={() => setSearch("")}
               >
-                <X size={14} style={{ color: "var(--text-muted)" }} />
+                <X size={15} style={{ color: "var(--text-muted)" }} />
               </button>
             )}
           </div>
 
-          {/* 카테고리 필터 */}
+          {/* 카테고리 탭 */}
           {!loadingApps && categories.length > 0 && (
             <CategoryPills
               categories={categories}
@@ -458,7 +468,7 @@ function IntegrationsContent() {
       </div>
 
       {/* ── 콘텐츠 영역 ── */}
-      <div className="mx-auto px-10 py-8" style={{ maxWidth: 1100 }}>
+      <div className="mx-auto px-10 py-7" style={{ maxWidth: 1100 }}>
         {loadingApps ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
             {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
