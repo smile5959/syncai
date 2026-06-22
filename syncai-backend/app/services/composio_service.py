@@ -128,20 +128,26 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
                 params={
                     "toolkit_slugs": ",".join(app_slugs),
                     "important": "true",
-                    "limit": 20,
+                    "limit": 200,  # 필터 무시될 때 대비해 충분히 크게
                 },
             )
         if resp.status_code != 200:
             return []
+        # Composio가 toolkit_slugs 필터를 무시하므로 클라이언트에서 직접 필터링
+        # 툴 slug 패턴: APPNAME_ACTION (예: NOTION_LIST_PAGES)
+        slug_prefixes = tuple(s.upper() + "_" for s in app_slugs)
         tools = []
         for tool in resp.json().get("items", []):
+            tool_slug = tool.get("slug", "")
+            if not any(tool_slug.upper().startswith(p) for p in slug_prefixes):
+                continue
             raw_params = tool.get("input_parameters") or {}
             params = _sanitize_schema(raw_params if isinstance(raw_params, dict) else {})
             tools.append({
                 "type": "function",
                 "function": {
-                    "name": tool["slug"],
-                    "description": (tool.get("description", tool["slug"]) or tool["slug"])[:1000],
+                    "name": tool_slug,
+                    "description": (tool.get("description", tool_slug) or tool_slug)[:1000],
                     "parameters": params,
                 },
             })
