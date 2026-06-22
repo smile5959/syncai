@@ -87,6 +87,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }, delay);
   }
 
+  // SSR 후 hydration 완료 시점에 Zustand persist 복원 (skipHydration: true 대응)
+  useEffect(() => {
+    useAuthStore.persist.rehydrate();
+  }, []);
+
   useEffect(() => {
     if (checked.current) return;
     checked.current = true;

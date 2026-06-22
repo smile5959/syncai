@@ -90,8 +90,10 @@ export default function LoginPage() {
   const loggingInRef = useRef(false);
 
   // 이미 로그인된 경우 /rooms로 (페이지 마운트 시 한 번만)
+  // skipHydration: true 이므로 rehydrate() 후 getState()로 즉시 확인
   useEffect(() => {
-    if (user) router.replace("/rooms");
+    useAuthStore.persist.rehydrate();
+    if (useAuthStore.getState().user) router.replace("/rooms");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

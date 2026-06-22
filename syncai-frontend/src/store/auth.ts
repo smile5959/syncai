@@ -47,6 +47,9 @@ export const useAuthStore = create<AuthState>()(
         team: state.team,
         user: state.autoLogin ? state.user : null,
       }),
+      // SSR hydration mismatch 방지: 서버는 초기값(null)으로 렌더, 클라이언트는
+      // hydration 완료 후 useEffect에서 rehydrate() 호출해 localStorage 복원
+      skipHydration: true,
     }
   )
 );
