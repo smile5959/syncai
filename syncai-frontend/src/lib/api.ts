@@ -69,22 +69,19 @@ http.interceptors.request.use((config) => {
 // 401 시 토큰 갱신
 let _refreshing: Promise<void> | null = null;
 
-export async function logoutUser() {
+export function logoutUser() {
   clearTokens();
-  try {
-    if (isTauri()) {
-      // Tauri: 쿠키 없음, 백엔드 직접 호출
-      await axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true });
-    } else {
-      // 웹: Next.js API 라우트 경유 → vercel.app + fly.dev 쿠키 동시 삭제
-      await axios.post("/api/auth/logout", {}, { withCredentials: true });
-    }
-  } catch { /* 무시 */ }
+  // 백엔드 쿠키 삭제는 fire-and-forget — 응답 기다리지 않고 즉시 redirect
+  if (isTauri()) {
+    axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true }).catch(() => {});
+  } else {
+    axios.post("/api/auth/logout", {}, { withCredentials: true }).catch(() => {});
+  }
   window.location.href = "/login";
 }
 
-async function _logoutAndRedirect() {
-  await logoutUser();
+function _logoutAndRedirect() {
+  logoutUser();
 }
 
 http.interceptors.response.use(

@@ -16,11 +16,11 @@ import type { WsChatEvent } from "@/types";
 export default function RoomsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname(); // 네비게이션 시 리렌더 트리거용
-  // usePathname/useParams 모두 RSC context에서 읽어 __placeholder__ 반환 가능.
-  // window.location은 pushState 직후 업데이트되므로 항상 정확함.
-  const currentRoomId = typeof window !== "undefined"
-    ? (() => { const s = window.location.pathname.split("/").filter(Boolean).at(-1); return s === "rooms" ? undefined : s; })()
-    : undefined;
+  // SSR hydration 불일치 방지: window.location을 render body에서 직접 읽지 않음
+  // pathname(usePathname)에서 room slug 추출 — 서버/클라이언트 동일한 값
+  const seg = pathname.split("/").filter(Boolean);
+  const lastSeg = seg.at(-1);
+  const currentRoomId = lastSeg === "rooms" || !lastSeg ? undefined : lastSeg;
   const currentTeam = useAuthStore((s) => s.team);
   const me = useAuthStore((s) => s.user);
 

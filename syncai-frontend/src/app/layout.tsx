@@ -23,7 +23,7 @@ export default function RootLayout({
                 try {
                   var t = localStorage.getItem('syncai-theme') || 'dark';
                   var el = document.documentElement;
-                  el.classList.remove('dark', 'light');
+                  el.classList.remove('dark', 'light', 'oat');
                   el.classList.add(t);
                 } catch(e) {}
               })();
