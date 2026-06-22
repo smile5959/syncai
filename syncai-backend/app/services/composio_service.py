@@ -117,7 +117,7 @@ async def get_connected_app_names(user_id: str) -> list[str]:
 
 
 async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
-    """앱들의 OpenAI 호환 툴 정의 목록 반환 (중요 액션만, 최대 20개)."""
+    """앱들의 OpenAI 호환 툴 정의 목록 반환."""
     if not app_slugs:
         return []
     try:
@@ -127,17 +127,20 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
                 headers=_headers(),
                 params={
                     "toolkit_slugs": ",".join(app_slugs),
-                    "important": "true",
-                    "limit": 200,  # 필터 무시될 때 대비해 충분히 크게
+                    "limit": 100,
                 },
             )
         if resp.status_code != 200:
+            print(f"[composio] get_tools_for_apps HTTP {resp.status_code}: {resp.text[:300]}")
             return []
+        items = resp.json().get("items", [])
+        all_slugs = [t.get("slug", "") for t in items]
+        print(f"[composio] get_tools_for_apps app_slugs={app_slugs} total={len(items)} first_10={all_slugs[:10]}")
         # Composio가 toolkit_slugs 필터를 무시하므로 클라이언트에서 직접 필터링
         # 툴 slug 패턴: APPNAME_ACTION (예: NOTION_LIST_PAGES)
         slug_prefixes = tuple(s.upper() + "_" for s in app_slugs)
         tools = []
-        for tool in resp.json().get("items", []):
+        for tool in items:
             tool_slug = tool.get("slug", "")
             if not any(tool_slug.upper().startswith(p) for p in slug_prefixes):
                 continue
@@ -151,8 +154,10 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
                     "parameters": params,
                 },
             })
+        print(f"[composio] filtered tools for {app_slugs}: {[t['function']['name'] for t in tools]}")
         return tools
-    except Exception:
+    except Exception as e:
+        print(f"[composio] get_tools_for_apps error: {e}")
         return []
 
 
