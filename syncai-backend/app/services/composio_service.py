@@ -121,19 +121,21 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
     if not app_slugs:
         return []
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"{COMPOSIO_BASE}/tools",
-                headers=_headers(),
-                params={
-                    "toolkit_slugs": ",".join(app_slugs),
-                    "limit": 500,
-                },
-            )
-        if resp.status_code != 200:
-            print(f"[composio] get_tools_for_apps HTTP {resp.status_code}: {resp.text[:300]}")
-            return []
-        items = resp.json().get("items", [])
+        # toolkit_slugs(복수) 파라미터 무시됨 → toolkit_slug(단수)로 앱별 개별 요청
+        all_items: list[dict] = []
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for slug in app_slugs:
+                r = await client.get(
+                    f"{COMPOSIO_BASE}/tools",
+                    headers=_headers(),
+                    params={"toolkit_slug": slug, "limit": 50},
+                )
+                if r.status_code == 200:
+                    all_items.extend(r.json().get("items", []))
+                else:
+                    print(f"[composio] tools HTTP {r.status_code} for {slug}: {r.text[:200]}")
+        resp = None  # 아래 resp.status_code 체크 우회
+        items = all_items
         all_slugs = [t.get("slug", "") for t in items]
         print(f"[composio] get_tools_for_apps app_slugs={app_slugs} total={len(items)} first_10={all_slugs[:10]}")
         # Composio가 toolkit_slugs 필터를 무시하므로 클라이언트에서 직접 필터링
