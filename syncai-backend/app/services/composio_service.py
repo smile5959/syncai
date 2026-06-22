@@ -127,7 +127,7 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
                 headers=_headers(),
                 params={
                     "toolkit_slugs": ",".join(app_slugs),
-                    "limit": 100,
+                    "limit": 500,
                 },
             )
         if resp.status_code != 200:
@@ -137,12 +137,13 @@ async def get_tools_for_apps(app_slugs: list[str]) -> list[dict]:
         all_slugs = [t.get("slug", "") for t in items]
         print(f"[composio] get_tools_for_apps app_slugs={app_slugs} total={len(items)} first_10={all_slugs[:10]}")
         # Composio가 toolkit_slugs 필터를 무시하므로 클라이언트에서 직접 필터링
-        # 툴 slug 패턴: APPNAME_ACTION (예: NOTION_LIST_PAGES)
-        slug_prefixes = tuple(s.upper() + "_" for s in app_slugs)
+        # slug 실제 패턴: _APPNAME_ACTION (앞에 언더스코어 붙음, 예: _NOTION_LIST_PAGES)
+        # 앞뒤 _ 감싸서 _APPNAME_ 부분 문자열 검색으로 통일
         tools = []
         for tool in items:
             tool_slug = tool.get("slug", "")
-            if not any(tool_slug.upper().startswith(p) for p in slug_prefixes):
+            padded = "_" + tool_slug.upper() + "_"
+            if not any(("_" + s.upper() + "_") in padded for s in app_slugs):
                 continue
             raw_params = tool.get("input_parameters") or {}
             params = _sanitize_schema(raw_params if isinstance(raw_params, dict) else {})
