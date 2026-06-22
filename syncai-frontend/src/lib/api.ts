@@ -71,7 +71,12 @@ let _refreshing: Promise<void> | null = null;
 
 export function logoutUser() {
   clearTokens();
-  // 백엔드 쿠키 삭제는 fire-and-forget — 응답 기다리지 않고 즉시 redirect
+  // 쿠키를 클라이언트에서 즉시 삭제 — navigate 전에 지워야 미들웨어가 /rooms로 되돌리지 않음
+  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
+  const cookieBase = `path=/;${isSecure ? " Secure;" : ""} SameSite=Lax; Max-Age=0`;
+  document.cookie = `access_token=; ${cookieBase}`;
+  document.cookie = `refresh_token=; ${cookieBase}`;
+  // 백엔드 서버측 쿠키도 삭제 (fire-and-forget — 이미 클라이언트 쿠키는 지워짐)
   if (isTauri()) {
     axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true }).catch(() => {});
   } else {

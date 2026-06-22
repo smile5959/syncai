@@ -334,8 +334,11 @@ function MyMcpTab({ configs, setConfigs, loading, onReload, onReloadMine }: MyMc
   // 등록 후 상태
   const [postCreate, setPostCreate] = useState<PostCreateState | null>(null);
 
-  // macOS 여부 감지
-  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+  // macOS 여부 감지 — useEffect로 클라이언트에서만 판단 (SSR hydration mismatch 방지)
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    setIsMac(/Mac/.test(navigator.userAgent));
+  }, []);
 
   // 설치 명령어 표시 상태
   const [showInstallId, setShowInstallId] = useState<string | null>(null);
