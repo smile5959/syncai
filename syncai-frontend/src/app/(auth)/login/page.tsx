@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
   Code2, MessageSquare, Sparkles, Sun, Moon,
@@ -72,10 +72,7 @@ function FieldInput({
 ──────────────────────────────────────── */
 export default function LoginPage() {
   const router = useRouter();
-  // `next` param: after login, redirect there instead of /rooms
-  const searchParams = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search)
-    : null;
+  const searchParams = useSearchParams();
   // middleware는 "redirect" param으로 보내고, 일부 경로는 "next"를 쓰므로 둘 다 읽음
   const nextUrl = searchParams?.get("next") ?? searchParams?.get("redirect") ?? "";
   const setUser = useAuthStore((s) => s.setUser);
