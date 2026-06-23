@@ -69,18 +69,18 @@ http.interceptors.request.use((config) => {
 // 401 시 토큰 갱신
 let _refreshing: Promise<void> | null = null;
 
-export function logoutUser() {
+export async function logoutUser() {
   clearTokens();
-  // 쿠키를 클라이언트에서 즉시 삭제 — navigate 전에 지워야 미들웨어가 /rooms로 되돌리지 않음
-  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
-  const cookieBase = `path=/;${isSecure ? " Secure;" : ""} SameSite=Lax; Max-Age=0`;
-  document.cookie = `access_token=; ${cookieBase}`;
-  document.cookie = `refresh_token=; ${cookieBase}`;
-  // 백엔드 서버측 쿠키도 삭제 (fire-and-forget — 이미 클라이언트 쿠키는 지워짐)
-  if (isTauri()) {
-    axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true }).catch(() => {});
-  } else {
-    axios.post("/api/auth/logout", {}, { withCredentials: true }).catch(() => {});
+  // HttpOnly 쿠키는 document.cookie로 지울 수 없으므로 서버 엔드포인트를 await해야 함
+  // navigate 전에 응답이 와야 미들웨어가 쿠키 없는 상태로 /login을 허용
+  try {
+    if (isTauri()) {
+      await axios.post(`${BASE}/auth/logout`, {}, { withCredentials: true });
+    } else {
+      await axios.post("/api/auth/logout", {}, { withCredentials: true });
+    }
+  } catch {
+    // 서버 실패해도 리다이렉트는 진행
   }
   window.location.href = "/login";
 }
