@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
   Code2, MessageSquare, Sparkles, Sun, Moon,
@@ -79,7 +79,6 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   // middleware는 "redirect" param으로 보내고, 일부 경로는 "next"를 쓰므로 둘 다 읽음
   const nextUrl = searchParams?.get("next") ?? searchParams?.get("redirect") ?? "";
@@ -98,7 +97,7 @@ function LoginPageContent() {
   // skipHydration: true 이므로 rehydrate() 후 getState()로 즉시 확인
   useEffect(() => {
     useAuthStore.persist.rehydrate();
-    if (useAuthStore.getState().user) router.replace("/rooms");
+    if (useAuthStore.getState().user) window.location.replace("/rooms");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -176,7 +175,7 @@ function LoginPageContent() {
       // teams는 로그인 응답에 있으면 바로 세팅, 없으면 IconNav가 로드하므로 추가 fetch 불필요
       const loginTeams = res.data.teams ?? [];
       if (loginTeams.length > 0) setTeam(loginTeams[0]);
-      router.push(nextUrl || "/rooms");
+      window.location.href = nextUrl || "/rooms";
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })
