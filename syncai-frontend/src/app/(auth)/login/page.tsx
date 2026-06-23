@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
@@ -71,6 +71,14 @@ function FieldInput({
    메인 컴포넌트
 ──────────────────────────────────────── */
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // middleware는 "redirect" param으로 보내고, 일부 경로는 "next"를 쓰므로 둘 다 읽음
