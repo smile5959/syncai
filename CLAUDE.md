@@ -132,6 +132,11 @@ syncai/
 - **로그인 critical path**: 절대 non-critical API (ex. `myTeams()`) await 금지 — Fly.io cold start에서 hang
   - navigate 후 레이아웃 컴포넌트에서 lazy 로딩
   - login page: mount-only `useEffect([])` + `loggingInRef` 로 race condition 방지
+- **로그인 후 이동**: `router.push` 금지 → `window.location.href = "/rooms"` 필수
+  - `router.push`(client-side nav)는 방금 `document.cookie`로 설정한 쿠키가 RSC 요청에 누락될 수 있어 미들웨어가 /login으로 되돌림
+- **로그아웃**: `logoutUser()` async — `/api/auth/logout` await 후 `window.location.href = "/login"`
+  - 쿠키가 `HttpOnly`이면 `document.cookie`로 삭제 불가 → 서버 응답(Set-Cookie) 받기 전에 navigate하면 미들웨어가 쿠키를 보고 /rooms로 되돌림
+- **login/page.tsx**: `useSearchParams()` 사용 시 반드시 `<Suspense fallback={null}>` 로 감쌀 것 (Next.js App Router 빌드 요건)
 
 ### 페이지 레이아웃 패턴
 - **설정/연동 페이지 공통 패턴**: `<main style={{ flex: 1, overflowY: "auto", background: "var(--bg-base)" }}>` + 내부 `<div style={{ maxWidth: 900, margin: "0 auto", padding: "0 28px 60px" }}>`
