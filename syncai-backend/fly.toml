@@ -1,6 +1,9 @@
 app = "syncai-backend"
 primary_region = "nrt"  # 도쿄 — 한국에서 가장 가까운 Fly.io 리전
 
+[deploy]
+  release_command = "alembic upgrade head"
+
 [build]
   dockerfile = "Dockerfile"
 
