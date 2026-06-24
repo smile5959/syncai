@@ -9,6 +9,7 @@ primary_region = "nrt"  # 도쿄 — 한국에서 가장 가까운 Fly.io 리전
 
 [env]
   APP_ENV = "production"
+  PYTHONPATH = "/app"
 
 # 환경변수는 fly secrets set 으로 주입 (fly.toml에 직접 쓰지 않음)
 # fly secrets set SECRET_KEY=... DATABASE_URL=... REDIS_URL=... ANTHROPIC_API_KEY=...
