@@ -14,11 +14,11 @@ export default function RoomsPage() {
   const team = useAuthStore((s) => s.team);
   const redirectedRef = useRef(false);
 
-  // 앱 재시작 시 마지막 접속 방으로 자동 이동
+  // 앱 재시작/팀 전환 시 마지막 접속 방으로 자동 이동 (팀별 분리)
   useEffect(() => {
-    if (redirectedRef.current || rooms.length === 0) return;
+    if (redirectedRef.current || rooms.length === 0 || !team) return;
     try {
-      const lastRoom = localStorage.getItem("syncai-last-room");
+      const lastRoom = localStorage.getItem(`syncai-last-room-${team.id}`);
       if (!lastRoom) return;
       const match = rooms.find((r) => r.slug === lastRoom || r.id === lastRoom);
       if (match) {
@@ -26,7 +26,7 @@ export default function RoomsPage() {
         router.replace(`/rooms/${match.slug ?? match.id}`);
       }
     } catch {}
-  }, [rooms, router]);
+  }, [rooms, team, router]);
 
   const firstName = user?.name?.split(" ")[0] ?? "팀원";
 

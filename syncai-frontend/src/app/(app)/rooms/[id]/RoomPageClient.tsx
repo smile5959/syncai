@@ -153,8 +153,8 @@ export default function RoomPage() {
       // room UUID를 store에 저장 → layout WS isCurrentRoom 판단에 사용
       setCurrentRoomUuid(r.data.id);
       clearUnread(r.data.id);
-      // 마지막 접속 방 저장 → 앱 재시작 시 복원
-      try { localStorage.setItem("syncai-last-room", r.data.slug ?? r.data.id); } catch {}
+      // 마지막 접속 방 저장 → 앱 재시작/팀 전환 시 복원 (팀별 분리)
+      try { localStorage.setItem(`syncai-last-room-${r.data.team_id}`, r.data.slug ?? r.data.id); } catch {}
     });
     messagesApi.list(id).then((r) => setMsgs(r.data.messages.reverse()));
     tasksApi.list(id).then((r) => setTaskList(r.data.tasks));

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Zap, Settings, LogOut, HelpCircle, Sun, Moon, Coffee, Plus, Pencil, Trash2, LogOut as LeaveIcon, MoreHorizontal, PlugZap } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { useRoomsStore } from "@/store/rooms";
 import { useTheme } from "@/components/providers/theme-provider";
 import { InvitationBell } from "@/components/team/invitation-bell";
 import { users as usersApi, teams as teamsApi, logoutUser } from "@/lib/api";
@@ -241,6 +242,7 @@ export function IconNav() {
   const router = useRouter();
   const confirm = useConfirm();
   const { team: currentTeam, setTeam } = useAuthStore();
+  const setRooms = useRoomsStore((s) => s.setRooms);
   const me = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggle } = useTheme();
@@ -316,6 +318,7 @@ export function IconNav() {
 
   function handleSelectTeam(team: Team) {
     closeMenu();
+    setRooms([]);
     setTeam(team);
     router.push("/rooms");
   }
