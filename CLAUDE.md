@@ -121,6 +121,18 @@ syncai/
 - `auto_register_mcp` case 1 (기존 토큰): `_ensure_team_links` 후 반드시 `db.commit()` 필요
 - heartbeat에서도 `_ensure_team_links` 호출 — MCP 재연결 없이 팀 가입한 경우 대응
 
+### 채팅방 진입 성능 패턴 (2026-06-24)
+
+- `GET /v1/rooms/{id}/init` → `{room, messages, next_cursor, tasks}` 단일 응답 (기존 3콜 → 1콜)
+- `GET /v1/teams/{id}/init` → `{rooms, workers, mcp_configs}` 단일 응답 (기존 3콜 → 1콜)
+- `rooms/layout.tsx`: 팀 전환 시 `teamsApi.init()` 1콜 → store에 rooms+workers+mcp 저장
+- `RoomPageClient.tsx`: `roomsApi.init()` 1콜, workers/mcp는 `useRoomsStore`에서 읽음
+- `lib/prefetch.ts`: 모듈 레벨 캐시(TTL 30초), 사이드바 hover → `prefetchRoom()` 트리거
+  - 캐시 히트 → 즉시 렌더 후 백그라운드 갱신 / 미스 → 빈 화면 후 fetch
+  - stale response 가드: `getRealRoomId() !== fetchId` 체크 (빠른 방 전환 race condition 방지)
+- tasks N+1 수정 (`tasks.py`): message_id별 개별 쿼리 → `IN` 한 번으로 통합
+- `require_room_access` 반환값 재사용 — get_room에서 이중 조회 제거
+
 ### DB / 삭제 주의사항
 - `require_room_access(room_id, user, db)` → room 객체 반환, 이후 `room.id`(UUID) 사용
 - 팀 삭제 cascade 순서: FileLock(task_id) → Task(room) → Message → RoomMember → ChatRoom → **FileLock(worker_id)** → **Task.worker_id=null** → Worker → McpConfigTeam → TeamInvitation → TeamMember → Team
@@ -250,7 +262,8 @@ syncai/
 | 팀 아이콘 네비 | `syncai-frontend/src/components/layout/icon-nav.tsx` |
 | 설정 페이지 (4탭: 프로필/테마/플랜/계정) | `syncai-frontend/src/app/(app)/settings/page.tsx` |
 | 테마 프로바이더 (dark/light/oat) | `syncai-frontend/src/components/providers/theme-provider.tsx` |
-| 상태: 방 목록 + unread | `syncai-frontend/src/store/rooms.ts` |
+| 상태: 방 목록 + unread + workers + teamMcpConfigs | `syncai-frontend/src/store/rooms.ts` |
+| 채팅방 prefetch 캐시 (TTL 30초) | `syncai-frontend/src/lib/prefetch.ts` |
 | MCP 설정 모달 | `syncai-frontend/src/components/worker/mcp-settings-modal.tsx` |
 | Tauri 확인 모달 (window.confirm 대체) | `syncai-frontend/src/components/ui/confirm-dialog.tsx` |
 | Tauri 빌드 스크립트 (Next.js only) | `syncai-frontend/scripts/tauri-build.sh` |
