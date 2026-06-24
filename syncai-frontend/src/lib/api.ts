@@ -145,6 +145,12 @@ export const auth = {
 };
 
 // ─── Teams ────────────────────────────────────────────
+export interface TeamInitData {
+  rooms: ChatRoom[];
+  workers: Worker[];
+  mcp_configs: McpConfigWithTeam[];
+}
+
 export const teams = {
   create: (name: string) => http.post<Team>("/teams", { name }),
   get: (id: string) => http.get<Team>(`/teams/${id}`),
@@ -157,6 +163,7 @@ export const teams = {
     http.patch<TeamMember>(`/teams/${id}/members/${userId}`, { role }),
   removeMember: (id: string, userId: string) =>
     http.delete(`/teams/${id}/members/${userId}`),
+  init: (teamId: string) => http.get<TeamInitData>(`/teams/${teamId}/init`),
 };
 
 // ─── Workers (AI 슬롯) ────────────────────────────────
@@ -227,12 +234,20 @@ export const mcpConfigs = {
 };
 
 // ─── Rooms ────────────────────────────────────────────
+export interface RoomInitData {
+  room: ChatRoom;
+  messages: Message[];
+  next_cursor: string | null;
+  tasks: AiTask[];
+}
+
 export const rooms = {
   list: (teamId: string) =>
     http.get<ChatRoom[]>(`/teams/${teamId}/rooms`),
   create: (teamId: string, name: string) =>
     http.post<ChatRoom>(`/teams/${teamId}/rooms`, { name }),
   get: (id: string) => http.get<ChatRoom>(`/rooms/${id}`),
+  init: (id: string) => http.get<RoomInitData>(`/rooms/${id}/init`),
   update: (id: string, data: { name?: string }) =>
     http.patch<ChatRoom>(`/rooms/${id}`, data),
   delete: (id: string) => http.delete(`/rooms/${id}`),

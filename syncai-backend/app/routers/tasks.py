@@ -20,13 +20,18 @@ def list_tasks(
 ):
     room = require_room_access(room_id, current_user, db)
     tasks = db.query(Task).filter(Task.room_id == room.id).order_by(Task.created_at.desc()).all()
+
+    msg_ids = [t.message_id for t in tasks if t.message_id]
+    msg_map: dict = {}
+    if msg_ids:
+        rows = db.query(Message.id, Message.content).filter(Message.id.in_(msg_ids)).all()
+        msg_map = {str(r.id): r.content for r in rows}
+
     result = []
     for task in tasks:
         out = TaskOut.model_validate(task)
         if task.message_id:
-            msg = db.query(Message.content).filter(Message.id == task.message_id).first()
-            if msg:
-                out.command = msg.content
+            out.command = msg_map.get(str(task.message_id))
         result.append(out)
     return {"tasks": result}
 

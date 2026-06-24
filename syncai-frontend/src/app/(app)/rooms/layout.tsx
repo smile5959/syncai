@@ -7,7 +7,7 @@ import { InviteModal } from "@/components/team/invite-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Hash, X } from "lucide-react";
-import { rooms as roomsApi } from "@/lib/api";
+import { rooms as roomsApi, teams as teamsApi } from "@/lib/api";
 import { createChatWS } from "@/lib/ws";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
@@ -30,6 +30,8 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
     showCreate,
     showInvite,
     setRooms,
+    setWorkers,
+    setTeamMcpConfigs,
     addRoom,
     setShowCreate,
     setShowInvite,
@@ -79,14 +81,18 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // 팀 변경 시 채팅방 목록 fetch
+  // 팀 변경 시 rooms + workers + mcp_configs 한 번에 fetch
   useEffect(() => {
     if (!currentTeam) return;
-    roomsApi
-      .list(currentTeam.id)
-      .then((r) => setRooms(r.data ?? []))
+    teamsApi
+      .init(currentTeam.id)
+      .then((r) => {
+        setRooms(r.data.rooms ?? []);
+        setWorkers(r.data.workers ?? []);
+        setTeamMcpConfigs(r.data.mcp_configs ?? []);
+      })
       .catch(console.error);
-  }, [currentTeam, setRooms]);
+  }, [currentTeam, setRooms, setWorkers, setTeamMcpConfigs]);
 
   // 현재 방 입장 시 미읽 초기화
   useEffect(() => {

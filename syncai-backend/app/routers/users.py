@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
@@ -34,16 +35,13 @@ def get_my_teams(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # 내가 owner인 팀 + 멤버로 속한 팀
-    owned = db.query(Team).filter(Team.owner_id == current_user.id).all()
-    member_team_ids = (
-        db.query(TeamMember.team_id)
-        .filter(TeamMember.user_id == current_user.id)
-        .all()
-    )
-    member_ids = [r[0] for r in member_team_ids]
-    member_teams = db.query(Team).filter(Team.id.in_(member_ids)).all()
-
-    # 중복 제거
-    all_teams = {str(t.id): t for t in owned + member_teams}
+    # 멤버 팀 ID 먼저 조회 후 owner 포함 한 번에 fetch — 3쿼리 → 2쿼리
+    member_team_ids = [
+        r[0] for r in
+        db.query(TeamMember.team_id).filter(TeamMember.user_id == current_user.id).all()
+    ]
+    teams = db.query(Team).filter(
+        or_(Team.owner_id == current_user.id, Team.id.in_(member_team_ids))
+    ).all()
+    all_teams = {str(t.id): t for t in teams}
     return {"teams": list(all_teams.values())}

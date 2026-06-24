@@ -1,8 +1,10 @@
 import { create } from "zustand";
-import type { ChatRoom } from "@/types";
+import type { ChatRoom, Worker, McpConfigWithTeam } from "@/types";
 
 interface RoomsState {
   rooms: ChatRoom[];
+  workers: Worker[];
+  teamMcpConfigs: McpConfigWithTeam[];
   showSidebar: boolean;
   showCreate: boolean;
   showInvite: boolean;
@@ -12,6 +14,8 @@ interface RoomsState {
   addRoom: (room: ChatRoom) => void;
   updateRoom: (id: string, updates: Partial<ChatRoom>) => void;
   removeRoom: (id: string) => void;
+  setWorkers: (workers: Worker[]) => void;
+  setTeamMcpConfigs: (configs: McpConfigWithTeam[]) => void;
   setShowSidebar: (v: boolean | ((prev: boolean) => boolean)) => void;
   setShowCreate: (v: boolean) => void;
   setShowInvite: (v: boolean) => void;
@@ -22,6 +26,8 @@ interface RoomsState {
 
 export const useRoomsStore = create<RoomsState>((set) => ({
   rooms: [],
+  workers: [],
+  teamMcpConfigs: [],
   showSidebar: true,
   showCreate: false,
   showInvite: false,
@@ -29,6 +35,8 @@ export const useRoomsStore = create<RoomsState>((set) => ({
   currentRoomUuid: null,
 
   setRooms: (rooms) => set({ rooms }),
+  setWorkers: (workers) => set({ workers }),
+  setTeamMcpConfigs: (teamMcpConfigs) => set({ teamMcpConfigs }),
 
   addRoom: (room) => set((s) => ({ rooms: [room, ...s.rooms] })),
 

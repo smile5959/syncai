@@ -26,3 +26,11 @@ class RoomMemberOut(BaseModel):
 
     user_id: uuid.UUID
     joined_at: datetime
+
+
+class RoomInitResponse(BaseModel):
+    """채팅방 진입 시 필요한 데이터 한 번에 반환 — 3 API 콜 → 1"""
+    room: RoomOut
+    messages: list
+    next_cursor: str | None
+    tasks: list

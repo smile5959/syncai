@@ -81,8 +81,6 @@ export default function RoomPage() {
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [taskList, setTaskList] = useState<AiTask[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [teamMcpConfigs, setTeamMcpConfigs] = useState<McpConfigWithTeam[]>([]);
   const [activeProgress, setActiveProgress] = useState<TaskProgress | null>(null);
   const [streamingTaskId, setStreamingTaskId] = useState<string | null>(null);
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
@@ -95,12 +93,16 @@ export default function RoomPage() {
   const [showMembers, setShowMembers] = useState(false);
   const [showWorker, setShowWorker] = useState(true);
 
-  // 사이드바 토글은 store에서 공유
+  // 사이드바 토글 + 팀 데이터는 store에서 공유
   const showSidebar = useRoomsStore((s) => s.showSidebar);
   const setShowSidebar = useRoomsStore((s) => s.setShowSidebar);
   const clearUnread = useRoomsStore((s) => s.clearUnread);
   const setCurrentRoomUuid = useRoomsStore((s) => s.setCurrentRoomUuid);
   const storeRooms = useRoomsStore((s) => s.rooms);
+  const workers = useRoomsStore((s) => s.workers);
+  const teamMcpConfigs = useRoomsStore((s) => s.teamMcpConfigs);
+  const setWorkers = useRoomsStore((s) => s.setWorkers);
+  const setTeamMcpConfigs = useRoomsStore((s) => s.setTeamMcpConfigs);
 
   // slug → UUID 변환 헬퍼 (store rooms 기반, room 상태 로드 전에도 동작)
   const getRoomUuid = (slugOrId: string) => {
@@ -136,7 +138,7 @@ export default function RoomPage() {
     usersApi.me().then((r) => setUser(r.data)).catch(() => {});
   }, [me, setUser]);
 
-  // Load room + messages + tasks
+  // Load room + messages + tasks (한 번에 fetch — 3 API 콜 → 1)
   useEffect(() => {
     if (!id) return;
     // 방 전환 즉시 이전 상태 초기화 → 체감 딜레이 제거
@@ -148,16 +150,17 @@ export default function RoomPage() {
     streamingTaskIdRef.current = null;
     setThinkingSteps([]);
     thinkingStepsRef.current = [];
-    roomsApi.get(id).then((r) => {
-      setRoom(r.data);
+    roomsApi.init(id).then((r) => {
+      const { room: roomData, messages, tasks } = r.data;
+      setRoom(roomData);
+      setMsgs([...messages].reverse());
+      setTaskList(tasks);
       // room UUID를 store에 저장 → layout WS isCurrentRoom 판단에 사용
-      setCurrentRoomUuid(r.data.id);
-      clearUnread(r.data.id);
+      setCurrentRoomUuid(roomData.id);
+      clearUnread(roomData.id);
       // 마지막 접속 방 저장 → 앱 재시작/팀 전환 시 복원 (팀별 분리)
-      try { localStorage.setItem(`syncai-last-room-${r.data.team_id}`, r.data.slug ?? r.data.id); } catch {}
+      try { localStorage.setItem(`syncai-last-room-${roomData.team_id}`, roomData.slug ?? roomData.id); } catch {}
     });
-    messagesApi.list(id).then((r) => setMsgs(r.data.messages.reverse()));
-    tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
     // 방 나갈 때 초기화
     return () => setCurrentRoomUuid(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,17 +172,15 @@ export default function RoomPage() {
     if (currentTeam?.id === room.team_id) {
       setRoomTeam(currentTeam);
     } else {
+      // 다른 팀 방 진입 시 해당 팀 workers/mcp도 새로 fetch
       teamsApi.get(room.team_id).then((r) => setRoomTeam(r.data)).catch(() => {});
+      teamsApi.init(room.team_id).then((r) => {
+        setWorkers(r.data.workers ?? []);
+        setTeamMcpConfigs(r.data.mcp_configs ?? []);
+      }).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.team_id]);
-
-  // Workers + MCP Configs 로드 (teamId 준비되면)
-  useEffect(() => {
-    if (!teamId) return;
-    workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
-    mcpConfigsApi.listForTeam(teamId).then((r) => setTeamMcpConfigs(r.data)).catch(() => {});
-  }, [teamId]);
 
   // Auto scroll — smooth 제거, 즉시 스크롤
   useEffect(() => {
@@ -710,7 +711,7 @@ export default function RoomPage() {
           myUserId={me?.id}
           teamOwnerId={effectiveTeam?.owner_id}
           onWorkerUpdate={(updatedWorker) => {
-            setWorkers((prev) => prev.map((w) => w.id === updatedWorker.id ? updatedWorker : w));
+            setWorkers(workers.map((w) => w.id === updatedWorker.id ? updatedWorker : w));
           }}
           onClose={() => {
             setShowMcpSettings(false);
