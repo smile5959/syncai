@@ -29,6 +29,7 @@ import {
 } from "@/lib/api";
 import { InviteModal } from "@/components/team/invite-modal";
 import { createChatWS, createTaskWS } from "@/lib/ws";
+import { getCachedRoom, setCachedRoom } from "@/lib/prefetch";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
 import type {
@@ -138,30 +139,45 @@ export default function RoomPage() {
     usersApi.me().then((r) => setUser(r.data)).catch(() => {});
   }, [me, setUser]);
 
-  // Load room + messages + tasks (한 번에 fetch — 3 API 콜 → 1)
+  // Load room + messages + tasks — 캐시 히트 시 즉시 렌더, 미스 시 fetch
   useEffect(() => {
     if (!id) return;
-    // 방 전환 즉시 이전 상태 초기화 → 체감 딜레이 제거
-    setRoom(null);
-    setMsgs([]);
-    setTaskList([]);
+
     setActiveProgress(null);
     setStreamingTaskId(null);
     streamingTaskIdRef.current = null;
     setThinkingSteps([]);
     thinkingStepsRef.current = [];
-    roomsApi.init(id).then((r) => {
-      const { room: roomData, messages, tasks } = r.data;
+
+    function applyRoomData(roomData: ChatRoom, messages: Message[], tasks: AiTask[]) {
       setRoom(roomData);
       setMsgs([...messages].reverse());
       setTaskList(tasks);
-      // room UUID를 store에 저장 → layout WS isCurrentRoom 판단에 사용
       setCurrentRoomUuid(roomData.id);
       clearUnread(roomData.id);
-      // 마지막 접속 방 저장 → 앱 재시작/팀 전환 시 복원 (팀별 분리)
       try { localStorage.setItem(`syncai-last-room-${roomData.team_id}`, roomData.slug ?? roomData.id); } catch {}
-    });
-    // 방 나갈 때 초기화
+    }
+
+    const cached = getCachedRoom(id);
+    if (cached) {
+      // 캐시 히트 → 즉시 렌더 (네트워크 왕복 없음)
+      applyRoomData(cached.room, cached.messages, cached.tasks);
+    } else {
+      // 캐시 미스 → 이전 상태 지우고 fetch
+      setRoom(null);
+      setMsgs([]);
+      setTaskList([]);
+    }
+
+    // 항상 fresh 데이터도 백그라운드에서 fetch (캐시 갱신)
+    const fetchId = id;
+    roomsApi.init(id).then((r) => {
+      // stale response 가드 — 다른 방으로 이미 이동했으면 무시
+      if (getRealRoomId() !== fetchId) return;
+      setCachedRoom(id, r.data);
+      applyRoomData(r.data.room, r.data.messages, r.data.tasks);
+    }).catch(() => {});
+
     return () => setCurrentRoomUuid(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);

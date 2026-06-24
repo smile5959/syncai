@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Plus, Search, Hash, UserPlus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { rooms as roomsApi } from "@/lib/api";
+import { prefetchRoom } from "@/lib/prefetch";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
 import { useTheme } from "@/components/providers/theme-provider";
@@ -216,6 +217,7 @@ export function RoomSidebar({ rooms = [], onNewRoom, onInvite, onRoomsChange }: 
                   ) : (
                     <Link
                       href={`/rooms/${room.slug ?? room.id}`}
+                      onMouseEnter={() => prefetchRoom(room.slug ?? room.id)}
                       className={cn(
                         "flex items-center gap-2.5 px-3 h-9 rounded-lg text-[13px] transition-all duration-100 group relative",
                         active
