@@ -21,6 +21,7 @@ interface RoomsState {
   updateWorker: (worker: Worker) => void;
   setTeamMcpConfigs: (configs: McpConfigWithTeam[]) => void;
   setTeamsCache: (cache: Record<string, TeamInitData>) => void;
+  updateTeamCache: (teamId: string, data: TeamInitData) => void;
   setShowSidebar: (v: boolean | ((prev: boolean) => boolean)) => void;
   setShowCreate: (v: boolean) => void;
   setShowInvite: (v: boolean) => void;
@@ -52,6 +53,8 @@ export const useRoomsStore = create<RoomsState>((set) => ({
 
   setTeamMcpConfigs: (teamMcpConfigs) => set({ teamMcpConfigs }),
   setTeamsCache: (teamsCache) => set({ teamsCache }),
+  updateTeamCache: (teamId, data) =>
+    set((s) => ({ teamsCache: { ...s.teamsCache, [teamId]: data } })),
 
   addRoom: (room) => set((s) => ({ rooms: [room, ...s.rooms] })),
 

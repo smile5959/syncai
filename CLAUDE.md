@@ -121,11 +121,39 @@ syncai/
 - `auto_register_mcp` case 1 (기존 토큰): `_ensure_team_links` 후 반드시 `db.commit()` 필요
 - heartbeat에서도 `_ensure_team_links` 호출 — MCP 재연결 없이 팀 가입한 경우 대응
 
+### 앱 초기화 — 전체 선로딩 패턴 (2026-06-26)
+
+- `GET /v1/users/me/init` → `{ user, teams: [{ team, rooms, workers, mcp_configs }] }` 한 번에 반환
+- `(app)/layout.tsx` mount 시 `meInit()` 1콜로 모든 데이터 초기화 (기존: `me()` + `myTeams()` 2콜)
+- `teamsCache: Record<teamId, TeamInitData>` (rooms store) — 팀 전환 즉시 캐시에서 렌더, 네트워크 0
+- cache miss 시에만 `teamsApi.init()` fallback → 성공 후 `updateTeamCache()` 호출 (재방문 cache hit 보장)
+- `icon-nav.tsx`: `myTeams()` API 제거 → `storeTeams` (auth store `teams: Team[]`) 구독
+
+**meInit catch 패턴 — redirect 루프 방지**
+```typescript
+.catch((err) => {
+  const status = err?.response?.status;
+  if (status === 401 || status === 403) logoutUser();
+  // 5xx·네트워크 오류: 로그아웃 안 함
+});
+```
+**절대 `logout()` + `router.replace("/login")` 쓰지 말 것** — `logout()`은 Zustand만 리셋, HttpOnly 쿠키 유지 → 미들웨어가 쿠키 보고 `/rooms`로 되돌리는 무한루프.
+
+### Worker SSE 패턴 (2026-06-26)
+
+- `GET /v1/teams/{team_id}/workers/stream` — SSE 엔드포인트 (`workers.py`)
+  - 인증: cookie → Bearer header → `?token=` 쿼리 파라미터 (Tauri 대응)
+  - DB 세션: 초기 snapshot 후 즉시 close → Redis pub/sub 시작 (연결 홀딩 방지)
+  - `event: init` → worker 전체 목록 / `event: update` → 개별 worker 변경
+- Redis 채널: `syncai:workers:{team_id}` — `_acquire_worker` / `_release_worker` 후 publish
+- `rooms/layout.tsx`: `EventSource` 연결, 팀 전환 시 재연결 (`currentTeam?.id` dep)
+- 기존 5초 폴링 완전 제거 (`RoomPageClient.tsx`)
+- `import redis.asyncio as aioredis` — `redis==5.0.4`에 내장, 별도 패키지 불필요
+
 ### 채팅방 진입 성능 패턴 (2026-06-24)
 
 - `GET /v1/rooms/{id}/init` → `{room, messages, next_cursor, tasks}` 단일 응답 (기존 3콜 → 1콜)
 - `GET /v1/teams/{id}/init` → `{rooms, workers, mcp_configs}` 단일 응답 (기존 3콜 → 1콜)
-- `rooms/layout.tsx`: 팀 전환 시 `teamsApi.init()` 1콜 → store에 rooms+workers+mcp 저장
 - `RoomPageClient.tsx`: `roomsApi.init()` 1콜, workers/mcp는 `useRoomsStore`에서 읽음
 - `lib/prefetch.ts`: 모듈 레벨 캐시(TTL 30초), 사이드바 hover → `prefetchRoom()` 트리거
   - 캐시 히트 → 즉시 렌더 후 백그라운드 갱신 / 미스 → 빈 화면 후 fetch

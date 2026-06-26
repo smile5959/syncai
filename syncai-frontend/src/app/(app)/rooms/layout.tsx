@@ -39,6 +39,7 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
     setWorkers,
     updateWorker,
     setTeamMcpConfigs,
+    updateTeamCache,
     addRoom,
     setShowCreate,
     setShowInvite,
@@ -110,6 +111,7 @@ export default function RoomsLayout({ children }: { children: React.ReactNode })
           setRooms(r.data.rooms ?? []);
           setWorkers(r.data.workers ?? []);
           setTeamMcpConfigs(r.data.mcp_configs ?? []);
+          updateTeamCache(currentTeam.id, r.data);
         })
         .catch(console.error);
     }
