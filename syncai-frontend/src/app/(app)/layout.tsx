@@ -6,7 +6,7 @@ import { IconNav } from "@/components/layout/icon-nav";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/store/auth";
 import { useRoomsStore } from "@/store/rooms";
-import { users as usersApi, saveTokens } from "@/lib/api";
+import { users as usersApi, saveTokens, logoutUser } from "@/lib/api";
 import type { TeamInitData } from "@/lib/api";
 import axios from "axios";
 
@@ -139,9 +139,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           const active = teamsList.find((t) => t.id === savedId) ?? teamsList[0];
           if (active) setTeam(active);
         })
-        .catch(() => {
-          logout();
-          router.replace("/login");
+        .catch((err) => {
+          const status = err?.response?.status;
+          if (status === 401 || status === 403) {
+            // 인증 만료 — 쿠키까지 제대로 삭제하고 /login으로 (루프 방지)
+            logoutUser();
+          }
+          // 5xx·네트워크 오류는 로그아웃하지 않음 (쿠키 유지, 새로고침으로 복구 가능)
         });
     };
 
