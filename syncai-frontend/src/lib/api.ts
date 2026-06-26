@@ -129,9 +129,22 @@ http.interceptors.response.use(
 );
 
 // ─── Users ────────────────────────────────────────────
+export interface TeamWithData {
+  team: Team;
+  rooms: ChatRoom[];
+  workers: Worker[];
+  mcp_configs: McpConfigWithTeam[];
+}
+
+export interface MeInitData {
+  user: User;
+  teams: TeamWithData[];
+}
+
 export const users = {
   me: () => http.get<User>("/users/me"),
   myTeams: () => http.get<{ teams: Team[] }>("/users/me/teams"),
+  meInit: () => http.get<MeInitData>("/users/me/init"),
 };
 
 // ─── Auth ─────────────────────────────────────────────

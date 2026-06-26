@@ -129,6 +129,18 @@ def _parse_mention(content: str) -> str | None:
 
 # ── Worker 슬롯 점유 (SELECT FOR UPDATE) ──────────────────────────────────────
 
+def _publish_worker_update(worker: Worker, team_id: str) -> None:
+    """Worker 상태 변경 시 Redis를 통해 SSE 클라이언트에 브로드캐스트."""
+    try:
+        import json as _json
+        from app.core.redis_client import publish
+        from app.schemas.worker import WorkerOut
+        data = WorkerOut.model_validate(worker).model_dump(mode="json")
+        publish(f"syncai:workers:{team_id}", _json.dumps(data, default=str))
+    except Exception:
+        pass
+
+
 def _acquire_worker(db: Session, team_id: str) -> Worker | None:
     team_uuid = uuid.UUID(team_id)
     worker = (
@@ -140,6 +152,7 @@ def _acquire_worker(db: Session, team_id: str) -> Worker | None:
     if worker:
         worker.status = WorkerStatus.busy
         db.commit()
+        _publish_worker_update(worker, team_id)
     return worker
 
 
@@ -153,6 +166,7 @@ async def _release_worker(worker_id: str, team_id: str):
             worker.status = WorkerStatus.idle
             worker.current_task_id = None
             db.commit()
+            _publish_worker_update(worker, team_id)
     finally:
         db.close()
 

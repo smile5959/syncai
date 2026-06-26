@@ -246,6 +246,9 @@ export function IconNav() {
   const { theme, toggle } = useTheme();
 
   const setUser = useAuthStore((s) => s.setUser);
+  const storeTeams = useAuthStore((s) => s.teams);
+  const setStoreTeams = useAuthStore((s) => s.setTeams);
+  // 로컬 팀 목록: store 초기화 전까지는 빈 배열, meInit 완료 후 채워짐
   const [teams, setTeams] = useState<Team[]>([]);
 
   // 모달 상태
@@ -267,24 +270,10 @@ export function IconNav() {
   const menuRef = useRef<HTMLDivElement>(null);
 
 
+  // storeTeams가 채워지면 로컬 state에 동기화 (meInit 완료 후)
   useEffect(() => {
-    // 유저 정보 복구 (새로고침 시 store 초기화 대비 — 쿠키 자동 전송)
-    if (!me) {
-      usersApi.me().then((r) => setUser(r.data)).catch(console.error);
-    }
-
-    usersApi.myTeams().then((r) => {
-      const myTeams = r.data.teams ?? [];
-      setTeams(myTeams);
-      if (myTeams.length === 0) return;
-      const savedId = typeof window !== "undefined" ? localStorage.getItem("team_id") : null;
-      const active = myTeams.find((t) => t.id === savedId) ?? myTeams[0];
-      if (!currentTeam || !myTeams.find((t) => t.id === currentTeam.id)) {
-        setTeam(active);
-      }
-    }).catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (storeTeams.length > 0) setTeams(storeTeams);
+  }, [storeTeams]);
 
   // 메뉴 외부 클릭 닫기
   useEffect(() => {
@@ -325,9 +314,7 @@ export function IconNav() {
     setCreating(true);
     try {
       const res = await teamsApi.create(name.trim());
-      // color/icon은 create 후 patch로 저장 (create API가 color/icon 지원하므로 직접 전달)
       const newTeam = res.data;
-      // API가 color/icon을 지원하지 않는 경우 patch fallback
       let finalTeam = newTeam;
       if (color || icon) {
         try {
@@ -335,7 +322,9 @@ export function IconNav() {
           finalTeam = upd.data;
         } catch {}
       }
-      setTeams((prev) => [...prev, finalTeam]);
+      const updated = [...teams, finalTeam];
+      setTeams(updated);
+      setStoreTeams(updated);
       setTeam(finalTeam);
       setShowCreate(false);
       router.push("/rooms");
@@ -352,7 +341,9 @@ export function IconNav() {
     try {
       const res = await teamsApi.update(editingTeam.id, { name: name.trim(), color, icon });
       const updated = res.data;
-      setTeams((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+      const next = teams.map((t) => t.id === updated.id ? updated : t);
+      setTeams(next);
+      setStoreTeams(next);
       if (currentTeam?.id === updated.id) setTeam(updated);
       setEditingTeam(null);
     } catch (e) {
@@ -375,6 +366,7 @@ export function IconNav() {
       await teamsApi.delete(team.id);
       const updated = teams.filter((t) => t.id !== team.id);
       setTeams(updated);
+      setStoreTeams(updated);
       if (currentTeam?.id === team.id) {
         if (updated.length > 0) {
           setTeam(updated[0]);
@@ -397,6 +389,7 @@ export function IconNav() {
       await teamsApi.removeMember(team.id, me.id);
       const updated = teams.filter((t) => t.id !== team.id);
       setTeams(updated);
+      setStoreTeams(updated);
       if (currentTeam?.id === team.id) {
         if (updated.length > 0) {
           setTeam(updated[0]);
@@ -532,6 +525,7 @@ export function IconNav() {
                   usersApi.myTeams().then((r) => {
                     const myTeams = r.data.teams ?? [];
                     setTeams(myTeams);
+                    setStoreTeams(myTeams);
                     const accepted = myTeams.find((t) => t.id === teamId);
                     if (accepted) { setTeam(accepted); router.push("/rooms"); }
                   }).catch(console.error);

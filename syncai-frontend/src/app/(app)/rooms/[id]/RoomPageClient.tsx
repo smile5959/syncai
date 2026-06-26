@@ -23,7 +23,6 @@ import {
   messages as messagesApi,
   tasks as tasksApi,
   users as usersApi,
-  workers as workersApi,
   mcpConfigs as mcpConfigsApi,
   teams as teamsApi,
 } from "@/lib/api";
@@ -281,14 +280,7 @@ export default function RoomPage() {
     return () => { unsub(); ws.close(); chatWsRef.current = null; };
   }, [id]);
 
-  // Worker 슬롯 폴링 — 5초마다 갱신
-  useEffect(() => {
-    if (!teamId) return;
-    const interval = setInterval(() => {
-      workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [teamId]);
+  // Worker 상태는 rooms/layout.tsx의 SSE로 실시간 수신 — 별도 폴링 불필요
 
   // AI 태스크 진행 중 메시지 폴링 — WS로 실시간 수신하므로 폴링 불필요, handleReconnect가 재연결 시 처리
 
@@ -325,34 +317,30 @@ export default function RoomPage() {
             created_at: new Date().toISOString(),
           }];
         });
-        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_completed") {
         setActiveProgress(null);
         // streaming 메시지와 streamingTaskId는 건드리지 않음
         // → ai_res 메시지가 chat WS로 도착하면 자연스럽게 교체됨 (race condition 방지)
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
-        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
+        // worker 상태는 SSE가 실시간으로 업데이트 — 별도 fetch 불필요
       } else if (event.type === "task_failed") {
         setActiveProgress(null);
         setStreamingTaskId(null);
         setThinkingSteps([]);
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
-        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_interrupted") {
         setActiveProgress(null);
         setStreamingTaskId(null);
         setThinkingSteps([]);
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
-        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_cancelled") {
         setActiveProgress(null);
         setStreamingTaskId(null);
         setThinkingSteps([]);
         setMsgs((prev) => prev.filter((m) => !m.id.startsWith("streaming-")));
         tasksApi.list(id).then((r) => setTaskList(r.data.tasks));
-        if (teamId) workersApi.list(teamId).then((r) => setWorkers(r.data)).catch(() => {});
       } else if (event.type === "task_awaiting_confirm") {
         // triggered_by 포함한 task를 taskList에 upsert — isTriggerer 판단에 필요
         setTaskList((prev) => {

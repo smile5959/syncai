@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { IconNav } from "@/components/layout/icon-nav";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/store/auth";
+import { useRoomsStore } from "@/store/rooms";
 import { users as usersApi, saveTokens } from "@/lib/api";
+import type { TeamInitData } from "@/lib/api";
 import axios from "axios";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
@@ -21,7 +23,6 @@ function getStoredToken(key: string): string | null {
   return localStorage.getItem(key);
 }
 
-/** JWT exp 필드 디코딩 (초 단위) */
 function getTokenExpiry(token: string): number | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
@@ -31,7 +32,6 @@ function getTokenExpiry(token: string): number | null {
   }
 }
 
-/** access_token 만료까지 남은 초 */
 function secondsUntilExpiry(): number {
   const token = getStoredToken("syncai_access_token");
   if (!token) return 0;
@@ -40,7 +40,6 @@ function secondsUntilExpiry(): number {
   return exp - Math.floor(Date.now() / 1000);
 }
 
-/** Tauri 전용 silent token refresh */
 async function silentRefresh(): Promise<boolean> {
   if (!isTauri()) return false;
   const refreshToken = getStoredToken("syncai_refresh_token");
@@ -63,23 +62,21 @@ async function silentRefresh(): Promise<boolean> {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, setUser, logout } = useAuthStore();
+  const { user, setUser, setTeam, setTeams, logout } = useAuthStore();
+  const { setTeamsCache } = useRoomsStore();
   const checked = useRef(false);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keepAliveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /** 만료 5분 전에 자동 refresh 예약 */
   function scheduleRefresh() {
     if (!isTauri()) return;
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
     const secs = secondsUntilExpiry();
-    // 만료까지 5분(300초) 이상 남아있을 때 → (secs - 300)초 후 refresh
-    // 5분 미만 남았으면 → 즉시 refresh
     const delay = Math.max((secs - 300) * 1000, 0);
     refreshTimer.current = setTimeout(async () => {
       const ok = await silentRefresh();
       if (ok) {
-        scheduleRefresh(); // 성공하면 다음 만료 예약
+        scheduleRefresh();
       } else {
         logout();
         router.replace("/login");
@@ -96,20 +93,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (checked.current) return;
     checked.current = true;
 
-    // Fly.io suspend 방지: 앱 시작 시 즉시 ping + 4분마다 keep-alive
+    // Fly.io suspend 방지
     fetch(HEALTH_URL).catch(() => {});
     keepAliveTimer.current = setInterval(() => {
       fetch(HEALTH_URL).catch(() => {});
     }, 4 * 60 * 1000);
 
     const init = async () => {
-      // Tauri: access_token이 만료됐거나 5분 이내면 즉시 refresh
       if (isTauri()) {
         const secs = secondsUntilExpiry();
         if (secs < 300) {
           const ok = await silentRefresh();
           if (!ok) {
-            // refresh 실패 = 세션 만료 → 무조건 로그아웃
             logout();
             router.replace("/login");
             return;
@@ -118,9 +113,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         scheduleRefresh();
       }
 
-      // 유저 정보 확인 (persist store에 있어도 항상 검증)
-      usersApi.me()
-        .then((res) => setUser(res.data))
+      // meInit — 유저 + 모든 팀 데이터를 한 번에 로드
+      usersApi.meInit()
+        .then((res) => {
+          const { user, teams: teamsWithData } = res.data;
+          setUser(user);
+
+          // 팀 목록 auth store에 저장
+          const teamsList = teamsWithData.map((td) => td.team);
+          setTeams(teamsList);
+
+          // 팀별 데이터를 rooms store 캐시에 저장
+          const cache: Record<string, TeamInitData> = {};
+          for (const td of teamsWithData) {
+            cache[td.team.id] = {
+              rooms: td.rooms,
+              workers: td.workers,
+              mcp_configs: td.mcp_configs,
+            };
+          }
+          setTeamsCache(cache);
+
+          // 마지막으로 선택한 팀 복원
+          const savedId = typeof window !== "undefined" ? localStorage.getItem("team_id") : null;
+          const active = teamsList.find((t) => t.id === savedId) ?? teamsList[0];
+          if (active) setTeam(active);
+        })
         .catch(() => {
           logout();
           router.replace("/login");

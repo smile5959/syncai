@@ -5,9 +5,11 @@ import type { User, Team } from "@/types";
 interface AuthState {
   user: User | null;
   team: Team | null;
+  teams: Team[];
   autoLogin: boolean;
   setUser: (user: User) => void;
   setTeam: (team: Team) => void;
+  setTeams: (teams: Team[]) => void;
   setAutoLogin: (v: boolean) => void;
   logout: () => void;
 }
@@ -17,6 +19,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       team: null,
+      teams: [],
       autoLogin: true,
 
       setUser: (user) => {
@@ -30,18 +33,19 @@ export const useAuthStore = create<AuthState>()(
         set({ team });
       },
 
+      setTeams: (teams) => set({ teams }),
+
       setAutoLogin: (v) => set({ autoLogin: v }),
 
       logout: () => {
         if (typeof window !== "undefined") {
           localStorage.removeItem("team_id");
         }
-        set({ user: null, team: null });
+        set({ user: null, team: null, teams: [] });
       },
     }),
     {
       name: "syncai-auth",
-      // autoLogin=false 시 user를 저장하지 않음 → 앱 재시작 시 로그인 요구
       partialize: (state) => ({
         autoLogin: state.autoLogin,
         team: state.team,
