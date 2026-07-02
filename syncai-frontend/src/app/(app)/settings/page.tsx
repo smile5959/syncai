@@ -437,7 +437,27 @@ function AppearanceTab({ currentTheme, onSetTheme }: { currentTheme: Theme; onSe
 }
 
 // ─── 서브 컴포넌트: 플랜 탭 ──────────────────────────────────────────
+interface QuotaInfo {
+  plan: string;
+  ai_calls_month: number;
+  ai_calls_limit: number;
+  ai_calls_reset_at: string | null;
+}
+
 function PlanTab() {
+  const [quota, setQuota] = useState<QuotaInfo | null>(null);
+
+  useEffect(() => {
+    usersApi.quota().then((r) => setQuota(r.data)).catch(() => {});
+  }, []);
+
+  const planLabel: Record<string, string> = { free: "무료", starter: "스타터", pro: "프로" };
+  const currentPlanLabel = planLabel[quota?.plan ?? "free"] ?? "무료";
+  const usagePercent = quota && quota.ai_calls_limit > 0
+    ? Math.min((quota.ai_calls_month / quota.ai_calls_limit) * 100, 100)
+    : 0;
+  const isUnlimited = quota?.ai_calls_limit === -1;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 현재 플랜 배너 */}
@@ -456,7 +476,7 @@ function PlanTab() {
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
-            현재 플랜: Free · Beta
+            현재 플랜: {currentPlanLabel} · Beta
           </p>
           <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 3 }}>
             베타 기간 동안 무료로 모든 기능을 이용할 수 있어요.
@@ -466,8 +486,43 @@ function PlanTab() {
           fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 999,
           background: "var(--accent)", color: "white", flexShrink: 0,
         }}>
-          무료
+          {currentPlanLabel}
         </span>
+      </div>
+
+      {/* AI 사용량 카드 */}
+      <div style={{
+        borderRadius: 16, border: "1px solid var(--border)",
+        background: "var(--bg-surface)", padding: "18px 20px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Zap size={14} color="var(--accent)" />
+            <p style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)" }}>이번 달 AI 사용량</p>
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+            {quota
+              ? isUnlimited
+                ? `${quota.ai_calls_month}회 (무제한)`
+                : `${quota.ai_calls_month} / ${quota.ai_calls_limit}회`
+              : "—"}
+          </p>
+        </div>
+        {!isUnlimited && quota && (
+          <div style={{ background: "var(--bg-elevated)", borderRadius: 999, height: 6, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: 999,
+              background: usagePercent >= 90 ? "var(--status-error)" : "var(--accent)",
+              width: `${usagePercent}%`,
+              transition: "width 0.4s ease",
+            }} />
+          </div>
+        )}
+        {quota?.ai_calls_reset_at && (
+          <p style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 8 }}>
+            다음 리셋: {new Date(new Date(quota.ai_calls_reset_at).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ko-KR")}
+          </p>
+        )}
       </div>
 
       {/* 플랜 카드 */}

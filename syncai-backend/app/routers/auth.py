@@ -99,6 +99,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db),
             body: RefreshRequest | None = None):
     """
     쿠키의 refresh_token 우선 사용. 없으면 body의 refresh_token 사용 (하위 호환).
+    사용된 refresh token은 Redis 블랙리스트에 등록해 재사용을 차단한다 (토큰 로테이션).
     """
     token = request.cookies.get("refresh_token")
     if not token and body:
@@ -109,6 +110,19 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db),
     payload = decode_token(token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    # jti 블랙리스트 체크 — 이미 사용된 토큰은 거부
+    jti = payload.get("jti")
+    if jti:
+        try:
+            from app.core.redis_client import get_sync_redis
+            r = get_sync_redis()
+            if r.exists(f"rt_blacklist:{jti}"):
+                raise HTTPException(status_code=401, detail="Refresh token already used")
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Redis 장애 시 검증 스킵 (가용성 우선)
 
     user_id = payload.get("sub")
     if not user_id:
@@ -125,4 +139,16 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db),
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     _set_auth_cookies(response, access_token, refresh_token)
+
+    # 사용된 jti를 블랙리스트에 등록 (남은 만료 시간 동안 유효)
+    if jti:
+        try:
+            from app.core.redis_client import get_sync_redis
+            import time as _time
+            exp = payload.get("exp", 0)
+            remaining = max(int(exp - _time.time()), 1)
+            get_sync_redis().setex(f"rt_blacklist:{jti}", remaining, "1")
+        except Exception:
+            pass
+
     return {"user": user, "token": access_token, "refresh_token": refresh_token}

@@ -1,9 +1,10 @@
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from pydantic import BaseModel
 from app.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, PLAN_LIMITS
 from app.models.user import User
 from app.models.team import Team, TeamMember
 from app.models.chat_room import ChatRoom
@@ -50,6 +51,30 @@ def _get_user_teams(user_id, db: Session) -> list[Team]:
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/me/quota")
+def get_my_quota(current_user: User = Depends(get_current_user)):
+    """현재 플랜과 이번 달 AI 호출 사용량 반환."""
+    now = datetime.now(timezone.utc)
+    reset_at = current_user.ai_calls_reset_at
+    if reset_at and reset_at.tzinfo is None:
+        reset_at = reset_at.replace(tzinfo=timezone.utc)
+
+    if reset_at is None or (now - reset_at) > timedelta(days=30):
+        calls = 0
+    else:
+        calls = current_user.ai_calls_month
+
+    plan = current_user.plan or "free"
+    limit = PLAN_LIMITS.get(plan, 30)
+
+    return {
+        "plan": plan,
+        "ai_calls_month": calls,
+        "ai_calls_limit": limit,
+        "ai_calls_reset_at": reset_at.isoformat() if reset_at else None,
+    }
 
 
 @router.get("/me/teams", response_model=MeTeamsResponse)

@@ -1,9 +1,17 @@
 import uuid
+from datetime import datetime, timezone, timedelta
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.auth import decode_token
 from app.models.user import User
+
+# 플랜별 월간 AI 호출 한도 (-1 = 무제한)
+PLAN_LIMITS: dict[str, int] = {
+    "free": 30,
+    "starter": 200,
+    "pro": -1,
+}
 
 
 def get_current_user(
@@ -113,3 +121,29 @@ def require_room_access(room_id: str, current_user: User, db: Session):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this room")
 
     return room
+
+
+def require_ai_quota(current_user: User, db: Session) -> None:
+    """
+    AI 호출 전 월간 할당량을 확인하고 사용량을 1 증가.
+    30일이 지나면 카운터를 리셋한다.
+    """
+    now = datetime.now(timezone.utc)
+    reset_at = current_user.ai_calls_reset_at
+
+    if reset_at is None or (now - reset_at.replace(tzinfo=timezone.utc) if reset_at.tzinfo is None else now - reset_at) > timedelta(days=30):
+        current_user.ai_calls_month = 0
+        current_user.ai_calls_reset_at = now
+        db.commit()
+
+    plan = current_user.plan or "free"
+    limit = PLAN_LIMITS.get(plan, 30)
+
+    if limit != -1 and current_user.ai_calls_month >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"월간 AI 사용 한도({limit}회)에 도달했습니다. 플랜을 업그레이드해주세요.",
+        )
+
+    current_user.ai_calls_month += 1
+    db.commit()

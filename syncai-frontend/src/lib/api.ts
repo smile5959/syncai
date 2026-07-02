@@ -141,10 +141,18 @@ export interface MeInitData {
   teams: TeamWithData[];
 }
 
+export interface QuotaInfo {
+  plan: string;
+  ai_calls_month: number;
+  ai_calls_limit: number;
+  ai_calls_reset_at: string | null;
+}
+
 export const users = {
   me: () => http.get<User>("/users/me"),
   myTeams: () => http.get<{ teams: Team[] }>("/users/me/teams"),
   meInit: () => http.get<MeInitData>("/users/me/init"),
+  quota: () => http.get<QuotaInfo>("/users/me/quota"),
 };
 
 // ─── Auth ─────────────────────────────────────────────

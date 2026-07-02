@@ -2,13 +2,13 @@ import re
 import uuid
 import asyncio
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from app.database import get_db, SessionLocal
-from app.core.deps import get_current_user, require_room_access
+from app.core.deps import get_current_user, require_room_access, require_ai_quota
 from app.models.user import User
 from app.models.message import Message
 from app.models.task import Task
@@ -863,7 +863,7 @@ async def _plan_ai_task(
 def list_messages(
     room_id: str,
     cursor: str | None = None,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -926,6 +926,8 @@ async def ai_command(
 ):
     room = require_room_access(room_id, current_user, db)
     room_uuid = room.id  # slug가 올 수 있으므로 항상 room.id(UUID) 사용
+
+    require_ai_quota(current_user, db)
 
     team_id = str(room.team_id)
 
@@ -1167,6 +1169,7 @@ async def _send_ai_plan(
                 "composio_app": composio_app,
                 "mcp_name": None,
                 "mcp_config_id": None,
+                "mcp_owner_id": None,
                 "task_title": plan.get("task_title", ""),
                 "confirmation_message": plan.get("confirmation_message", f"{composio_app.capitalize()}에 접근하겠습니다."),
                 "task_plan": plan.get("task_plan", ""),
@@ -1310,6 +1313,7 @@ async def _send_ai_plan(
             "composio_app": composio_app,
             "mcp_name": plan["mcp_name"],
             "mcp_config_id": str(proposed_mcp.id) if proposed_mcp else None,
+            "mcp_owner_id": str(proposed_mcp.owner_user_id) if proposed_mcp else None,
             "task_title": plan.get("task_title", ""),
             "confirmation_message": confirmation_message,
             "task_plan": plan.get("task_plan", ""),
@@ -1461,8 +1465,9 @@ async def _run_composio_task(
             on_chunk=on_chunk,
         )
 
+        now = datetime.now(timezone.utc)
         task.status = "completed"
-        task.completed_at = datetime.utcnow()
+        task.completed_at = now
         db.commit()
 
         ai_msg = Message(
@@ -1488,7 +1493,7 @@ async def _run_composio_task(
         })
         await broadcast(task_connections, room_id, {
             "type": "task_completed",
-            "data": {"task_id": task_id, "result_diff": None, "completed_at": datetime.utcnow().isoformat()},
+            "data": {"task_id": task_id, "result_diff": None, "completed_at": now.isoformat()},
         })
 
     except Exception as e:
@@ -1526,6 +1531,17 @@ async def ai_confirm(
         raise HTTPException(status_code=404, detail="Task not found")
     if task.status != "awaiting_confirm":
         raise HTTPException(status_code=400, detail=f"Task is not awaiting confirmation (status: {task.status})")
+
+    # MCP가 있으면 MCP 주인만 승인 가능, 없으면(Composio-only 등) 요청자만 가능
+    if task.mcp_config_id:
+        from app.models.mcp_config import McpConfig as _McpConfig
+        _mcp = db.query(_McpConfig).filter(_McpConfig.id == task.mcp_config_id).first()
+        approver_id = _mcp.owner_user_id if _mcp else task.triggered_by
+    else:
+        approver_id = task.triggered_by
+
+    if approver_id and current_user.id != approver_id:
+        raise HTTPException(status_code=403, detail="이 작업을 승인할 권한이 없습니다. MCP 소유자만 승인할 수 있어요.")
 
     if not body.confirmed:
         task.status = "cancelled"

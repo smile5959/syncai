@@ -1,10 +1,10 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 import uuid
 
 
 class MessageCreate(BaseModel):
-    content: str
+    content: str = Field(max_length=10000)
 
 
 class AiCommandRequest(BaseModel):

@@ -29,6 +29,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     name: str
+    plan: str = "free"
 
 
 class SignupResponse(BaseModel):

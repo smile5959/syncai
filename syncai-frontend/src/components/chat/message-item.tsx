@@ -82,13 +82,14 @@ function AiPlanCard({ message, roomId, tasks, currentUserId }: { message: Messag
   const task = tasks?.find((t) => t.id === plan?.task_id);
   const taskStatus = task?.status;
 
-  // plan.triggered_by를 기준으로 판단 — task 로드 여부와 무관하게 즉시 확정
-  const isTriggerer = !currentUserId || plan.triggered_by === currentUserId;
+  // MCP 작업이면 MCP 주인이 승인, 그 외(Composio-only 등)는 요청자가 승인
+  const approverId = plan.mcp_owner_id || plan.triggered_by;
+  const isApprover = !currentUserId || approverId === currentUserId;
 
   const showButtons =
     status !== "idle" ? false
     : isExpired ? false
-    : !isTriggerer ? false
+    : !isApprover ? false
     : taskStatus === "awaiting_confirm" || taskStatus === "pending" || taskStatus === undefined;
 
   const showSuccess =

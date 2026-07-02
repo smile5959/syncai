@@ -3,6 +3,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  plan?: string;
 }
 
 export interface AuthTokens {
@@ -99,6 +100,7 @@ export interface AiPlanPayload {
   composio_app?: string | null;
   mcp_name: string | null;
   mcp_config_id: string | null;
+  mcp_owner_id?: string | null;
   task_title?: string;
   confirmation_message: string;
   task_plan?: string;

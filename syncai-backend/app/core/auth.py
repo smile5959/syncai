@@ -1,3 +1,4 @@
+import uuid as _uuid
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
@@ -23,6 +24,7 @@ def create_refresh_token(data: dict) -> str:
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload["type"] = "refresh"
+    payload["jti"] = str(_uuid.uuid4())  # 토큰 고유 ID — 재사용 방지용 블랙리스트 키
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
