@@ -612,16 +612,7 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
             "data": {"task_id": task_id, "worker_id": None},
         })
 
-        # worker 모델 결정: team_id가 있으면 첫 번째 worker 모델 사용
         chat_model = DEFAULT_MODEL
-        if team_id:
-            any_worker = (
-                db.query(Worker)
-                .filter(Worker.team_id == uuid.UUID(team_id))
-                .first()
-            )
-            if any_worker and any_worker.model:
-                chat_model = any_worker.model
 
         base_url, api_key = await _get_client()
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
