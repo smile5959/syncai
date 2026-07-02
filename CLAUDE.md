@@ -9,7 +9,7 @@
 |------|------|
 | Backend | FastAPI + Python, PostgreSQL (Neon), Redis (Upstash), Fly.io (Tokyo nrt) |
 | Frontend | Next.js App Router, TypeScript, Tailwind CSS v4, Zustand, Vercel |
-| AI | Gemini 2.5 Flash (worker), supervisor는 worker와 동일 모델 사용 (OpenRouter :free 유료화 대응) |
+| AI | 일반 채팅: `gemini-2.5-flash:free` (DEFAULT_MODEL 고정) / /ai 작업: worker.model (예: claude-sonnet-4) / Supervisor: worker와 동일 모델 주입 |
 | MCP | FastAPI JSON-RPC 2.0, WebSocket 역방향 연결, 로컬 macOS/Windows 실행 |
 
 ## 디렉토리 구조
@@ -251,6 +251,28 @@ syncai/
   - `McpConfig.token_issued_at`, `last_heartbeat_at` 컬럼 — 마이그레이션 `p5q6r7s8t9u0`
   - heartbeat 응답 `token_expired=true` → MCP가 로컬 토큰 폐기 + SSE 재연결로 새 토큰 수신
 
+### Refresh Token Rotation (2026-07-02)
+- `create_refresh_token`: payload에 `jti: str(uuid.uuid4())` 삽입
+- `POST /auth/refresh`: 토큰 검증 전 `rt_blacklist:{jti}` Redis 키 존재 확인 → 있으면 401 (재사용 차단)
+- 새 토큰 발급 후 사용된 jti를 Redis에 `setex(남은 만료 초, "1")` 등록
+- Redis 장애 시 블랙리스트 검증 스킵 (가용성 우선 — 보안 로그는 남음)
+
+### 구독 플랜 + AI 할당량 (2026-07-02)
+- `User` 모델 컬럼: `plan` (free/starter/pro, default free), `ai_calls_month` (int), `ai_calls_reset_at` (datetime)
+- `core/deps.py` `PLAN_LIMITS`: `free=30, starter=200, pro=-1` (-1 = 무제한)
+- `core/deps.py` `require_ai_quota(user, db)`: 30일 초과 시 카운터 리셋 → 한도 초과 시 429 → 통과 시 `ai_calls_month += 1`
+  - `POST /rooms/{id}/ai` (ai_command)에서 `require_room_access` 직후 호출
+- `GET /v1/users/me/quota` → `{plan, ai_calls_month, ai_calls_limit, ai_calls_reset_at}`
+- 설정 > 플랜 탭: `users.quota()` 호출 → 실시간 사용량 바 렌더 (90%+ 시 빨간색)
+- 마이그레이션: `s8t9u0v1w2x3_add_user_plan_and_quota.py`
+
+### AI 작업 승인자 — MCP 주인 우선 (2026-07-02)
+- 팀원 A가 팀원 B의 MCP로 `/ai` 요청 시 → **B(MCP 주인)만 승인 가능**
+- plan 카드 JSON에 `mcp_owner_id: str(proposed_mcp.owner_user_id)` 추가
+- `POST /ai/confirm` 백엔드: `task.mcp_config_id` 있으면 `mcp.owner_user_id`, 없으면 `task.triggered_by`를 승인자로 판별 → 불일치 시 403
+- 프론트: `AiPlanCard.isApprover = (plan.mcp_owner_id || plan.triggered_by) === currentUserId`
+- Composio-only 작업은 `mcp_owner_id: null` → 기존대로 요청자(triggered_by)가 승인
+
 ### 인증(Authentication) ≠ 인가(Authorization) — 룸/태스크 접근 패턴 (2026-06-16 수정)
 - **JWT 검증만으로는 부족** — "누구인지"만 확인하고 "이 리소스에 접근해도 되는지"는 별도 체크 필요
 - REST: 룸/태스크 관련 라우트는 `require_room_access(room_id, current_user, db)` 필수 (room 객체 반환, 없으면 404, 권한 없으면 403) — `cancel_task`에 누락되어 있었음, 추가함
@@ -258,6 +280,10 @@ syncai/
   - 누락 시 room_id만 알면(브로드캐스트 평문 노출) 비멤버가 채팅/태스크 실시간 스트림을 그대로 구독 가능했음
 - `_pending_endpoints` 캐시(`mcp_configs.py`): 비인증 엔드포인트(`lookup-by-email`, `sse`)가 `endpoint` 파라미터를 받아 이 캐시에 쓰면 안 됨 — 공격자가 임의 endpoint를 주입해 `mcp_token`을 탈취하는 경로가 생김. 둘 다 `endpoint` 처리 제거함
   - endpoint 등록은 **`heartbeat`(mcp_token 필요)로만** 수행 — 폴더 선택 등 소비처는 DB fallback(`McpConfig.endpoint`)으로 처리
+
+### 메시지 입력 제한 (2026-07-02)
+- `MessageCreate.content`: `max_length=10000` (Pydantic Field)
+- `GET /rooms/{id}/messages?limit=`: `Query(50, ge=1, le=200)` — 미설정 시 최대 1M 조회 가능했던 것 차단
 
 ### 환경변수
 - `.env.production` 커밋됨 (NEXT_PUBLIC_* 만 포함, 시크릿 없음)
