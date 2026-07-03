@@ -12,7 +12,7 @@ import json
 from openai import AsyncOpenAI
 from app.config import settings
 
-DEFAULT_MODEL = "google/gemini-2.5-flash:free"  # 폴백 전용
+DEFAULT_MODEL = "google/gemma-4-31b-it:free"  # 폴백 전용
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
