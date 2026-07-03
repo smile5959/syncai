@@ -35,15 +35,21 @@ ANALYZE_SYSTEM_PROMPT = (
 
 CHECK_INTERRUPTED_SYSTEM_PROMPT = (
     "당신은 SyncAI의 작업 연관성 분석기입니다.\n"
-    "중단된 이전 작업 목록과 새 사용자 요청을 비교해, 관련 있는 중단 작업이 있는지 판단하세요.\n\n"
+    "중단된 이전 작업 목록과 새 사용자 요청을 비교해, 명확하게 관련 있는 중단 작업이 있는지 판단하세요.\n\n"
     "반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):\n"
     "{\"related_index\": 0, \"merged_instruction\": \"통합 작업 지시\"}\n\n"
-    "- related_index: 관련 있는 중단 작업의 인덱스(0부터). 관련 없으면 -1\n"
+    "- related_index: 관련 있는 중단 작업의 인덱스(0부터). 관련 없거나 불확실하면 반드시 -1\n"
     "- merged_instruction: related_index >= 0일 때, 중단 작업의 미완성 부분 + 새 요청을 합친 통합 지시문 (한국어)\n"
     "  예) 중단 작업: 'Header.tsx 버튼 색상 변경 중 중단' + 새 요청: '버튼 텍스트도 바꿔줘'\n"
     "  → merged_instruction: 'Header.tsx 버튼 색상을 변경하고(이전에 중단된 작업 완료), 버튼 텍스트도 수정해줘'\n"
-    "- related_index가 -1이면 merged_instruction은 null\n"
-    "판단 기준: 같은 파일/기능/목적을 다루면 관련 있음. 완전히 다른 주제면 -1"
+    "- related_index가 -1이면 merged_instruction은 null\n\n"
+    "## 판단 기준 (엄격하게 적용)\n"
+    "- related_index >= 0: 새 요청이 중단 작업과 같은 파일/기능/도구를 명시적으로 언급하는 경우만\n"
+    "- related_index = -1 (반드시 -1로 처리):\n"
+    "  · '다시', '재시도', '다시 해줘', '해봐' 등 모호한 단어만 있는 경우\n"
+    "  · 새 요청이 중단 작업과 전혀 다른 주제(코드 vs 시/글쓰기, MCP vs 일반대화 등)인 경우\n"
+    "  · 연관성이 불확실하거나 추측에 의존해야 하는 경우\n"
+    "확신이 없으면 항상 -1을 선택하세요."
 )
 
 VALIDATE_SYSTEM_PROMPT = (
