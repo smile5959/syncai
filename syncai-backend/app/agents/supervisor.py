@@ -12,7 +12,7 @@ import json
 from openai import AsyncOpenAI
 from app.config import settings
 
-DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"  # 폴백 전용
+DEFAULT_MODEL = "google/gemini-2.5-flash-lite"  # 채팅/supervisor 기본 모델
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
