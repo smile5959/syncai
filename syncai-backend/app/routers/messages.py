@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from app.database import get_db, SessionLocal
-from app.core.deps import get_current_user, require_room_access, require_ai_quota
+from app.core.deps import get_current_user, require_room_access, require_ai_quota, decrement_ai_quota
 from app.models.user import User
 from app.models.message import Message
 from app.models.task import Task
@@ -26,7 +26,9 @@ router = APIRouter(tags=["Messages"])
 def _format_error_for_chat(error: str) -> str:
     """에러 메시지를 대화체 한국어로 변환"""
     e = error.lower()
-    if "quota" in e or "rate limit" in e or "429" in e:
+    if "rate limit" in e or "rate_limit" in e or ("429" in e and "quota" not in e):
+        return "AI 서버가 잠시 바빠요. 1~2분 후에 다시 시도해 주세요."
+    if "quota" in e:
         return "AI 요청 한도에 걸렸네요. 잠시 후에 다시 시도해 주세요."
     if "mcp" in e and ("오프라인" in error or "offline" in e or "not connected" in e):
         return "PC(MCP)가 오프라인 상태인 것 같아요. PC가 켜져 있는지 한번 확인해 주시겠어요?"
@@ -561,6 +563,8 @@ async def _run_ai_task(
         raise  # CancelledError는 반드시 re-raise
     except Exception as e:
         print(f"[_run_ai_task] 오류: {e}")
+        if user_id:
+            decrement_ai_quota(user_id, db)
         if task:
             # 예상치 못한 예외(네트워크 오류, 타임아웃 등) → interrupted로 마킹 (재개 가능)
             task.status = "interrupted"
@@ -585,7 +589,7 @@ async def _run_ai_task(
 
 # ── Chat-only AI (MCP 없는 순수 대화 모드) ────────────────────────────────────
 
-async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = "", team_id: str = "", available_mcp_names: list[str] | None = None):
+async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: str = "", team_id: str = "", available_mcp_names: list[str] | None = None, user_id: str | None = None):
     from app.agents.supervisor import _get_client, DEFAULT_MODEL
     from app.services.room_service import get_recent_messages
     from openai import AsyncOpenAI
@@ -734,6 +738,8 @@ async def _run_chat_only(task_id: str, content: str, room_id: str, user_name: st
         raise
     except Exception as e:
         print(f"[_run_chat_only] 오류: {e}")
+        if user_id:
+            decrement_ai_quota(user_id, db)
         if task:
             task.status = "interrupted"
             task.error = str(e)
@@ -1118,7 +1124,7 @@ async def _send_ai_plan(
             task.status = "pending"
             db.commit()
             asyncio.create_task(
-                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id)
+                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id, user_id=str(current_user.id))
             )
             return
 
@@ -1212,7 +1218,7 @@ async def _send_ai_plan(
             db.commit()
             mcp_name_list = [m["name"] for m in available_mcps] if available_mcps else []
             asyncio.create_task(
-                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id, mcp_name_list)
+                _run_chat_only(task_id, effective_content, room_id, current_user.name, team_id, mcp_name_list, user_id=str(current_user.id))
             )
             return
 
@@ -1351,6 +1357,8 @@ async def _send_ai_plan(
 
     except Exception as e:
         print(f"[_send_ai_plan] 오류: {e}")
+        if current_user:
+            decrement_ai_quota(current_user.id, db)
         if task:
             task.status = "failed"
             task.error = str(e)
@@ -1499,6 +1507,7 @@ async def _run_composio_task(
     except Exception as e:
         import traceback
         print(f"[_run_composio_task] 오류: {e}\n{traceback.format_exc()}")
+        decrement_ai_quota(entity_id, db)
         if task:
             task.status = "failed"
             task.error = str(e)
@@ -1620,7 +1629,7 @@ async def ai_confirm(
             })
     else:
         asyncio.create_task(
-            _run_chat_only(str(task.id), content, room_id_str, current_user.name, team_id)
+            _run_chat_only(str(task.id), content, room_id_str, current_user.name, team_id, user_id=str(current_user.id))
         )
 
     return JSONResponse({"status": "confirmed", "task_id": str(task.id)})
