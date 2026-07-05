@@ -26,10 +26,10 @@ router = APIRouter(tags=["Messages"])
 def _format_error_for_chat(error: str) -> str:
     """에러 메시지를 대화체 한국어로 변환"""
     e = error.lower()
-    if "rate limit" in e or "rate_limit" in e or ("429" in e and "quota" not in e):
-        return "AI 서버가 잠시 바빠요. 1~2분 후에 다시 시도해 주세요."
     if "quota" in e:
         return "AI 요청 한도에 걸렸네요. 잠시 후에 다시 시도해 주세요."
+    if "rate limit" in e or "rate_limit" in e or "429" in e:
+        return "AI 서버가 잠시 바빠요. 1~2분 후에 다시 시도해 주세요."
     if "mcp" in e and ("오프라인" in error or "offline" in e or "not connected" in e):
         return "PC(MCP)가 오프라인 상태인 것 같아요. PC가 켜져 있는지 한번 확인해 주시겠어요?"
     if "401" in e or "unauthorized" in e or "api key" in e:
@@ -176,8 +176,8 @@ async def _release_worker(worker_id: str, team_id: str):
     q = _get_queue(team_id)
     if not q.empty():
         item = await q.get()
-        task_id, content, mcp_config_id, room_id, queued_user_name = item
-        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name))
+        task_id, content, mcp_config_id, room_id, queued_user_name, queued_user_id = item
+        asyncio.create_task(_run_ai_task(task_id, content, mcp_config_id, room_id, team_id, queued_user_name, user_id=queued_user_id))
 
 
 # ── MCP Config 선택 ───────────────────────────────────────────────────────────
@@ -308,7 +308,7 @@ async def _run_ai_task(
         if not worker:
             # 슬롯 없음 → 큐에 재삽입 (이 경로는 정상적으로는 발생 안 함)
             q = _get_queue(team_id)
-            await q.put((task_id, content, mcp_config_id, room_id, user_name))
+            await q.put((task_id, content, mcp_config_id, room_id, user_name, user_id or ""))
             return
 
         worker_id = str(worker.id)
@@ -1357,8 +1357,7 @@ async def _send_ai_plan(
 
     except Exception as e:
         print(f"[_send_ai_plan] 오류: {e}")
-        if current_user:
-            decrement_ai_quota(current_user.id, db)
+        decrement_ai_quota(current_user.id, db)
         if task:
             task.status = "failed"
             task.error = str(e)
@@ -1591,7 +1590,7 @@ async def ai_confirm(
                     )
                 else:
                     q = _get_queue(team_id)
-                    await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name))
+                    await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name, str(current_user.id)))
                 return JSONResponse({"status": "started", "type": "mcp+composio"})
         # Composio-only
         asyncio.create_task(
@@ -1615,11 +1614,11 @@ async def ai_confirm(
 
         if idle_exists:
             asyncio.create_task(
-                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id_str, team_id, current_user.name)
+                _run_ai_task(str(task.id), content, str(mcp_config.id), room_id_str, team_id, current_user.name, user_id=str(current_user.id))
             )
         else:
             q = _get_queue(team_id)
-            await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name))
+            await q.put((str(task.id), content, str(mcp_config.id), room_id_str, current_user.name, str(current_user.id)))
             await broadcast(task_connections, room_id_str, {
                 "type": "task_queued",
                 "data": {

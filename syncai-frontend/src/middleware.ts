@@ -120,15 +120,17 @@ export async function middleware(request: NextRequest) {
         result.cookies.forEach((c) => response.headers.append("Set-Cookie", c));
         return response;
       }
-      // 네트워크 오류(status 0)면 쿠키는 살려두고 로그인 페이지로 (재부팅 직후 방어)
-      if (result.status !== 0) {
-        // 401 등 명확한 실패만 redirect
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        return NextResponse.redirect(loginUrl);
+      if (result.status === 0) {
+        // 네트워크 오류 — 백엔드 일시 불가. refresh_token이 있으므로 통과시키고
+        // 클라이언트 인터셉터가 재연결 시 처리하게 한다 (로그인 깜빡임 방지)
+        return NextResponse.next();
       }
+      // 401 등 명확한 인증 실패 → 로그인으로
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
     }
-    // No refresh_token or confirmed auth failure - redirect to login
+    // refresh_token도 없음 → 로그인으로
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);

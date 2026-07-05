@@ -9,7 +9,7 @@
 |------|------|
 | Backend | FastAPI + Python, PostgreSQL (Neon), Redis (Upstash), Fly.io (Tokyo nrt) |
 | Frontend | Next.js App Router, TypeScript, Tailwind CSS v4, Zustand, Vercel |
-| AI | 일반 채팅: `gemini-2.5-flash:free` (DEFAULT_MODEL 고정) / /ai 작업: worker.model (예: claude-sonnet-4) / Supervisor: worker와 동일 모델 주입 |
+| AI | 일반 채팅: `google/gemini-2.5-flash-lite` (DEFAULT_MODEL, 유료 $0.10/1M) / /ai 작업: worker.model (예: claude-sonnet-4) / Supervisor: worker와 동일 모델 주입 |
 | MCP | FastAPI JSON-RPC 2.0, WebSocket 역방향 연결, 로컬 macOS/Windows 실행 |
 
 ## 디렉토리 구조
@@ -80,6 +80,8 @@ syncai/
 - `WorkerLLM`: `composio_tools` + `composio_executor` 파라미터 — `_MCP_TOOL_NAMES`에 없는 툴은 `composio_executor` 호출
 - 에러 채팅 전송: `chat_connections` broadcast, `created_at` 반드시 `datetime.utcnow().isoformat() + "Z"` 포맷
 - `_format_error_for_chat(error)`: 기술적 에러 → 한국어 친화적 문구 변환
+  - rate limit / 429 (일시적 RPM 초과) → "AI 서버가 잠시 바빠요. 1~2분 후에 다시 시도해 주세요."
+  - quota (월간 한도) → "AI 요청 한도에 걸렸네요. 잠시 후에 다시 시도해 주세요."
 
 ### Composio 외부 앱 연동
 - `COMPOSIO_API_KEY` 환경변수 필수 (config.py + Fly.io secret)
@@ -97,9 +99,11 @@ syncai/
 - `AiConfirmRequest.composio_app`: confirm 요청에 포함 → `_run_composio_task` 라우팅 키
 
 ### AiPlanCard 승인 버튼
-- `showButtons` 조건: `status === "idle"` AND `!isExpired` AND `isTriggerer` AND `taskStatus ∈ {awaiting_confirm, pending, undefined}`
-- `isTriggerer = !currentUserId || plan.triggered_by === currentUserId` — **plan payload 기준** (task 로드 불필요)
-- `plan_content` JSON 필드: `task_id, needs_mcp, needs_composio, composio_app, mcp_name, mcp_config_id, task_title, confirmation_message, task_plan, triggered_by`
+- `showButtons` 조건: `status === "idle"` AND `!isExpired` AND `isApprover` AND `taskStatus ∈ {awaiting_confirm, pending, undefined}`
+- `isApprover`: `approverId = plan.mcp_owner_id || plan.triggered_by`, `isApprover = !currentUserId || approverId === currentUserId`
+  - MCP 작업: MCP 소유자(mcp_owner_id)만 승인 버튼 표시
+  - Composio-only / chat-only: 요청자(triggered_by)가 승인
+- `plan_content` JSON 필드: `task_id, needs_mcp, needs_composio, composio_app, mcp_name, mcp_config_id, mcp_owner_id, task_title, confirmation_message, task_plan, triggered_by`
 - `task_plan`: 다이얼로그에 monospace 박스로 표시되는 워커 지시 1-3문장
 - `task_awaiting_confirm` WS 이벤트: plan 전송 직후 `task_connections`로 broadcast, `{task_id, triggered_by}` 포함
 - **`isExpired` 계산**: `useState(false)` + `useEffect` 내 `setInterval` 패턴 — `Date.now()`를 컴포넌트 바디에 쓰면 서버/클라이언트 값 불일치로 React hydration error #418 발생

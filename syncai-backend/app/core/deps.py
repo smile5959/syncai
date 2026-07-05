@@ -149,13 +149,14 @@ def require_ai_quota(current_user: User, db: Session) -> None:
     db.commit()
 
 
-def decrement_ai_quota(user_id: uuid.UUID | str, db: Session) -> None:
-    """AI 호출 실패 시 카운터 1 차감 (실패한 호출은 소비 안 함)."""
+def decrement_ai_quota(user_id: uuid.UUID | str, db: Session, commit: bool = False) -> None:
+    """AI 호출 실패 시 카운터 1 차감. commit=False이면 호출자가 직접 commit."""
     try:
-        uid = uuid.UUID(str(user_id))
+        uid = uuid.UUID(str(user_id)) if not isinstance(user_id, uuid.UUID) else user_id
         user = db.query(User).filter(User.id == uid).first()
         if user and user.ai_calls_month > 0:
             user.ai_calls_month -= 1
-            db.commit()
-    except Exception:
-        pass
+            if commit:
+                db.commit()
+    except Exception as e:
+        print(f"[decrement_ai_quota] 오류 (user_id={user_id}): {e}")
