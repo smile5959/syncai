@@ -97,7 +97,22 @@ function LoginPageContent() {
   // skipHydration: true 이므로 rehydrate() 후 getState()로 즉시 확인
   useEffect(() => {
     useAuthStore.persist.rehydrate();
-    if (useAuthStore.getState().user) window.location.replace("/rooms");
+    const user = useAuthStore.getState().user;
+    if (user) {
+      // Zustand에 user가 있어도 실제 쿠키가 살아있어야 redirect
+      // 쿠키 없이 user만 남은 경우(세션 만료) → Zustand 클리어 → 로그인 폼 표시
+      const hasToken = document.cookie
+        .split(";")
+        .some((c) => {
+          const name = c.trim().split("=")[0];
+          return name === "access_token" || name === "refresh_token";
+        });
+      if (hasToken) {
+        window.location.replace(nextUrl || "/rooms");
+      } else {
+        logoutStore();
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
