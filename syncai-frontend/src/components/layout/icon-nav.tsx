@@ -511,9 +511,12 @@ export function IconNav() {
 
         {/* 하단 유틸 */}
         <div className="flex flex-col" style={{ borderTop: "1px solid var(--border)", paddingTop: 4, paddingBottom: 4 }}>
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setBellOpen((v) => !v)}
-            className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)]"
+            onKeyDown={(e) => e.key === "Enter" && setBellOpen((v) => !v)}
+            className="flex items-center w-full transition-colors hover:bg-[var(--bg-hover)] cursor-pointer"
             style={{ height: 40, padding: "0 14px", gap: 10 }}
           >
             <div style={navIconStyle}>
@@ -533,7 +536,7 @@ export function IconNav() {
               />
             </div>
             <span className="icon-nav-label" style={{ fontSize: 13 }}>알림</span>
-          </button>
+          </div>
 
           <button
             onClick={toggle}
