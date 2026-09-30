@@ -233,6 +233,13 @@ async def _token_loop(token: str) -> None:
                 if email and _sse_task and not _sse_task.done():
                     _sse_task.cancel()  # SSE 루프 재시작 트리거
                 return  # 이 토큰 루프 종료
+        elif result == "404" and token != os.getenv("MCP_AUTH_TOKEN", "").strip():
+            # 백엔드에 없는 옛 토큰(재발급 전 등) — 레지스트리에서 빼고 루프 종료.
+            # 남겨두면 재시작마다 404만 반복한다. 현재 .env 토큰은 재등록 대비 유지.
+            log.warning("[...%s] 백엔드에 없는 토큰 — 레지스트리에서 제거", token[-6:])
+            _cfg.remove_token(token)
+            _tasks.pop(token, None)
+            return
         elif result in ("404", "err"):
             fail_count += 1
             if fail_count >= 3:

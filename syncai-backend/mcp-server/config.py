@@ -36,7 +36,12 @@ else:
     _APP_DIR = Path(__file__).parent
 
 # .env 로드 (설치 디렉토리 기준)
-load_dotenv(_APP_DIR / ".env")
+# macOS/Windows 설치본은 .env가 code/ 의 상위(SyncAI/)에 있다 — 여기서 못 읽으면
+# MCP_AUTH_TOKEN이 레지스트리에 안 들어가 heartbeat가 옛 토큰으로만 돈다.
+_ENV_FILE = _APP_DIR / ".env"
+if not _ENV_FILE.exists() and (_APP_DIR.parent / ".env").exists():
+    _ENV_FILE = _APP_DIR.parent / ".env"
+load_dotenv(_ENV_FILE)
 
 log = logging.getLogger("config")
 
