@@ -3,7 +3,7 @@ fastapi==0.111.0
 uvicorn[standard]==0.29.0
 
 # Database
-sqlalchemy>=2.0.30
+sqlalchemy>=2.0.30,<2.1  # 2.1은 postgresql:// 기본 드라이버가 psycopg(3) — psycopg2만 설치돼 있어 배포 실패
 alembic>=1.13.1
 psycopg2-binary>=2.9.9
 
