@@ -107,6 +107,7 @@ syncai/
 - `task_plan`: 다이얼로그에 monospace 박스로 표시되는 워커 지시 1-3문장
 - `task_awaiting_confirm` WS 이벤트: plan 전송 직후 `task_connections`로 broadcast, `{task_id, triggered_by}` 포함
 - **`isExpired` 계산**: `useState(false)` + `useEffect` 내 `setInterval` 패턴 — `Date.now()`를 컴포넌트 바디에 쓰면 서버/클라이언트 값 불일치로 React hydration error #418 발생
+- **`<button>` 중첩 금지**: `icon-nav.tsx`의 알림 행처럼 `<button>` 안에 또 다른 `<button>`을 가진 컴포넌트(InvitationBell 등)를 넣으면 무효 HTML → 브라우저 DOM 자동 수정 → #418. 래퍼는 `<div role="button" tabIndex={0}>` 사용
 
 ### RoomPageClient teamId 주의
 - `teamId`는 **`room.team_id` 우선** (`currentTeam`은 auth store의 마지막 선택 팀 — 방 팀과 다를 수 있음)
@@ -181,6 +182,8 @@ syncai/
 - **로그아웃**: `logoutUser()` async — `/api/auth/logout` await 후 `window.location.href = "/login"`
   - 쿠키가 `HttpOnly`이면 `document.cookie`로 삭제 불가 → 서버 응답(Set-Cookie) 받기 전에 navigate하면 미들웨어가 쿠키를 보고 /rooms로 되돌림
 - **login/page.tsx**: `useSearchParams()` 사용 시 반드시 `<Suspense fallback={null}>` 로 감쌀 것 (Next.js App Router 빌드 요건)
+- **미들웨어 status=0**: access_token 없음 + refresh_token 있음 + 백엔드 타임아웃(status=0) → `NextResponse.next()` 통과. redirect하면 Zustand rehydrate가 user를 보고 `/rooms` 돌리는 깜빡임 발생
+- **login page 무한루프 방지**: `rehydrate()` 후 user 있어도 `document.cookie`에 실제 쿠키(`access_token`/`refresh_token`) 확인 필수. 없으면 `logoutStore()` — stale Zustand + 쿠키 만료 = `/rooms` ↔ `/login` 루프
 
 ### 페이지 레이아웃 패턴
 - **설정/연동 페이지 공통 패턴**: `<main style={{ flex: 1, overflowY: "auto", background: "var(--bg-base)" }}>` + 내부 `<div style={{ maxWidth: 900, margin: "0 auto", padding: "0 28px 60px" }}>`
@@ -254,6 +257,9 @@ syncai/
 - MCP 토큰 만료: 90일마다 자동 교체 (`MCP_TOKEN_MAX_AGE_DAYS` env로 조정)
   - `McpConfig.token_issued_at`, `last_heartbeat_at` 컬럼 — 마이그레이션 `p5q6r7s8t9u0`
   - heartbeat 응답 `token_expired=true` → MCP가 로컬 토큰 폐기 + SSE 재연결로 새 토큰 수신
+- **터널 경유 요청은 로컬 아님** (`server.py`): cloudflared가 인터넷 요청을 localhost로 넘기므로 `Cf-Connecting-Ip` 등 헤더 있으면 비로컬 취급. `/set-token`은 순수 로컬만, 백엔드가 터널로 부르는 `/revoke-token`(등록된 토큰만)·`/pick-folder`는 Bearer 인증
+- **팀 MCP 목록 응답에 남의 `mcp_token`·endpoint 원문 금지** (`/teams/{id}/mcp-configs`, `/users/me/init`, `/rooms/.../init`)
+- **`fs/browse`·`fs/pick-folder`는 소유자만** (팀 공개 여부 무관) — 테스트 `tests/test_mcp_exposure.py`
 
 ### Refresh Token Rotation (2026-07-02)
 - `create_refresh_token`: payload에 `jti: str(uuid.uuid4())` 삽입
@@ -300,6 +306,9 @@ syncai/
 - 백엔드: `syncai-backend/**` push → GitHub Actions → Fly.io 자동
 - 프론트: `main` push → Vercel 자동
 - MCP 릴리즈: `gh workflow run "Release MCP Code Bundle" --field version=X.X.X`
+  - 워크플로가 GitHub Release(`mcp/vX.X.X`) + Fly 시크릿 `MCP_CODE_VERSION` 갱신까지 함 → 확인: `curl https://syncai-backend.fly.dev/v1/mcp-version`
+  - 클라이언트는 bootstrap.py가 기동 시 자동 업데이트. 강제 재설치(macOS): 릴리즈의 `install.sh --token=<토큰>` 재실행(끝에 `launchctl load -w`까지 함)
+  - 로컬 토큰은 `~/Library/Application Support/SyncAI/.env`의 `MCP_AUTH_TOKEN`. 로그 heartbeat 404 / WS 403 = DB에 토큰 없음 → 웹앱에서 MCP 재등록 후 새 토큰으로 재설치
 
 ## 주요 파일
 | 기능 | 파일 |

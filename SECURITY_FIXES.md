@@ -57,6 +57,20 @@
 
 ---
 
+## 2026-09-30 패치 (커밋 4b849f6, MCP 1.1.5)
+
+### 10. 터널 경유 MCP 원격 장악 차단
+- cloudflared가 인터넷 요청을 localhost로 넘겨 "localhost만" 검사가 무력 → 터널 URL만 알면 `/set-token`으로 `base_dir=/` 토큰 등록 가능했음
+- 터널 헤더(`Cf-Connecting-Ip` 등) 있으면 비로컬. `/revoke-token`·`/pick-folder`는 토큰 인증
+
+### 11. 팀원에게 MCP 토큰·endpoint 노출 제거
+- 팀 MCP 목록/init 응답에서 남의 `mcp_token`·endpoint 원문 제거 (WS 탈취·직접 호출 방지)
+
+### 12. 남의 PC 폴더 조회 차단
+- `fs/browse`·`fs/pick-folder` 소유자만 허용 (lookup-by-email config_id로 팀 밖 접근 가능했음)
+
+---
+
 ## 남은 작업 (Todo)
 
 - [x] localStorage → httpOnly 쿠키 마이그레이션 (2026-05-13)
