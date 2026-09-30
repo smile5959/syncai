@@ -73,6 +73,8 @@
 
 ## 남은 작업 (Todo)
 
+- [ ] MCP `heartbeat.py`: token_registry 첫 항목이 무효면 heartbeat 404 반복 — 404 토큰 제거 or `.env` 토큰 우선 (CLAUDE.md 배포 섹션 참고)
+
 - [x] localStorage → httpOnly 쿠키 마이그레이션 (2026-05-13)
 - [ ] rooms/[id]/page.tsx silent catch → 에러 UI 개선
 - [ ] `_run_ai_task` 서비스 레이어 분리

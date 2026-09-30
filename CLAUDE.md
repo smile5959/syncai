@@ -308,7 +308,8 @@ syncai/
 - MCP 릴리즈: `gh workflow run "Release MCP Code Bundle" --field version=X.X.X`
   - 워크플로가 GitHub Release(`mcp/vX.X.X`) + Fly 시크릿 `MCP_CODE_VERSION` 갱신까지 함 → 확인: `curl https://syncai-backend.fly.dev/v1/mcp-version`
   - 클라이언트는 bootstrap.py가 기동 시 자동 업데이트. 강제 재설치(macOS): 릴리즈의 `install.sh --token=<토큰>` 재실행(끝에 `launchctl load -w`까지 함)
-  - 로컬 토큰은 `~/Library/Application Support/SyncAI/.env`의 `MCP_AUTH_TOKEN`. 로그 heartbeat 404 / WS 403 = DB에 토큰 없음 → 웹앱에서 MCP 재등록 후 새 토큰으로 재설치
+  - 로컬 토큰은 `~/Library/Application Support/SyncAI/.env`의 `MCP_AUTH_TOKEN`. 로그 heartbeat 404 / WS 403 = DB에 토큰 없음 → 웹앱 MCP 설정 → 해당 MCP "설치" 버튼의 curl(토큰 포함)로 재설치
+  - ⚠ **알려진 버그**: `heartbeat.py`는 `code/token_registry.json`의 **첫 항목** 토큰으로 heartbeat를 보낸다 → 무효 토큰이 앞에 남으면 WS는 연결돼도 heartbeat 404 반복(웹앱 오프라인 표시). 우회: 레지스트리에서 무효 항목 삭제 후 `launchctl unload/load`. 근본 수정(404 토큰 제거 또는 `.env` 토큰 우선) 후 릴리즈 필요
 
 ## 주요 파일
 | 기능 | 파일 |
