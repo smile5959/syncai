@@ -40,6 +40,31 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+/**
+ * 로그인 페이지에서 "세션이 남아 있나" 판단용.
+ * Tauri는 미들웨어가 없고 토큰을 localStorage에 둔다 — 쿠키로 보면 항상 없음 → 멀쩡한 세션을 로그아웃시킨다.
+ * 웹은 미들웨어가 유효한 세션을 /login 전에 /rooms로 보내므로 쿠키 확인으로 충분하다.
+ */
+export function hasSessionToken(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isTauri()) return !!(getAccessToken() || getRefreshToken());
+  return document.cookie.split(";").some((c) => {
+    const name = c.trim().split("=")[0];
+    return name === "access_token" || name === "refresh_token";
+  });
+}
+
+/**
+ * ?next= / ?redirect= 값은 외부에서 조작 가능 — 앱 안의 경로만 허용한다.
+ * "https://..."(외부 사이트), "//host"(프로토콜 상대), "javascript:"(XSS)는 버린다.
+ */
+export function safeNextPath(next: string | null | undefined): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
+    return "/rooms";
+  }
+  return next;
+}
+
 function getAccessToken(): string | null {
   if (typeof localStorage === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);

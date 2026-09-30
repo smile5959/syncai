@@ -6,7 +6,7 @@ import {
   Zap, Mail, Lock, ArrowRight, User, Eye, EyeOff,
   Code2, MessageSquare, Sparkles, Sun, Moon,
 } from "lucide-react";
-import { auth, saveTokens } from "@/lib/api";
+import { auth, saveTokens, hasSessionToken, safeNextPath } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/components/providers/theme-provider";
 
@@ -99,16 +99,10 @@ function LoginPageContent() {
     useAuthStore.persist.rehydrate();
     const user = useAuthStore.getState().user;
     if (user) {
-      // Zustand에 user가 있어도 실제 쿠키가 살아있어야 redirect
-      // 쿠키 없이 user만 남은 경우(세션 만료) → Zustand 클리어 → 로그인 폼 표시
-      const hasToken = document.cookie
-        .split(";")
-        .some((c) => {
-          const name = c.trim().split("=")[0];
-          return name === "access_token" || name === "refresh_token";
-        });
-      if (hasToken) {
-        window.location.replace(nextUrl || "/rooms");
+      // Zustand에 user가 있어도 실제 토큰이 살아있어야 redirect
+      // 토큰 없이 user만 남은 경우(세션 만료) → Zustand 클리어 → 로그인 폼 표시
+      if (hasSessionToken()) {
+        window.location.replace(safeNextPath(nextUrl));
       } else {
         logoutStore();
       }
@@ -190,7 +184,7 @@ function LoginPageContent() {
       // teams는 로그인 응답에 있으면 바로 세팅, 없으면 IconNav가 로드하므로 추가 fetch 불필요
       const loginTeams = res.data.teams ?? [];
       if (loginTeams.length > 0) setTeam(loginTeams[0]);
-      window.location.href = nextUrl || "/rooms";
+      window.location.href = safeNextPath(nextUrl);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })

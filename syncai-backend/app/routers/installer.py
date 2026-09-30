@@ -6,7 +6,7 @@ GET /v1/installer/token       — JSON API (called by frontend page after login)
 """
 import secrets
 import uuid
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -24,16 +24,33 @@ from app.config import settings
 router = APIRouter(tags=["Installer"])
 
 # 인스톨러 로컬 서버만 허용 — MCP auth token이 외부로 유출되지 않도록 한다
-_ALLOWED_REDIRECT_PREFIXES = (
-    "http://localhost:",
-    "http://127.0.0.1:",
-    "syncai://",
-)
+_ALLOWED_REDIRECT_HOSTS = {"localhost", "127.0.0.1"}
+
+
+def _is_allowed_redirect(redirect: str) -> bool:
+    # 접두사 비교 금지: "http://localhost:@evil.com"은 "http://localhost:"로 시작하지만
+    # "localhost:"가 userinfo로 파싱돼 실제 호스트는 evil.com — 토큰이 그대로 넘어간다
+    if redirect.startswith("syncai://"):
+        return True
+    if "\\" in redirect:
+        return False
+    try:
+        parts = urlsplit(redirect)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "http"
+        and parts.hostname in _ALLOWED_REDIRECT_HOSTS
+        and parts.username is None
+        and parts.password is None
+        and port is not None
+    )
 
 
 def _validate_redirect_url(redirect: str) -> None:
     """redirect 파라미터가 localhost 이외를 가리키면 400 반환."""
-    if not any(redirect.startswith(p) for p in _ALLOWED_REDIRECT_PREFIXES):
+    if not _is_allowed_redirect(redirect):
         raise HTTPException(
             status_code=400,
             detail="redirect URL must point to localhost",
