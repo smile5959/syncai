@@ -475,9 +475,10 @@ def list_team_mcp_configs(
             id=config.id,
             owner_user_id=config.owner_user_id,
             name=config.name,
-            endpoint=config.endpoint,
+            # 토큰·터널 주소는 PC 자격증명 — 소유자에게만 (팀원이 남의 PC에 직접 접근·WS 탈취 가능했음)
+            endpoint=config.endpoint if config.owner_user_id == current_user.id else "",
             base_dir=config.base_dir,
-            mcp_token=config.mcp_token,
+            mcp_token=config.mcp_token if config.owner_user_id == current_user.id else None,
             created_at=config.created_at,
             is_public=link.is_public,
             is_online=bool(config.mcp_token and mcp_broker.is_online(config.mcp_token)),
@@ -808,7 +809,7 @@ async def browse_filesystem(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = _get_accessible_config(config_id, current_user, db)
+    config = _get_owned_config(config_id, current_user, db)
     try:
         mcp = MCPClient(config.endpoint, token=config.mcp_token or "")
         result = await mcp.call_tool("list_directory", {"path": path})
@@ -823,7 +824,7 @@ async def pick_folder(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = _get_accessible_config(config_id, current_user, db)
+    config = _get_owned_config(config_id, current_user, db)
     try:
         headers = {"Authorization": f"Bearer {config.mcp_token}"} if config.mcp_token else {}
         async with httpx.AsyncClient(timeout=30) as client:
@@ -918,18 +919,16 @@ def _notify_mcp_connected(user_id: str, config_id: str) -> None:
         log.warning("[MCP HB] Redis publish 실패: %s", e)
 
 
-def _get_accessible_config(config_id: str, current_user: User, db: Session) -> McpConfig:
-    """현재 사용자가 접근 가능한 McpConfig 반환 (소유자 또는 팀 내 public)."""
+def _get_owned_config(config_id: str, current_user: User, db: Session) -> McpConfig:
+    """
+    본인 소유 McpConfig만 반환.
+    fs/browse·pick-folder는 그 PC의 디스크를 직접 들여다보거나 팝업을 띄운다 — 팀 공개 MCP라도
+    다른 사람이 호출하면 안 된다. (예전엔 '어느 팀에서든 공개'면 허용 → lookup-by-email로 얻은
+    config_id만으로 팀 밖의 로그인 사용자도 남의 폴더 목록을 볼 수 있었다)
+    """
     config = db.query(McpConfig).filter(McpConfig.id == config_id).first()
     if not config:
         raise HTTPException(status_code=404, detail="MCP Config not found")
-    # 소유자거나 팀 내 공개 MCP면 허용
-    if config.owner_user_id == current_user.id:
-        return config
-    public_link = db.query(McpConfigTeam).filter(
-        McpConfigTeam.mcp_config_id == config_id,
-        McpConfigTeam.is_public.is_(True),
-    ).first()
-    if public_link:
-        return config
-    raise HTTPException(status_code=403, detail="Access denied")
+    if config.owner_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return config

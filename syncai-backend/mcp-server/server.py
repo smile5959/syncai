@@ -40,6 +40,24 @@ app.add_middleware(
 
 # ─── 인증 헬퍼 ───────────────────────────────────────────────────────────────
 
+# cloudflared는 인터넷 요청을 http://localhost:PORT 로 넘기므로 request.client.host만 보면
+# 터널 경유 요청도 127.0.0.1로 보인다. Cloudflare 엣지가 항상 붙이는 헤더로 구분한다.
+_TUNNEL_HEADERS = ("cf-connecting-ip", "cf-ray", "cdn-loop", "x-forwarded-for")
+
+
+def _is_local_request(request: Request) -> bool:
+    """이 PC 안에서 직접 온 요청인가 (터널 경유 제외)."""
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        return False
+    return not any(h in request.headers for h in _TUNNEL_HEADERS)
+
+
+def _require_local(request: Request) -> None:
+    if not _is_local_request(request):
+        raise HTTPException(status_code=403, detail="localhost에서만 접근 가능합니다.")
+
+
 def _extract_token(request: Request) -> str:
     """Authorization: Bearer <token> 헤더에서 토큰 추출. 없으면 빈 문자열."""
     auth = request.headers.get("Authorization", "")
@@ -140,9 +158,7 @@ async def set_token(request: Request) -> JSONResponse:
     body: { "token": "...", "base_dir": "C:/..." }
     base_dir 미전달 시 기존 값 유지. 기존 값도 없으면 None(미설정) — 파일 접근 차단.
     """
-    client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(status_code=403, detail="localhost에서만 접근 가능합니다.")
+    _require_local(request)
 
     try:
         body = await request.json()
@@ -178,12 +194,8 @@ async def set_token(request: Request) -> JSONResponse:
 async def pick_folder(request: Request) -> JSONResponse:
     """
     OS 네이티브 폴더 선택 다이얼로그.
-    localhost 요청만 허용 — 외부에서 반복 호출로 팝업 DoS 방지.
-    토큰 인증 확인 (base_dir 불필요).
+    백엔드가 터널로 호출한다 — 위치가 아니라 등록된 토큰으로 인증 (base_dir 불필요).
     """
-    client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(status_code=403, detail="localhost에서만 접근 가능합니다.")
     _authenticate_token(request)
     loop = asyncio.get_running_loop()
 
@@ -209,15 +221,12 @@ async def pick_folder(request: Request) -> JSONResponse:
 async def revoke_token(request: Request) -> JSONResponse:
     """
     토큰 폐기 — 백엔드가 MCP config 삭제 시 즉각 파일 접근 차단.
-    localhost 요청만 허용.
+    백엔드가 터널로 호출한다 — 폐기할 토큰을 아는 쪽만, 이미 등록된 토큰만 폐기 가능.
     base_dir을 None으로 설정해 파일 접근 차단하되 루프는 유지
     (remove_token 쓰면 안 됨 — 루프가 토큰을 잃어 재연결 시 복구 불가).
 
     body: { "token": "..." }
     """
-    client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(status_code=403, detail="localhost에서만 접근 가능합니다.")
 
     try:
         body = await request.json()
@@ -227,6 +236,8 @@ async def revoke_token(request: Request) -> JSONResponse:
     token = body.get("token", "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="token 필드가 필요합니다.")
+    if not config.has_token(token):
+        raise HTTPException(status_code=403, detail="등록되지 않은 토큰")
 
     # base_dir=None: has_token() True 유지(루프 살아있음) + 파일 접근 차단
     config.register_token(token, None, persist=False)
@@ -241,9 +252,7 @@ async def reconnect(request: Request) -> JSONResponse:
     백엔드가 새 MCP config 생성 시 호출 -- heartbeat 루프 즉시 재시도 트리거.
     localhost 요청만 허용.
     """
-    client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(status_code=403, detail="localhost에서만 접근 가능합니다.")
+    _require_local(request)
     # WS 클라이언트는 연결 끊기면 자동 재연결하므로 별도 신호 불필요
     log.info("reconnect 수신 (WS 방식에서는 자동 재연결)")
     return JSONResponse({"ok": True})
@@ -255,8 +264,7 @@ async def health(request: Request) -> JSONResponse:
     서버 상태 확인. localhost 요청만 전체 정보 반환.
     외부(Cloudflare Tunnel 경유)에서는 최소 정보만 반환 — 토큰/경로 노출 방지.
     """
-    client_host = request.client.host if request.client else ""
-    is_local = client_host in ("127.0.0.1", "::1", "localhost")
+    is_local = _is_local_request(request)
 
     if is_local:
         return JSONResponse({

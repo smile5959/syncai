@@ -116,9 +116,10 @@ def me_init(
                 id=c.id,
                 owner_user_id=c.owner_user_id,
                 name=c.name,
-                endpoint=c.endpoint,
+                # 토큰·터널 주소는 PC 자격증명 — 소유자에게만 (팀원이 남의 PC에 직접 접근·WS 탈취 가능했음)
+                endpoint=c.endpoint if c.owner_user_id == current_user.id else "",
                 base_dir=c.base_dir,
-                mcp_token=c.mcp_token,
+                mcp_token=c.mcp_token if c.owner_user_id == current_user.id else None,
                 created_at=c.created_at,
                 is_public=link.is_public,
                 is_online=bool(c.mcp_token and mcp_broker.is_online(c.mcp_token)),
