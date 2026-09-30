@@ -5,7 +5,7 @@
 채팅방에서 `/ai @MCP이름 지시사항`을 입력하면 AI가 로컬 PC의 파일을 직접 수정하고, 결과를 채팅으로 리포트합니다.
 외부 앱(GitHub, Gmail 등) 연동과 Tauri 기반 macOS 데스크탑 앱을 직접 구현한 개인 프로젝트입니다.
 
-🔗 [데모 (개발 중)](https://syncai.vercel.app)
+🔗 [데모 (개발 중)](https://syncai-frontend-seven.vercel.app)
 
 ---
 
