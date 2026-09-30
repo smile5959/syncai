@@ -73,7 +73,7 @@
 
 ## 남은 작업 (Todo)
 
-- [ ] MCP `heartbeat.py`: token_registry 첫 항목이 무효면 heartbeat 404 반복 — 404 토큰 제거 or `.env` 토큰 우선 (CLAUDE.md 배포 섹션 참고)
+- [x] MCP heartbeat 옛 토큰 404 반복 — 상위 `.env` 로드 + 404 토큰 자동 제거 (MCP 1.1.6, 2026-09-30)
 
 - [x] localStorage → httpOnly 쿠키 마이그레이션 (2026-05-13)
 - [ ] rooms/[id]/page.tsx silent catch → 에러 UI 개선
