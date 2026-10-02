@@ -313,7 +313,9 @@ syncai/
 
 ## 테스트
 - 백엔드: `cd syncai-backend && pytest -q tests` — 의존성 `requirements.txt` + `pytest pytest-asyncio httpx`
-- **기존 실패 14건**(2026-09-30 기준: `test_agents` 3 · `test_auth` 2 · `test_e2e_ai_flow` 5 · `test_ws` 4)은 변경과 무관 — 판단은 변경 전후(`git stash`) 실패 목록 비교로
+- 2026-10-02 기준 61/61 통과 — 실패가 나오면 회귀로 본다
+- 속도 제한(slowapi)은 `tests/conftest.py`에서 해제. e2e는 LLM 경계(`_plan_ai_task`·Supervisor·`WorkerLLM.run`)만 mock, `/ai` → `/ai/confirm` 흐름을 탄다
+- WS broadcast 테스트는 `with TestClient(app)`(공유 이벤트 루프) 필요 — 연결마다 루프가 다르면 멈춤
 
 ## 주요 파일
 | 기능 | 파일 |
