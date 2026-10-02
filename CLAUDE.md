@@ -311,6 +311,10 @@ syncai/
   - 로컬 토큰은 `~/Library/Application Support/SyncAI/.env`의 `MCP_AUTH_TOKEN`. 로그 heartbeat 404 / WS 403 = DB에 토큰 없음 → 웹앱 MCP 설정 → 해당 MCP "설치" 버튼의 curl(토큰 포함)로 재설치
   - heartbeat 토큰: 설치본 `.env`는 `code/` 상위(`SyncAI/.env`) — `config.py`가 상위로 폴백해 로드. 백엔드 404 토큰은 레지스트리에서 자동 제거(현재 `.env` 토큰은 유지) — 1.1.6에서 수정
 
+## 테스트
+- 백엔드: `cd syncai-backend && pytest -q tests` — 의존성 `requirements.txt` + `pytest pytest-asyncio httpx`
+- **기존 실패 14건**(2026-09-30 기준: `test_agents` 3 · `test_auth` 2 · `test_e2e_ai_flow` 5 · `test_ws` 4)은 변경과 무관 — 판단은 변경 전후(`git stash`) 실패 목록 비교로
+
 ## 주요 파일
 | 기능 | 파일 |
 |------|------|
