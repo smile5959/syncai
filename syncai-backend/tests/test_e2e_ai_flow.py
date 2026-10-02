@@ -7,10 +7,10 @@
   DATABASE_URL="sqlite:////tmp/syncai_test_e2e.db"
 
 테스트 범위:
-  1. 기본 AI 흐름 (POST /ai → completed, diff 생성)
+  1. 기본 AI 흐름 (POST /ai → 동의 → completed, diff 생성)
   2. 파일 변경 없이 텍스트만 반환 (diff=None)
   3. @mention으로 특정 MCP 선택
-  4. public MCP 없으면 400
+  4. 없는 MCP @멘션 시 400
   5. Worker busy 시 큐 대기 → 해제 후 자동 실행
   6. Revert — 수정된 파일 원본으로 복원 (write_file 호출)
   7. Revert — AI가 새로 만든 파일 삭제 (delete_file 호출)
@@ -19,7 +19,8 @@
   10. Revert — 두 번 revert 거부 (400)
 
 Mock 전략:
-  - Gemini (AsyncOpenAI): patch("app.agents.supervisor.AsyncOpenAI") + _get_client
+  - LLM 경계: _plan_ai_task · SupervisorAgent.analyze/validate · WorkerLLM.run (_ai_patches)
+  - MCP 온라인: patch("app.core.mcp_broker.is_online")
   - MCP call_tool: patch("app.agents.mcp_client.MCPClient.call_tool")
   - Redis startup: patch("app.routers.ws.redis_subscriber")
   - SessionLocal: monkeypatch("app.routers.messages.SessionLocal")
@@ -27,14 +28,13 @@ Mock 전략:
 """
 
 import asyncio
-import json
 import uuid
 import os
 import tempfile
 import pytest
 import pytest_asyncio
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 from sqlalchemy import create_engine
@@ -63,41 +63,6 @@ _DB_PATH = os.path.join(tempfile.gettempdir(), "syncai_test_e2e.db")
 TEST_DB_URL = f"sqlite:///{_DB_PATH}"
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-# ─────────────────────────────────────────
-# OpenAI(Gemini) mock 응답 헬퍼
-# ─────────────────────────────────────────
-
-def _openai_stop(content: str):
-    """finish_reason=stop, 텍스트 응답"""
-    msg = MagicMock()
-    msg.content = content
-    msg.tool_calls = None
-    choice = MagicMock()
-    choice.finish_reason = "stop"
-    choice.message = msg
-    resp = MagicMock()
-    resp.choices = [choice]
-    return resp
-
-
-def _openai_tool_call(tool_name: str, args: dict, call_id: str = "tc_1"):
-    """finish_reason=tool_calls, 단일 tool_call"""
-    tc = MagicMock()
-    tc.id = call_id
-    tc.function.name = tool_name
-    tc.function.arguments = json.dumps(args)
-
-    msg = MagicMock()
-    msg.content = None
-    msg.tool_calls = [tc]
-    choice = MagicMock()
-    choice.finish_reason = "tool_calls"
-    choice.message = msg
-    resp = MagicMock()
-    resp.choices = [choice]
-    return resp
 
 
 # ─────────────────────────────────────────
@@ -176,6 +141,7 @@ def seed(db):
         endpoint="http://localhost:7860",
         base_dir="C:/project",
         mcp_token="test-token",
+        is_online=True,  # 멘션 없을 때 _select_mcp_config는 온라인 MCP만 고른다
     )
     db.add(mcp_config)
 
@@ -254,35 +220,68 @@ async def _wait_for_task(client, task_id: str, target_status: str, retries: int 
 
 
 # ─────────────────────────────────────────
+# 헬퍼: 현재 흐름 = POST /ai(202, awaiting_confirm) → ai_plan → POST /ai/confirm → 실행
+# ─────────────────────────────────────────
+
+def _plan(mcp_name=None):
+    """_plan_ai_task mock 반환값 — MCP 작업으로 판정"""
+    return {
+        "needs_mcp": True,
+        "needs_composio": False,
+        "composio_app": None,
+        "mcp_name": mcp_name,
+        "task_title": "테스트 작업",
+        "confirmation_message": "작업할까요?",
+        "task_plan": "작업 계획",
+    }
+
+
+def _ai_patches(plan: dict, worker_run, mcp_call_tool=None):
+    """LLM 경계(planning·supervisor·WorkerLLM.run)와 MCP 온라인 여부를 mock.
+    WorkerAgent/MCPClient는 실제 코드를 타서 diff·snapshot까지 검증된다."""
+    from contextlib import ExitStack
+    stack = ExitStack()
+    stack.enter_context(patch("app.routers.messages._plan_ai_task", new=AsyncMock(return_value=plan)))
+    stack.enter_context(patch("app.core.mcp_broker.is_online", return_value=True))
+    stack.enter_context(patch("app.agents.supervisor.SupervisorAgent.analyze", new=AsyncMock(side_effect=lambda cmd, *a, **k: cmd)))
+    stack.enter_context(patch("app.agents.supervisor.SupervisorAgent.validate", new=AsyncMock(return_value={"success": True, "retry_plan": None})))
+    stack.enter_context(patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://x/", "k"))))
+    stack.enter_context(patch("app.agents.worker_llm.WorkerLLM.run", new=worker_run))
+    if mcp_call_tool is not None:
+        stack.enter_context(patch("app.agents.mcp_client.MCPClient.call_tool", new=mcp_call_tool))
+    return stack
+
+
+async def _post_and_confirm(client, room_id: str, content: str) -> str:
+    resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": content})
+    assert resp.status_code == 202
+    task_id = resp.json()["task_id"]
+    data = await _wait_for_task(client, task_id, "awaiting_confirm")
+    assert data["status"] == "awaiting_confirm"
+    resp = await client.post(f"/v1/rooms/{room_id}/ai/confirm", json={"task_id": task_id, "confirmed": True})
+    assert resp.status_code == 200
+    return task_id
+
+
+# ─────────────────────────────────────────
 # Case 1: 기본 AI 흐름 (write_file → diff 생성)
 # ─────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_basic_ai_flow(client, seed):
     """
-    POST /ai → Gemini가 write_file 호출 → task completed
+    POST /ai → 동의 → Worker가 write_file 실행 → task completed
     검증: result_diff에 diff 포함, has_snapshot=True
     """
     room_id = str(seed["room"].id)
 
+    async def worker_run(self, task_plan, *args, **kwargs):
+        await self.worker.execute_tool("write_file", {"path": "app/main.py", "content": "새 내용\n"})
+        return "파일을 수정했습니다."
+
     # MCP: read_file("before") → write_file(None) 순서
-    mcp_side_effects = ["기존 내용\n", None]
-
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_openai, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://x/", "k"))), \
-         patch("app.agents.mcp_client.MCPClient.call_tool", new=AsyncMock(side_effect=mcp_side_effects)):
-
-        mock_client = MagicMock()
-        mock_openai.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(side_effect=[
-            _openai_tool_call("write_file", {"path": "app/main.py", "content": "새 내용\n"}),
-            _openai_stop("파일을 수정했습니다."),
-        ])
-
-        resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": "/ai main.py 수정해줘"})
-        assert resp.status_code == 202
-        task_id = resp.json()["task_id"]
-
+    with _ai_patches(_plan(), worker_run, AsyncMock(side_effect=["기존 내용\n", None])):
+        task_id = await _post_and_confirm(client, room_id, "/ai main.py 수정해줘")
         task_data = await _wait_for_task(client, task_id, "completed")
 
     assert task_data["status"] == "completed"
@@ -297,24 +296,14 @@ async def test_basic_ai_flow(client, seed):
 
 @pytest.mark.asyncio
 async def test_ai_no_file_change_no_diff(client, seed):
-    """
-    Gemini가 툴 호출 없이 텍스트만 반환 → diff=None, has_snapshot=False
-    """
+    """Worker가 툴 호출 없이 텍스트만 반환 → diff=None, has_snapshot=False"""
     room_id = str(seed["room"].id)
 
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_openai, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://x/", "k"))):
+    async def worker_run(self, *args, **kwargs):
+        return "파일 변경 없이 설명만 드렸습니다."
 
-        mock_client = MagicMock()
-        mock_openai.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_openai_stop("파일 변경 없이 설명만 드렸습니다.")
-        )
-
-        resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": "/ai 프로젝트 구조 설명해줘"})
-        assert resp.status_code == 202
-        task_id = resp.json()["task_id"]
-
+    with _ai_patches(_plan(), worker_run):
+        task_id = await _post_and_confirm(client, room_id, "/ai 프로젝트 구조 설명해줘")
         task_data = await _wait_for_task(client, task_id, "completed")
 
     assert task_data["status"] == "completed"
@@ -328,14 +317,11 @@ async def test_ai_no_file_change_no_diff(client, seed):
 
 @pytest.mark.asyncio
 async def test_mention_selects_correct_mcp(client, seed, db):
-    """
-    두 번째 MCP "다른PC" 추가 후 @다른PC 멘션 → 두 번째 MCP로 task 실행
-    """
+    """두 번째 MCP "다른PC" 추가 후 @다른PC 멘션 → 두 번째 MCP로 task 실행"""
     room_id = str(seed["room"].id)
     user = seed["user"]
     team = seed["team"]
 
-    # 두 번째 MCP 등록
     mcp2 = McpConfig(
         id=uuid.uuid4(),
         owner_user_id=user.id,
@@ -348,29 +334,14 @@ async def test_mention_selects_correct_mcp(client, seed, db):
     db.add(McpConfigTeam(mcp_config_id=mcp2.id, team_id=team.id, is_public=True))
     db.commit()
 
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_openai, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://x/", "k"))):
+    async def worker_run(self, *args, **kwargs):
+        return "다른PC에서 작업했습니다."
 
-        mock_client = MagicMock()
-        mock_openai.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_openai_stop("다른PC에서 작업했습니다.")
-        )
-
-        resp = await client.post(
-            f"/v1/rooms/{room_id}/ai",
-            json={"content": "/ai @다른PC 디렉토리 보여줘"},
-        )
-        assert resp.status_code == 202
-        task_id = resp.json()["task_id"]
-
+    with _ai_patches(_plan("다른PC"), worker_run):
+        task_id = await _post_and_confirm(client, room_id, "/ai @다른PC 디렉토리 보여줘")
         task_data = await _wait_for_task(client, task_id, "completed")
 
     assert task_data["status"] == "completed"
-
-    # mcp_config_id가 두 번째 MCP인지 확인
-    task_resp = await client.get(f"/v1/tasks/{task_id}")
-    task_json = task_resp.json()
     # TaskOut에는 mcp_config_id가 없으므로 DB 직접 확인
     db.expire_all()
     task_obj = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
@@ -379,24 +350,15 @@ async def test_mention_selects_correct_mcp(client, seed, db):
 
 
 # ─────────────────────────────────────────
-# Case 4: public MCP 없으면 400
+# Case 4: 없는 MCP를 @멘션하면 400
 # ─────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_no_public_mcp_returns_400(client, seed, db):
-    """
-    mcp_config_team.is_public=False인 경우 → 400
-    """
+async def test_mention_unknown_mcp_returns_400(client, seed):
+    """@멘션한 MCP가 팀에 없으면 POST /ai 단계에서 바로 400"""
     room_id = str(seed["room"].id)
 
-    # public 플래그 해제
-    mcp_team = db.query(McpConfigTeam).filter(
-        McpConfigTeam.mcp_config_id == seed["mcp_config"].id
-    ).first()
-    mcp_team.is_public = False
-    db.commit()
-
-    resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": "/ai 뭔가해줘"})
+    resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": "/ai @없는PC 뭔가해줘"})
     assert resp.status_code == 400
     assert "MCP" in resp.json()["detail"]
 
@@ -408,7 +370,7 @@ async def test_no_public_mcp_returns_400(client, seed, db):
 @pytest.mark.asyncio
 async def test_worker_queue_then_auto_execute(client, seed, db):
     """
-    worker를 busy 상태로 만들기 → POST /ai → task pending(queued)
+    worker busy → POST /ai → 동의 → task pending(queued)
     → _release_worker 직접 호출 → 자동 실행 → completed
     """
     from app.routers.messages import _release_worker
@@ -417,32 +379,21 @@ async def test_worker_queue_then_auto_execute(client, seed, db):
     worker = seed["worker"]
     team = seed["team"]
 
-    # worker를 busy 상태로 강제 설정
     worker.status = WorkerStatus.busy
     db.commit()
 
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_openai, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://x/", "k"))):
+    async def worker_run(self, *args, **kwargs):
+        return "큐에서 실행됐습니다."
 
-        mock_client = MagicMock()
-        mock_openai.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_openai_stop("큐에서 실행됐습니다.")
-        )
+    with _ai_patches(_plan(), worker_run):
+        task_id = await _post_and_confirm(client, room_id, "/ai 큐 테스트")
 
-        resp = await client.post(f"/v1/rooms/{room_id}/ai", json={"content": "/ai 큐 테스트"})
-        assert resp.status_code == 202
-        task_id = resp.json()["task_id"]
-
-        # 즉시 조회하면 아직 pending
+        # idle worker가 없으니 큐에서 대기
         await asyncio.sleep(0.05)
         task_resp = await client.get(f"/v1/tasks/{task_id}")
         assert task_resp.json()["status"] == "pending"
 
-        # worker idle로 복구 후 _release_worker 호출 → 큐 자동 소비
-        db.refresh(worker)
-        worker.status = WorkerStatus.idle
-        db.commit()
+        # worker 해제 → 큐 자동 소비
         await _release_worker(str(worker.id), str(team.id))
 
         task_data = await _wait_for_task(client, task_id, "completed")

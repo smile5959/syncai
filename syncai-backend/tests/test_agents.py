@@ -61,7 +61,7 @@ async def test_mcp_client_connection_error():
             side_effect=httpx.RequestError("연결 거부")
         )
         client = MCPClient("http://offline-worker.example.com")
-        with pytest.raises(MCPError, match="MCP 연결 실패"):
+        with pytest.raises(MCPError, match="MCP 서버에 연결할 수 없습니다"):
             await client.call_tool("read_file", {"path": "test.py"})
 
 
@@ -130,84 +130,60 @@ async def test_worker_generate_diff_empty_when_no_changes():
 
 # ─────────────────────────────────────────
 # SupervisorAgent 테스트
-# supervisor.py는 OpenAI 호환 클라이언트(Gemini)를 사용:
-#   from openai import AsyncOpenAI
-#   client = AsyncOpenAI(api_key=..., base_url=...)
-#   response = await client.chat.completions.create(...)
+# 역할: analyze()(작업 계획 생성) · validate()(Worker 결과 검증)
+# tool-calling 루프는 WorkerLLM으로 이동했다.
+# OpenAI 호환 클라이언트(OpenRouter) 사용 → AsyncOpenAI·_get_client를 mock
 # ─────────────────────────────────────────
 
-def make_openai_response(finish_reason, content=None, tool_calls=None):
+def make_openai_response(content):
     """OpenAI ChatCompletion 응답 mock 생성"""
     message = MagicMock()
     message.content = content
-    message.tool_calls = tool_calls
-
     choice = MagicMock()
-    choice.finish_reason = finish_reason
     choice.message = message
-
     resp = MagicMock()
     resp.choices = [choice]
     return resp
 
 
-def make_openai_tool_call(tool_name, args, call_id="tc_001"):
-    """OpenAI tool_call mock 생성"""
-    tool_call = MagicMock()
-    tool_call.id = call_id
-    tool_call.function.name = tool_name
-    tool_call.function.arguments = json.dumps(args)
-    return tool_call
+def _patch_llm(create):
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = create
+    return (
+        patch("app.agents.supervisor.AsyncOpenAI", return_value=mock_client),
+        patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://fake.url/", "fake-key"))),
+    )
 
 
 @pytest.mark.asyncio
-async def test_supervisor_simple_response():
-    """tool_calls 없이 바로 stop 응답"""
-    mcp = AsyncMock()
-    worker = make_worker(mcp)
-
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_cls, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://fake.url/", "fake-key"))):
-        mock_client = MagicMock()
-        mock_cls.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=make_openai_response("stop", content="안녕하세요!")
-        )
-
-        supervisor = SupervisorAgent(mcp, worker)
-        progress_calls = []
-        async def on_progress(msg): progress_calls.append(msg)
-
-        result = await supervisor.run("안녕", [], on_progress)
-        assert result == "안녕하세요!"
+async def test_supervisor_analyze_returns_task_plan():
+    """LLM이 준 JSON의 task_plan을 반환 (```json 펜스도 허용)"""
+    create = AsyncMock(return_value=make_openai_response('```json\n{"task_plan": "main.py의 hello 함수 수정"}\n```'))
+    p1, p2 = _patch_llm(create)
+    with p1, p2:
+        plan = await SupervisorAgent().analyze("main.py 고쳐줘", [{"role": "user", "content": "맥락"}])
+    assert plan == "main.py의 hello 함수 수정"
+    messages = create.call_args.kwargs["messages"]
+    assert messages[-1] == {"role": "user", "content": "main.py 고쳐줘"}
 
 
 @pytest.mark.asyncio
-async def test_supervisor_tool_use_loop():
-    """tool_calls → tool 결과 → stop 루프"""
-    mcp = AsyncMock()
-    worker = make_worker(mcp)
-    mcp.call_tool.return_value = "print('hello')"  # read_file 결과
+async def test_supervisor_analyze_falls_back_to_command():
+    """LLM 오류·잘못된 응답이면 원본 command 그대로 반환"""
+    p1, p2 = _patch_llm(AsyncMock(return_value=make_openai_response("JSON 아님")))
+    with p1, p2:
+        assert await SupervisorAgent().analyze("원본 명령", []) == "원본 명령"
 
-    tool_call = make_openai_tool_call("read_file", {"path": "main.py"}, "tc_1")
 
-    responses = [
-        make_openai_response("tool_calls", tool_calls=[tool_call]),
-        make_openai_response("stop", content="main.py를 읽었습니다. print 함수가 있네요."),
-    ]
+@pytest.mark.asyncio
+async def test_supervisor_validate():
+    """검증 실패 시 retry_plan 반환, LLM 오류 시 success=True(무한 재시도 방지)"""
+    p1, p2 = _patch_llm(AsyncMock(return_value=make_openai_response('{"success": false, "retry_plan": "파일도 저장해"}')))
+    with p1, p2:
+        result = await SupervisorAgent().validate("저장해줘", "했습니다", {})
+    assert result == {"success": False, "retry_plan": "파일도 저장해"}
 
-    with patch("app.agents.supervisor.AsyncOpenAI") as mock_cls, \
-         patch("app.agents.supervisor._get_client", new=AsyncMock(return_value=("https://fake.url/", "fake-key"))):
-        mock_client = MagicMock()
-        mock_cls.return_value = mock_client
-        mock_client.chat.completions.create = AsyncMock(side_effect=responses)
-
-        supervisor = SupervisorAgent(mcp, worker)
-        progress_msgs = []
-        async def on_progress(msg): progress_msgs.append(msg)
-
-        result = await supervisor.run("/ai main.py 설명해줘", [], on_progress)
-
-        assert "main.py" in result
-        assert any("read_file" in m or "파일 읽는 중" in m for m in progress_msgs)
-        assert mock_client.chat.completions.create.call_count == 2
+    p1, p2 = _patch_llm(AsyncMock(side_effect=RuntimeError("down")))
+    with p1, p2:
+        result = await SupervisorAgent().validate("저장해줘", "했습니다", {})
+    assert result == {"success": True, "retry_plan": None}

@@ -1000,7 +1000,7 @@ async def ai_command(
         _send_ai_plan(str(task.id), body.content, room_id_str, team_id, mention_name, current_user)
     )
 
-    return JSONResponse({"task_id": str(task.id)})
+    return JSONResponse({"task_id": str(task.id)}, status_code=202)
 
 
 async def _send_ai_plan(
